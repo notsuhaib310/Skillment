@@ -7,8 +7,8 @@ WORKDIR /app
 # Copy all code to /app
 COPY . .
 
-# Compile the Java code
-RUN javac Main.java
+# Create a shell script to run Java
+RUN echo '#!/bin/sh\njavac *.java\njava "$@"' > /app/run.sh && chmod +x /app/run.sh
 
-# Run Java with input redirection
-CMD ["sh", "-c", "java Main < input.txt"]
+# Run the shell script
+ENTRYPOINT ["/app/run.sh"]

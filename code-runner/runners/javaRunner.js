@@ -2,22 +2,34 @@ import { writeTempFiles, cleanUp } from "../utils/fileManager.js";
 import { spawn } from "child_process";
 import path from "path";
 import { fileURLToPath } from "url";
+import fs from 'fs-extra';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 export const runJavaInteractive = (socket, code, initialInput) => {
   return new Promise(async (resolve, reject) => {
-    const { dir, codeFile, inputFile } = await writeTempFiles("java", code, initialInput, "Main");
+    const { dir, codeFile, inputFile, mainFileName } = await writeTempFiles("java", code, initialInput, "Main");
 
-    const dockerBuildCmd = `docker build -f docker/java.Dockerfile -t java-runner ${dir}`;
+    // Debug: List files in the directory
+    const files = await fs.readdir(dir);
+    console.log('[JAVA RUNNER] Files in temp directory:', files);
+
+    // Use absolute paths for Docker commands
+    const dockerfilePath = path.join(__dirname, '..', 'docker', 'java.Dockerfile');
+    const dockerBuildCmd = `docker build -f "${dockerfilePath}" -t java-runner "${dir}"`;
+    const dockerRunCmd = `docker run --rm -i -v "${dir}:/app" java-runner "${mainFileName}"`;
 
     try {
-      // Build the Docker image first
-      const buildProcess = spawn(dockerBuildCmd, { shell: true, cwd: dir });
+      // Build the Docker image first using powershell.exe
+      const buildProcess = spawn('powershell.exe', ['-Command', dockerBuildCmd], { cwd: dir });
 
       buildProcess.stderr.on('data', (data) => {
-        socket.emit('output', { type: 'error', data: `[DOCKER BUILD ERROR]: ${data.toString()}` });
+        // Only emit actual errors, not Docker build progress
+        const errorMsg = data.toString();
+        if (errorMsg.includes('ERROR') && !errorMsg.includes('[DOCKER BUILD ERROR]')) {
+          socket.emit('output', { type: 'error', data: errorMsg });
+        }
       });
 
       buildProcess.on('close', async (code) => {
@@ -29,28 +41,46 @@ export const runJavaInteractive = (socket, code, initialInput) => {
           return reject(new Error(error));
         }
 
-        // Once build is successful, run the container
-        const dockerRunCmd = `docker run --rm -v ${dir}:/app java-runner`;
-        const childProcess = spawn(dockerRunCmd, { shell: true });
+        // Debug: List files in the container
+        const listFilesCmd = `docker run --rm -v "${dir}:/app" java-runner ls -la /app`;
+        const listFilesProcess = spawn('powershell.exe', ['-Command', listFilesCmd]);
+        listFilesProcess.stdout.on('data', (data) => {
+          console.log('[JAVA RUNNER] Files in container:', data.toString());
+        });
 
-        // Pipe initial input to stdin
-        if (initialInput) {
-          childProcess.stdin.write(initialInput + '\n');
-        }
+        // Once build is successful, run the container using powershell.exe
+        const childProcess = spawn('powershell.exe', ['-Command', dockerRunCmd], {
+          stdio: ['pipe', 'pipe', 'pipe']
+        });
 
         // Handle stdout (program output)
         childProcess.stdout.on('data', (data) => {
-          socket.emit('output', { type: 'stdout', data: data.toString() });
+          const output = data.toString();
+          // Only emit non-empty output
+          if (output.trim()) {
+            // Check if the output contains an input prompt
+            if (output.includes('?') || output.includes(':')) {
+              socket.emit('output', { type: 'prompt', data: output });
+            } else {
+              socket.emit('output', { type: 'stdout', data: output });
+            }
+          }
         });
 
         // Handle stderr (program errors)
         childProcess.stderr.on('data', (data) => {
-          socket.emit('output', { type: 'stderr', data: data.toString() });
+          const error = data.toString();
+          // Only emit non-empty errors
+          if (error.trim()) {
+            socket.emit('output', { type: 'stderr', data: error });
+          }
         });
 
         // Handle client input via WebSocket
         const onClientInput = ({ data }) => {
-          childProcess.stdin.write(data + '\n');
+          if (childProcess.stdin.writable) {
+            childProcess.stdin.write(data + '\n');
+          }
         };
         socket.on('input', onClientInput);
 
