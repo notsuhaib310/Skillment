@@ -7,5 +7,5 @@ WORKDIR /app
 # Copy all files to /app
 COPY . .
 
-# Run Python code with input redirection
-CMD ["sh", "-c", "python3 main.py < input.txt"]
+# Run Python directly
+CMD ["python3", "-u", "main.py"]

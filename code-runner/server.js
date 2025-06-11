@@ -1,7 +1,9 @@
 // server.js
 import express from 'express';
-import { runPython } from './runners/pythonRunner.js';
-import { runJava } from './runners/javaRunner.js';
+import { createServer } from 'http';
+import { Server } from 'socket.io';
+import { runPythonInteractive } from './runners/pythonRunner.js';
+import { runJavaInteractive } from './runners/javaRunner.js';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
@@ -9,70 +11,68 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
+const httpServer = createServer(app);
+const io = new Server(httpServer, {
+  cors: {
+    origin: '*',
+    methods: ['GET', 'POST'],
+  },
+});
+
 app.use(express.json());
 
-// Add CORS headers
+// Basic CORS setup for HTTP requests (though Socket.IO handles its own CORS)
 app.use((req, res, next) => {
-  console.log("[CORS] Request received:", req.method, req.url);
   res.header('Access-Control-Allow-Origin', '*');
   res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept');
-  res.header('Access-Control-Max-Age', '86400'); // 24 hours
-  
-  // Handle preflight requests
+  res.header('Access-Control-Max-Age', '86400');
   if (req.method === 'OPTIONS') {
-    console.log("[CORS] Handling preflight request");
     return res.status(200).end();
   }
-  
   next();
 });
 
-app.post('/run', async (req, res) => {
-    console.log("[SERVER] Run request received");
-    console.log("[SERVER] Request body:", JSON.stringify(req.body, null, 2));
-    
+// Remove the old /run POST endpoint, as we're now using WebSockets
+// app.post('/run', ...);
+
+io.on('connection', (socket) => {
+  console.log(`[SERVER] User connected: ${socket.id}`);
+
+  socket.on('run_code', async ({ language, code, input }) => {
+    console.log(`[SERVER] Received run_code request from ${socket.id} for ${language}`);
+    console.log("[SERVER] Code (first 100 chars):", code.substring(0, 100));
+    console.log("[SERVER] Initial Input:", input);
+
+    // Clear previous output for this session
+    socket.emit('output', { type: 'clear' });
+
     try {
-      const { language, code, input } = req.body;
-      console.log("[SERVER] Language:", language);
-      console.log("[SERVER] Code:", code);
-      console.log("[SERVER] Input:", input);
-  
-      let output;
-  
       if (language === 'python') {
-        console.log("[SERVER] Running Python code");
-        output = await runPython(code, input);
-        console.log("[SERVER] Python output:", output);
+        await runPythonInteractive(socket, code, input);
       } else if (language === 'java') {
-        console.log("[SERVER] Running Java code");
-        output = await runJava(code, input);
-        console.log("[SERVER] Java output:", output);
+        await runJavaInteractive(socket, code, input);
       } else {
-        console.log("[SERVER] Unsupported language:", language);
-        return res.status(400).json({ error: 'Unsupported language' });
+        socket.emit('output', { type: 'error', data: 'Unsupported language' });
+        socket.emit('execution_end');
       }
-  
-      // Ensure output is a string and not empty
-      if (!output) {
-        console.log("[SERVER] No output received, using default message");
-        output = "Program executed successfully (no output)";
-      } else {
-        output = String(output).trim();
-        console.log("[SERVER] Final output:", output);
-      }
-  
-      console.log("[SERVER] Sending response");
-      res.json({ output });
-      console.log("[SERVER] Response sent");
     } catch (err) {
-      console.error("[SERVER] Error occurred:", err);
-      console.error("[SERVER] Error stack:", err.stack);
-      res.status(500).json({ error: 'Internal Server Error', detail: err.message });
+      console.error("[SERVER] Error during code execution:", err);
+      socket.emit('output', { type: 'error', data: `Server error: ${err.message || err}` });
+      socket.emit('execution_end');
     }
   });
-  
-app.listen(5000, () => {
-  console.log("[SERVER] Code runner API listening on port 5000");
-  console.log("[SERVER] Server started successfully");
+
+  socket.on('input', ({ data }) => {
+    // This will be handled by the runners, which will pipe to child_process stdin
+    console.log(`[SERVER] Received input from ${socket.id}: ${data.trim()}`);
+  });
+
+  socket.on('disconnect', () => {
+    console.log(`[SERVER] User disconnected: ${socket.id}`);
+  });
+});
+
+httpServer.listen(5000, () => {
+  console.log("[SERVER] Code runner API listening on port 5000 (HTTP and WebSocket)");
 });

@@ -28,6 +28,7 @@
             min-height: 100px;
             font-family: monospace;
             white-space: pre-wrap;
+            overflow-y: auto; /* Enable scrolling for output */
         }
         .loading {
             display: none;
@@ -49,6 +50,10 @@
         }
         .editor-toolbar button {
             margin-left: 8px;
+        }
+        .interactive-input-container {
+            display: none;
+            margin-top: 10px;
         }
     </style>
 </head>
@@ -79,10 +84,10 @@
 
                 <div class="card mb-4">
                     <div class="card-header">
-                        <h5 class="mb-0">Input</h5>
+                        <h5 class="mb-0">Initial Input (for non-interactive programs)</h5>
                     </div>
                     <div class="card-body">
-                        <textarea id="input" class="form-control" rows="3" placeholder="Enter your input here..."></textarea>
+                        <textarea id="initialInput" class="form-control" rows="3" placeholder="Enter initial input here..."></textarea>
                     </div>
                 </div>
             </div>
@@ -100,6 +105,9 @@
                             <span class="ms-2">Running code...</span>
                         </div>
                         <div id="output" class="output-container"></div>
+                        <div id="interactiveInputContainer" class="interactive-input-container">
+                            <input type="text" id="interactiveInput" class="form-control" placeholder="Enter input here and press Enter">
+                        </div>
                     </div>
                 </div>
             </div>
@@ -111,7 +119,7 @@
     </div>
 
     <script type="module">
-        import axios from 'axios';
+        import { io } from 'socket.io-client';
         import { EditorState } from '@codemirror/state';
         import { EditorView, keymap } from '@codemirror/view';
         import { defaultKeymap, indentWithTab } from '@codemirror/commands';
@@ -124,15 +132,18 @@
 
         // Get DOM elements
         const editorElement = document.getElementById("editor");
-        const inputField = document.getElementById("input");
+        const initialInput = document.getElementById("initialInput");
         const outputDiv = document.getElementById("output");
         const runButton = document.getElementById("runButton");
         const loadingDiv = document.querySelector(".loading");
         const languageSelect = document.getElementById("languageSelect");
         const formatButton = document.getElementById("formatButton");
         const clearButton = document.getElementById("clearButton");
+        const interactiveInputContainer = document.getElementById("interactiveInputContainer");
+        const interactiveInput = document.getElementById("interactiveInput");
 
         let editorView;
+        let socket;
 
         // Function to create editor state
         function createEditorState(language) {
@@ -140,7 +151,7 @@
                 keymap.of([
                     ...defaultKeymap,
                     indentWithTab,
-                    ...searchKeymap
+                    ...searchKeymap // Include search commands from searchKeymap
                 ]),
                 EditorView.lineWrapping,
                 syntaxHighlighting(defaultHighlightStyle),
@@ -186,14 +197,20 @@
             });
         }
 
-        // Function to show error
-        function showError(message) {
-            outputDiv.innerHTML = `<span class="error">${message}</span>`;
+        // Function to show output (append new lines)
+        function appendOutput(message, type = 'stdout') {
+            const span = document.createElement('span');
+            span.textContent = message;
+            if (type === 'error') {
+                span.classList.add('error');
+            }
+            outputDiv.appendChild(span);
+            outputDiv.scrollTop = outputDiv.scrollHeight; // Auto-scroll to bottom
         }
 
-        // Function to show output
-        function showOutput(message) {
-            outputDiv.textContent = message;
+        // Function to clear output
+        function clearOutput() {
+            outputDiv.textContent = '';
         }
 
         // Format code
@@ -213,12 +230,13 @@
                     }
                 });
             }
-            // For Java, you might want to use a proper formatter
+            // For Java, you might want to use a proper formatter (more complex for client-side)
         }
 
         // Language change handler
         languageSelect.addEventListener('change', () => {
             initEditor(languageSelect.value);
+            clearOutput();
         });
 
         // Format button handler
@@ -233,56 +251,106 @@
                     insert: languageSelect.value === 'python' ? '# Write your Python code here' : '// Write your Java code here'
                 }
             });
+            clearOutput();
+        });
+
+        // Handle interactive input
+        interactiveInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault(); // Prevent default Enter behavior (new line)
+                const inputData = interactiveInput.value;
+                appendOutput(`> ${inputData}\n`, 'input'); // Echo input to output
+                if (socket) {
+                    socket.emit('input', { data: inputData });
+                }
+                interactiveInput.value = '';
+                interactiveInputContainer.style.display = 'none';
+            }
         });
 
         // Run button click handler
-        runButton.addEventListener("click", async () => {
+        runButton.addEventListener("click", () => {
             const code = editorView.state.doc.toString().trim();
-            const input = inputField.value;
+            const input = initialInput.value;
             const language = languageSelect.value;
 
             // Don't proceed if code is empty
             if (!code) {
-                showError("Please enter some code to run");
+                appendOutput("Please enter some code to run", 'error');
                 return;
             }
 
-            try {
-                // Show loading state
-                loadingDiv.style.display = "block";
-                outputDiv.textContent = "";
-                runButton.disabled = true;
+            clearOutput();
+            loadingDiv.style.display = "block";
+            runButton.disabled = true;
+            interactiveInputContainer.style.display = 'none';
 
-                // Make the request
-                const response = await axios.post("/api/run", {
-                    language,
-                    code,
-                    input
+            // Establish Socket.IO connection if not already connected
+            if (!socket || !socket.connected) {
+                socket = io('http://localhost:5000'); // Connect to backend Socket.IO server
+
+                socket.on('connect', () => {
+                    console.log('[CLIENT] Connected to Socket.IO server');
+                    socket.emit('run_code', { language, code, input });
                 });
 
-                // Update the output
-                showOutput(response.data.output || "Program executed successfully (no output)");
-            } catch (error) {
-                console.error("Error:", error);
-                showError(error.response?.data?.error || error.message);
-            } finally {
-                loadingDiv.style.display = "none";
-                runButton.disabled = false;
+                socket.on('output', (message) => {
+                    if (message.type === 'clear') {
+                        clearOutput();
+                    } else if (message.type === 'prompt') {
+                        appendOutput(message.data);
+                        interactiveInputContainer.style.display = 'block';
+                        interactiveInput.focus();
+                    } else {
+                        appendOutput(message.data, message.type);
+                    }
+                });
+
+                socket.on('execution_end', (data) => {
+                    console.log('[CLIENT] Execution ended', data);
+                    loadingDiv.style.display = "none";
+                    runButton.disabled = false;
+                    interactiveInputContainer.style.display = 'none';
+                    // Optionally display exit code or other final messages
+                    if (data && data.exitCode !== undefined && data.exitCode !== 0) {
+                        appendOutput(`\nProgram exited with code ${data.exitCode}.`, 'error');
+                    }
+                    socket.disconnect(); // Disconnect after execution if it's a one-off run
+                });
+
+                socket.on('disconnect', () => {
+                    console.log('[CLIENT] Disconnected from Socket.IO server');
+                    loadingDiv.style.display = "none";
+                    runButton.disabled = false;
+                    interactiveInputContainer.style.display = 'none';
+                });
+
+                socket.on('connect_error', (err) => {
+                    console.error('[CLIENT] Socket.IO connection error:', err);
+                    appendOutput(`Connection error: ${err.message}`, 'error');
+                    loadingDiv.style.display = "none";
+                    runButton.disabled = false;
+                    interactiveInputContainer.style.display = 'none';
+                });
+
+            } else if (socket.connected) {
+                // If already connected, just emit the new code
+                socket.emit('run_code', { language, code, input });
             }
         });
 
-        // Prevent the page from refreshing
+        // Prevent the page from refreshing (important for forms)
         document.addEventListener('submit', function(e) {
             e.preventDefault();
         });
 
         // Add error handling for network issues
         window.addEventListener('offline', function() {
-            showError("You are offline. Please check your internet connection.");
+            appendOutput("You are offline. Please check your internet connection.", 'error');
         });
 
         window.addEventListener('online', function() {
-            showOutput("Back online. You can run your code now.");
+            appendOutput("Back online. You can run your code now.");
         });
 
         // Initialize editor with Python
