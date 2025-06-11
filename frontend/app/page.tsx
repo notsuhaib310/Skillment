@@ -14,6 +14,7 @@ import { ScrollStack } from "@/components/ui/aceternity/scroll-stack"
 import { EnhancedHero } from "@/components/ui/aceternity/enhanced-hero"
 import { EnhancedSecurity } from "@/components/ui/aceternity/enhanced-security"
 import { PartnersSection } from "@/components/ui/aceternity/partners-section"
+import { CompilerPromo } from "@/components/ui/aceternity/compiler-promo"
 
 export default function LandingPage() {
   const testimonials = [
@@ -164,6 +165,9 @@ export default function LandingPage() {
           </CardHover>
         </div>
       </section>
+
+      {/* Online Compiler Promo */}
+      <CompilerPromo />
 
       {/* Enhanced Pricing */}
       <AnimatedGradient

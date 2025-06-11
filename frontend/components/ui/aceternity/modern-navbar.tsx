@@ -163,6 +163,9 @@ export const ModernNavbar = () => {
             <a href="/contact" className="text-gray-300 hover:text-white transition-colors">
               Contact
             </a>
+            <a href="/compiler" className="text-gray-300 hover:text-white transition-colors">
+              Try Compiler
+            </a>
           </div>
 
           {/* Right Side Actions */}

@@ -1,12 +1,19 @@
 import { neon } from "@neondatabase/serverless"
 import { drizzle } from "drizzle-orm/neon-http"
+import { config } from 'dotenv'
+
+// Load environment variables
+config()
 
 if (!process.env.DATABASE_URL) {
   throw new Error("DATABASE_URL environment variable is not set")
 }
 
-// Initialize Neon client
-const sql = neon(process.env.DATABASE_URL)
+// Initialize Neon client with connection pooling
+const sql = neon(process.env.DATABASE_URL, {
+  connectionTimeoutMillis: 5000,
+  max: 10
+})
 
 // Initialize Drizzle ORM
 export const db = drizzle(sql)
@@ -32,3 +39,6 @@ export async function testConnection() {
     return false
   }
 }
+
+// Export the SQL client for direct use if needed
+export { sql }
