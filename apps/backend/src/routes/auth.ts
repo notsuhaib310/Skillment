@@ -39,4 +39,4 @@ router.post('/logout', authenticate, logout);
 // Verify session route
 router.get('/verify', authenticate, verifySession);
 
-export const authRouter = router; 
+export default router; 

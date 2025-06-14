@@ -3,7 +3,8 @@ export const TOKEN_EXPIRY = 7 * 24 * 60 * 60; // 7 days in seconds
 
 export const COOKIE_OPTIONS = {
   httpOnly: true,
-  secure: process.env.NODE_ENV === 'production',
+  secure: false, // Always false for localhost
   sameSite: 'lax' as const,
-  domain: process.env.NODE_ENV === 'production' ? '.skillment.com' : '.localhost',
+  domain: '.localhost',
+  path: '/',
 }; 

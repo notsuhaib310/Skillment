@@ -5,7 +5,7 @@ import jwt from 'jsonwebtoken';
 import { AppError } from '../middleware/errorHandler';
 
 const prisma = new PrismaClient();
-const JWT_SECRET = process.env.JWT_SECRET || 'your-super-secret-jwt-key-change-this-in-production';
+const JWT_SECRET = process.env.JWT_SECRET || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiYWRtaW4iOnRydWUsImlhdCI6MTUxNjIzOTAyMn0.KMUFsIDTnFmyG3nMiGM6H9FNFUROf3wh7SmqJp-QV30';
 const TOKEN_EXPIRY = 7 * 24 * 60 * 60; // 7 days in seconds
 
 // Register a new user
@@ -64,10 +64,11 @@ export const register = async (
     // Set cookie
     res.cookie('auth_token', token, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
+      secure: false,
       sameSite: 'lax',
+      domain: '.localhost',
+      path: '/',
       maxAge: TOKEN_EXPIRY * 1000, // Convert seconds to milliseconds
-      domain: process.env.NODE_ENV === 'production' ? '.skillment.com' : '.localhost',
     });
 
     res.status(201).json({
@@ -136,10 +137,11 @@ export const login = async (
     // Set cookie
     res.cookie('auth_token', token, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
+      secure: false,
       sameSite: 'lax',
+      domain: '.localhost',
+      path: '/',
       maxAge: TOKEN_EXPIRY * 1000, // Convert seconds to milliseconds
-      domain: process.env.NODE_ENV === 'production' ? '.skillment.com' : '.localhost',
     });
 
     res.json({
@@ -178,9 +180,10 @@ export const logout = async (
 
     res.clearCookie('auth_token', {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
+      secure: false,
       sameSite: 'lax',
-      domain: process.env.NODE_ENV === 'production' ? '.skillment.com' : '.localhost',
+      domain: '.localhost',
+      path: '/',
     });
 
     res.json({

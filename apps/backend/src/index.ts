@@ -2,9 +2,10 @@ import express from 'express';
 import cors from 'cors';
 import morgan from 'morgan';
 import { config } from 'dotenv';
-import { authRouter } from './routes/auth';
+import authRouter from './routes/auth';
 import { errorHandler } from './middleware/errorHandler';
 import { PrismaClient } from '@prisma/client';
+import cookieParser from 'cookie-parser';
 
 // Load environment variables
 config();
@@ -23,6 +24,7 @@ app.use(
   })
 );
 app.use(express.json());
+app.use(cookieParser());
 app.use(morgan('dev'));
 
 // Routes
