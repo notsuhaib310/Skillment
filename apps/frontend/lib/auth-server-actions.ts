@@ -1,3 +1,5 @@
+"use server"
+
 import { cookies } from "next/headers"
 import { redirect } from "next/navigation"
 
@@ -44,7 +46,7 @@ export async function login(email: string, password: string) {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({ email, password }),
-      credentials: "include", // Important for cross-domain cookies
+      credentials: "include",
     })
 
     const data = await response.json()
@@ -60,7 +62,7 @@ export async function login(email: string, password: string) {
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
       path: "/",
-      domain: process.env.NODE_ENV === "production" ? ".yourdomain.com" : "localhost", // Adjust domain in production
+      domain: process.env.NODE_ENV === "production" ? ".yourdomain.com" : "localhost",
     })
 
     return {
@@ -86,7 +88,7 @@ export async function logout() {
         headers: {
           Authorization: `Bearer ${token}`,
         },
-        credentials: "include", // Important for cross-domain cookies
+        credentials: "include",
       })
       cookieStore.delete("auth_token")
     }
@@ -112,7 +114,7 @@ export async function verifySession() {
       headers: {
         Authorization: `Bearer ${token}`,
       },
-      credentials: "include", // Important for cross-domain cookies
+      credentials: "include",
     })
 
     const data = await response.json()
@@ -138,4 +140,4 @@ export async function redirectToLogin(message?: string) {
 // Redirect to dashboard
 export async function redirectToDashboard() {
   redirect("http://localhost:3001")
-}
+} 

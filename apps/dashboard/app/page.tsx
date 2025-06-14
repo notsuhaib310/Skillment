@@ -5,10 +5,13 @@ import { useRouter } from "next/navigation"
 import { Rocket, Laptop, Smartphone, ArrowRight } from "lucide-react"
 import { Button } from "@/components/ui/button"
 
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api"
+
 export default function HomePage() {
   const router = useRouter()
   const [isMobile, setIsMobile] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
+  const [user, setUser] = useState<any>(null)
 
   useEffect(() => {
     // Check if device is mobile
@@ -21,8 +24,30 @@ export default function HomePage() {
       return isMobileDevice || isSmallScreen
     }
 
+    // Verify authentication
+    const verifyAuth = async () => {
+      try {
+        const response = await fetch(`${API_URL}/auth/verify`, {
+          credentials: "include",
+        })
+        const data = await response.json()
+
+        if (!response.ok) {
+          window.location.href = "http://localhost:3000/login"
+          return
+        }
+
+        setUser(data.user)
+      } catch (error) {
+        console.error("Auth verification error:", error)
+        window.location.href = "http://localhost:3000/login"
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
     setIsMobile(checkMobile())
-    setIsLoading(false)
+    verifyAuth()
 
     // If not mobile, redirect after animation
     if (!checkMobile()) {
@@ -106,38 +131,41 @@ export default function HomePage() {
           <div className="absolute -bottom-8 left-40 w-72 h-72 bg-pink-200 rounded-full mix-blend-multiply filter blur-xl opacity-30 animate-blob animation-delay-4000"></div>
         </div>
 
-        {/* Rocket Animation */}
-        <div className="relative">
-          <div className="absolute inset-0 bg-gradient-to-r from-blue-400 to-purple-500 rounded-full blur-2xl opacity-40 animate-pulse"></div>
-          <div className="relative bg-white rounded-full p-12 shadow-2xl border border-gray-100 transform hover:scale-105 transition-transform duration-300">
-            <Rocket className="h-20 w-20 text-blue-500 mx-auto animate-bounce transform rotate-45" />
-          </div>
-        </div>
-
-        {/* Loading Text */}
-        <div className="space-y-4">
-          <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent animate-fade-in">
-            TalentHub Dashboard
-          </h1>
-          <div className="flex items-center justify-center space-x-3">
-            <div className="flex space-x-1">
-              <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce"></div>
-              <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce animation-delay-200"></div>
-              <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce animation-delay-400"></div>
+        {/* Main Card */}
+        <div className="card-gradient rounded-3xl border-border/40 shadow-xl p-8 max-w-md mx-auto">
+          {/* Rocket Animation */}
+          <div className="relative mb-8">
+            <div className="absolute inset-0 bg-gradient-to-r from-blue-400 to-purple-500 rounded-full blur-2xl opacity-40 animate-pulse"></div>
+            <div className="relative bg-white/80 backdrop-blur-sm rounded-full p-12 shadow-2xl border border-border/40 transform hover:scale-105 transition-transform duration-300">
+              <Rocket className="h-20 w-20 text-blue-500 mx-auto animate-bounce transform rotate-45" />
             </div>
-            <span className="text-gray-600 text-lg font-medium">Launching Dashboard</span>
           </div>
-        </div>
 
-        {/* Progress Bar */}
-        <div className="w-64 mx-auto">
-          <div className="bg-gray-200 rounded-full h-2 overflow-hidden">
-            <div className="bg-gradient-to-r from-blue-500 to-purple-600 h-full rounded-full animate-progress"></div>
+          {/* Loading Text */}
+          <div className="space-y-4">
+            <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent animate-fade-in">
+              Welcome, {user?.firstName}!
+            </h1>
+            <div className="flex items-center justify-center space-x-3">
+              <div className="flex space-x-1">
+                <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce"></div>
+                <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce animation-delay-200"></div>
+                <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce animation-delay-400"></div>
+              </div>
+              <span className="text-foreground text-lg font-medium">Launching Dashboard</span>
+            </div>
           </div>
-        </div>
 
-        {/* Subtitle */}
-        <p className="text-gray-500 text-sm animate-fade-in-delay">Preparing your workspace...</p>
+          {/* Progress Bar */}
+          <div className="w-full mt-8">
+            <div className="bg-gray-200/50 rounded-full h-2 overflow-hidden">
+              <div className="bg-gradient-to-r from-blue-500 to-purple-600 h-full rounded-full animate-progress"></div>
+            </div>
+          </div>
+
+          {/* Subtitle */}
+          <p className="text-muted-foreground text-sm mt-4 animate-fade-in-delay">Preparing your workspace...</p>
+        </div>
       </div>
     </div>
   )

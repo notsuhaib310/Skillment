@@ -1,31 +1,28 @@
 import { NextResponse } from "next/server"
 import type { NextRequest } from "next/server"
+import { verifySession } from "./lib/auth-server"
 
-// Define which routes require authentication
-const protectedRoutes = ["/dashboard", "/settings", "/exams"]
-const authRoutes = ["/login", "/signup"]
+// Add paths that require authentication
+const protectedPaths = ["/dashboard"]
 
 export async function middleware(request: NextRequest) {
-  const token = request.cookies.get("auth_token")?.value
   const path = request.nextUrl.pathname
 
-  // Check if the route requires authentication
-  const isProtectedRoute = protectedRoutes.some((route) => path.startsWith(route))
-  const isAuthRoute = authRoutes.some((route) => path.startsWith(route))
+  // Check if the path requires authentication
+  if (protectedPaths.some((protectedPath) => path.startsWith(protectedPath))) {
+    const session = await verifySession()
 
-  // If no token and trying to access protected route, redirect to login
-  if (isProtectedRoute && !token) {
-    const url = new URL("/login", request.url)
-    url.searchParams.set("redirect", path)
-    return NextResponse.redirect(url)
+    if (!session.success) {
+      // Redirect to login page with the current path as the return URL
+      const returnUrl = encodeURIComponent(path)
+      return NextResponse.redirect(new URL(`/login?returnUrl=${returnUrl}`, request.url))
+    }
   }
-
-  // If token exists and trying to access auth routes, we'll let the server action handle verification
-  // This avoids importing server-only modules in middleware
 
   return NextResponse.next()
 }
 
+// Configure which paths the middleware should run on
 export const config = {
   matcher: [
     /*
@@ -34,7 +31,8 @@ export const config = {
      * - _next/static (static files)
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
+     * - public folder
      */
-    "/((?!api|_next/static|_next/image|favicon.ico).*)",
+    "/((?!api|_next/static|_next/image|favicon.ico|public).*)",
   ],
 }
