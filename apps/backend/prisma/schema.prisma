@@ -27,9 +27,11 @@ model Session {
   id        String   @id @default(cuid())
   userId    String
   token     String   @unique
-  expiresAt DateTime
   createdAt DateTime @default(now())
+  expiresAt DateTime
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }
 
 model VerificationToken {

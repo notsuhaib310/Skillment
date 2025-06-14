@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { validationResult } from 'express-validator';
-import { AppError } from './errorHandler';
+import { AppError } from '../utils/error';
 
 export const validateRequest = (
   req: Request,
@@ -10,7 +10,7 @@ export const validateRequest = (
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
     const errorMessages = errors.array().map(error => error.msg);
-    throw new AppError(400, errorMessages.join(', '));
+    throw new AppError(errorMessages[0], 400);
   }
   next();
 }; 

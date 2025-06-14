@@ -10,10 +10,13 @@ const router = Router();
 router.post(
   '/register',
   [
-    body('email').isEmail().withMessage('Invalid email'),
-    body('password').isLength({ min: 8 }).withMessage('Password must be at least 8 characters'),
+    body('email').isEmail().withMessage('Please enter a valid email'),
+    body('password').isLength({ min: 8 }).withMessage('Password must be at least 8 characters long'),
     body('firstName').notEmpty().withMessage('First name is required'),
     body('lastName').notEmpty().withMessage('Last name is required'),
+    body('orgName').optional(),
+    body('orgType').optional(),
+    body('orgSize').optional(),
     validateRequest
   ],
   register
@@ -23,7 +26,7 @@ router.post(
 router.post(
   '/login',
   [
-    body('email').isEmail().withMessage('Invalid email'),
+    body('email').isEmail().withMessage('Please enter a valid email'),
     body('password').notEmpty().withMessage('Password is required'),
     validateRequest
   ],

@@ -40,10 +40,8 @@ export const LoginForm = () => {
       const result = await loginUser(formData)
 
       if (result.success) {
-        // Get redirect URL from search params or default to dashboard
-        const redirectTo = searchParams.get("redirect") || "/dashboard"
-        router.push(redirectTo)
-        router.refresh()
+        // Redirect to dashboard app
+        window.location.href = "http://localhost:3001/dashboard"
       } else {
         setError(result.message || "Login failed")
       }

@@ -4,12 +4,12 @@ import type * as monaco from "monaco-editor"
 
 interface CodeEditorProps {
   language: string
-  code: string
+  value: string
   onChange: (value: string) => void
-  isDarkTheme: boolean
+  theme?: string
 }
 
-export const CodeEditor = ({ language, code, onChange, isDarkTheme }: CodeEditorProps) => {
+export const CodeEditor = ({ language, value, onChange, theme = "vs-dark" }: CodeEditorProps) => {
   const editorRef = useRef<HTMLDivElement>(null)
   const monacoEditorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null)
 
@@ -18,7 +18,7 @@ export const CodeEditor = ({ language, code, onChange, isDarkTheme }: CodeEditor
       // This is a simplified version - in a real implementation, you would use the actual Monaco Editor
       // For now, we'll use a basic textarea with syntax highlighting simulation
       const editor = document.createElement("textarea")
-      editor.value = code
+      editor.value = value
       editor.className = "w-full h-full bg-black/50 text-white font-mono p-4 resize-none focus:outline-none"
       editor.spellcheck = false
 
@@ -59,10 +59,10 @@ export const CodeEditor = ({ language, code, onChange, isDarkTheme }: CodeEditor
     if (editorRef.current) {
       const textarea = editorRef.current.querySelector("textarea")
       if (textarea) {
-        textarea.value = code
+        textarea.value = value
       }
     }
-  }, [code])
+  }, [value])
 
   return <div ref={editorRef} className="w-full h-full" />
 }

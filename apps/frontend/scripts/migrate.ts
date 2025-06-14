@@ -1,15 +1,7 @@
-import { db, testConnection } from "../lib/db.js"
+import { db } from "../lib/db"
 import { sql } from "drizzle-orm"
 
 async function main() {
-  console.log("Testing database connection...")
-  
-  const isConnected = await testConnection()
-  if (!isConnected) {
-    console.error("Failed to connect to the database. Please check your DATABASE_URL environment variable.")
-    process.exit(1)
-  }
-
   console.log("Running migrations...")
 
   try {
@@ -30,7 +22,6 @@ async function main() {
         updated_at TIMESTAMP DEFAULT NOW()
       );
     `)
-    console.log("✓ Users table created/verified")
 
     // Create sessions table if it doesn't exist
     await db.execute(sql`
@@ -42,7 +33,6 @@ async function main() {
         created_at TIMESTAMP DEFAULT NOW()
       );
     `)
-    console.log("✓ Sessions table created/verified")
 
     // Create verification_tokens table if it doesn't exist
     await db.execute(sql`
@@ -55,16 +45,11 @@ async function main() {
         created_at TIMESTAMP DEFAULT NOW()
       );
     `)
-    console.log("✓ Verification tokens table created/verified")
 
     console.log("Migrations completed successfully!")
   } catch (error) {
     console.error("Migration failed:", error)
-    process.exit(1)
   }
 }
 
-main().catch((error) => {
-  console.error("Unhandled error:", error)
-  process.exit(1)
-})
+main()

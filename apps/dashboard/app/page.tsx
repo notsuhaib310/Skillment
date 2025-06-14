@@ -4,6 +4,7 @@ import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { Rocket, Laptop, Smartphone, ArrowRight } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { verifySession } from "@/lib/auth-client"
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api"
 
@@ -27,17 +28,13 @@ export default function HomePage() {
     // Verify authentication
     const verifyAuth = async () => {
       try {
-        const response = await fetch(`${API_URL}/auth/verify`, {
-          credentials: "include",
-        })
-        const data = await response.json()
-
-        if (!response.ok) {
+        const session = await verifySession()
+        if (!session.success) {
           window.location.href = "http://localhost:3000/login"
           return
         }
 
-        setUser(data.user)
+        setUser(session.user)
       } catch (error) {
         console.error("Auth verification error:", error)
         window.location.href = "http://localhost:3000/login"

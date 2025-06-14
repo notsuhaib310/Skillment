@@ -8,10 +8,10 @@ type Language = "python" | "java"
 
 interface LanguageSelectorProps {
   language: Language
-  onLanguageChange: (language: Language) => void
+  setLanguage: (language: Language) => void
 }
 
-export const LanguageSelector = ({ language, onLanguageChange }: LanguageSelectorProps) => {
+export const LanguageSelector = ({ language, setLanguage }: LanguageSelectorProps) => {
   const [isOpen, setIsOpen] = useState(false)
 
   const languages = [
@@ -43,7 +43,7 @@ export const LanguageSelector = ({ language, onLanguageChange }: LanguageSelecto
             <button
               key={lang.id}
               onClick={() => {
-                onLanguageChange(lang.id as Language)
+                setLanguage(lang.id as Language)
                 setIsOpen(false)
               }}
               className={cn(
