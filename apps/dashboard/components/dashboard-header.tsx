@@ -14,6 +14,7 @@ import {
 import { CommandSearch } from "./command-search"
 import { useEffect, useState } from "react"
 import { verifySession } from "@/lib/auth-client"
+import { logout } from "@/app/actions/auth"
 
 const pageNames: Record<string, string> = {
   "/dashboard": "Dashboard Overview",
@@ -46,6 +47,19 @@ export function DashboardHeader() {
 
     verifyAuth()
   }, [])
+
+  const handleLogout = async () => {
+    try {
+      // Call the server action
+      await logout()
+      
+      // Force a hard refresh to clear any client-side state
+      const frontendUrl = process.env.NEXT_PUBLIC_FRONTEND_URL || 'http://localhost:3000'
+      window.location.href = `${frontendUrl}/login`
+    } catch (error) {
+      console.error('Logout failed:', error)
+    }
+  }
 
   return (
     <header className="border-b border-border/40 bg-card/30 backdrop-blur-xl">
@@ -85,7 +99,12 @@ export function DashboardHeader() {
                 Settings
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem className="rounded-xl">Log out</DropdownMenuItem>
+              <DropdownMenuItem 
+                className="rounded-xl text-red-600 hover:text-red-700 hover:bg-red-50" 
+                onClick={handleLogout}
+              >
+                Log out
+              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
