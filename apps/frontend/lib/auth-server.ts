@@ -53,13 +53,13 @@ export class AuthService {
       const result = await db
         .insert(users)
         .values({
-          firstName,
-          lastName,
+          first_name: firstName,
+          last_name: lastName,
           email,
-          passwordHash,
-          orgName,
-          orgType,
-          orgSize,
+          password_hash: passwordHash,
+          org_name: orgName,
+          org_type: orgType,
+          org_size: orgSize,
         })
         .returning({ id: users.id })
 
@@ -84,7 +84,7 @@ export class AuthService {
       }
 
       // Verify password
-      const isValid = await verifyPassword(password, user[0].passwordHash)
+      const isValid = await verifyPassword(password, user[0].password_hash)
 
       if (!isValid) {
         throw new Error("Invalid email or password")
@@ -97,19 +97,19 @@ export class AuthService {
 
       // Create session
       await db.insert(sessions).values({
-        userId: user[0].id,
+        user_id: user[0].id,
         token,
-        expiresAt,
+        expires_at: expiresAt,
       })
 
       return {
         user: {
           id: user[0].id,
-          firstName: user[0].firstName,
-          lastName: user[0].lastName,
+          firstName: user[0].first_name,
+          lastName: user[0].last_name,
           email: user[0].email,
           role: user[0].role,
-          orgName: user[0].orgName,
+          orgName: user[0].org_name,
         },
         token,
         expiresAt,
@@ -126,8 +126,8 @@ export class AuthService {
       const session = await db
         .select({
           id: sessions.id,
-          userId: sessions.userId,
-          expiresAt: sessions.expiresAt,
+          userId: sessions.user_id,
+          expiresAt: sessions.expires_at,
         })
         .from(sessions)
         .where(eq(sessions.token, token))
@@ -153,11 +153,11 @@ export class AuthService {
       return {
         user: {
           id: user[0].id,
-          firstName: user[0].firstName,
-          lastName: user[0].lastName,
+          firstName: user[0].first_name,
+          lastName: user[0].last_name,
           email: user[0].email,
           role: user[0].role,
-          orgName: user[0].orgName,
+          orgName: user[0].org_name,
         },
         expiresAt: session[0].expiresAt,
       }

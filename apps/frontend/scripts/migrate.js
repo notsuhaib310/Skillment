@@ -1,25 +1,23 @@
-import pg from 'pg';
-const { Pool } = pg;
+import { neon } from '@neondatabase/serverless';
+import { drizzle } from 'drizzle-orm/neon-http';
+import { sql } from 'drizzle-orm';
 
-// Create a new pool with direct connection string
-const pool = new Pool({
-  connectionString: 'postgresql://skillment_owner:npg_RcY0gG1NmCwE@ep-steep-mud-a83oh26p-pooler.eastus2.azure.neon.tech/skillment?sslmode=require',
-  ssl: {
-    rejectUnauthorized: false // Required for Neon
-  }
-});
+// Create a new client with direct connection string
+const neonClient = neon('postgresql://skillment_owner:npg_RcY0gG1NmCwE@ep-steep-mud-a83oh26p-pooler.eastus2.azure.neon.tech/skillment?sslmode=require');
+
+// Initialize Drizzle ORM
+const db = drizzle(neonClient);
 
 async function runMigration() {
-  const client = await pool.connect();
   try {
     console.log('Testing database connection...');
     // Test connection first
-    await client.query('SELECT 1');
+    await db.execute(sql`SELECT 1`);
     console.log('✓ Database connection successful\n');
 
     // Create users table
     console.log('Creating users table...');
-    await client.query(`
+    await db.execute(sql`
       CREATE TABLE IF NOT EXISTS users (
         id SERIAL PRIMARY KEY,
         first_name VARCHAR(255) NOT NULL,
@@ -39,10 +37,10 @@ async function runMigration() {
 
     // Create sessions table
     console.log('\nCreating sessions table...');
-    await client.query(`
+    await db.execute(sql`
       CREATE TABLE IF NOT EXISTS sessions (
         id SERIAL PRIMARY KEY,
-        user_id INTEGER REFERENCES users(id),
+        user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
         token TEXT NOT NULL UNIQUE,
         expires_at TIMESTAMP NOT NULL,
         created_at TIMESTAMP DEFAULT NOW()
@@ -52,10 +50,10 @@ async function runMigration() {
 
     // Create verification_tokens table
     console.log('\nCreating verification_tokens table...');
-    await client.query(`
+    await db.execute(sql`
       CREATE TABLE IF NOT EXISTS verification_tokens (
         id SERIAL PRIMARY KEY,
-        user_id INTEGER REFERENCES users(id),
+        user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
         token TEXT NOT NULL UNIQUE,
         type VARCHAR(50) NOT NULL,
         expires_at TIMESTAMP NOT NULL,
@@ -64,6 +62,15 @@ async function runMigration() {
     `);
     console.log('✓ Verification tokens table created/verified');
 
+    // Create indexes
+    console.log('\nCreating indexes...');
+    await db.execute(sql`CREATE INDEX IF NOT EXISTS idx_users_email ON users(email)`);
+    await db.execute(sql`CREATE INDEX IF NOT EXISTS idx_sessions_token ON sessions(token)`);
+    await db.execute(sql`CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON sessions(user_id)`);
+    await db.execute(sql`CREATE INDEX IF NOT EXISTS idx_verification_tokens_token ON verification_tokens(token)`);
+    await db.execute(sql`CREATE INDEX IF NOT EXISTS idx_verification_tokens_user_id ON verification_tokens(user_id)`);
+    console.log('✓ Indexes created/verified');
+
     console.log('\nMigration completed successfully! 🎉');
   } catch (error) {
     console.error('\nMigration failed:', error.message);
@@ -71,9 +78,6 @@ async function runMigration() {
       console.error('Cause:', error.cause.message);
     }
     process.exit(1);
-  } finally {
-    client.release();
-    await pool.end();
   }
 }
 
