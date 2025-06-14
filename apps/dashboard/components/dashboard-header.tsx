@@ -12,6 +12,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { CommandSearch } from "./command-search"
+import { useEffect, useState } from "react"
+import { verifySession } from "@/lib/auth-client"
 
 const pageNames: Record<string, string> = {
   "/dashboard": "Dashboard Overview",
@@ -28,6 +30,22 @@ const pageNames: Record<string, string> = {
 export function DashboardHeader() {
   const pathname = usePathname()
   const currentPageName = pageNames[pathname] || "Dashboard"
+  const [user, setUser] = useState<any>(null)
+
+  useEffect(() => {
+    const verifyAuth = async () => {
+      try {
+        const session = await verifySession()
+        if (session.success) {
+          setUser(session.user)
+        }
+      } catch (error) {
+        console.error("Auth verification error:", error)
+      }
+    }
+
+    verifyAuth()
+  }, [])
 
   return (
     <header className="border-b border-border/40 bg-card/30 backdrop-blur-xl">
@@ -52,7 +70,7 @@ export function DashboardHeader() {
                 <Avatar className="h-10 w-10 rounded-2xl">
                   <AvatarImage src="/placeholder.svg" />
                   <AvatarFallback className="rounded-2xl bg-gradient-to-br from-primary to-orange-600 text-primary-foreground">
-                    SC
+                    {user?.firstName?.[0]}{user?.lastName?.[0]}
                   </AvatarFallback>
                 </Avatar>
               </Button>
@@ -60,7 +78,7 @@ export function DashboardHeader() {
             <DropdownMenuContent className="w-56 rounded-2xl border-border/40 bg-card/80 backdrop-blur-xl" align="end">
               <DropdownMenuItem className="rounded-xl">
                 <User className="mr-2 h-4 w-4" />
-                Profile
+                {user?.firstName} {user?.lastName}
               </DropdownMenuItem>
               <DropdownMenuItem className="rounded-xl">
                 <Settings className="mr-2 h-4 w-4" />

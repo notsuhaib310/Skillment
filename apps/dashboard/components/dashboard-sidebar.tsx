@@ -14,6 +14,8 @@ import {
   SidebarHeader,
   SidebarFooter,
 } from "@/components/ui/sidebar"
+import { useEffect, useState } from "react"
+import { verifySession } from "@/lib/auth-client"
 
 const menuItems = [
   {
@@ -65,25 +67,38 @@ const menuItems = [
 
 export function DashboardSidebar() {
   const pathname = usePathname()
+  const [user, setUser] = useState<any>(null)
+
+  useEffect(() => {
+    const verifyAuth = async () => {
+      try {
+        const session = await verifySession()
+        if (session.success) {
+          setUser(session.user)
+        }
+      } catch (error) {
+        console.error("Auth verification error:", error)
+      }
+    }
+
+    verifyAuth()
+  }, [])
 
   return (
-    <Sidebar className="border-r border-border/40 bg-card/50 backdrop-blur-xl">
-      <SidebarHeader className="border-b border-border/40 p-6">
-        <Link href="/dashboard" className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-2xl primary-gradient glow-primary shadow-lg">
-            <span className="text-lg font-bold text-primary-foreground">S</span>
-          </div>
-          <div className="flex flex-col">
-            <span className="text-lg font-bold text-foreground">Skillment</span>
-            <span className="text-xs text-muted-foreground">Admin Portal</span>
-          </div>
+    <Sidebar className="border-r border-border/40 bg-card/30 backdrop-blur-xl">
+      <SidebarHeader className="p-6">
+        <Link href="/dashboard" className="flex items-center gap-2">
+          <div className="h-8 w-8 rounded-2xl bg-gradient-to-br from-primary to-orange-600 shadow-lg glow-primary" />
+          <span className="text-xl font-bold bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">
+            TalentHub
+          </span>
         </Link>
       </SidebarHeader>
 
-      <SidebarContent className="px-4 py-6">
+      <SidebarContent>
         <SidebarGroup>
           <SidebarGroupContent>
-            <SidebarMenu className="space-y-2">
+            <SidebarMenu>
               {menuItems.map((item) => (
                 <SidebarMenuItem key={item.href}>
                   <SidebarMenuButton
@@ -107,7 +122,7 @@ export function DashboardSidebar() {
         <div className="flex items-center gap-3 rounded-2xl bg-accent/30 p-4 backdrop-blur-sm border border-border/40">
           <div className="h-10 w-10 rounded-2xl bg-gradient-to-br from-primary to-orange-600 shadow-lg glow-primary" />
           <div className="flex flex-col">
-            <span className="text-sm font-semibold text-foreground">Sarah Chen</span>
+            <span className="text-sm font-semibold text-foreground">{user?.firstName} {user?.lastName}</span>
             <span className="text-xs text-muted-foreground">Administrator</span>
           </div>
         </div>

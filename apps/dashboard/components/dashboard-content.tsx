@@ -33,9 +33,10 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Progress } from "@/components/ui/progress"
 import { XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, BarChart, Bar } from "recharts"
-import { Select, SelectContent, SelectItem, SelectTrigger } from "@/components/ui/select"
-import { useState } from "react"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
+import { verifySession } from "@/lib/auth-client"
 
 // Mock data for charts
 const chartData = [
@@ -143,7 +144,23 @@ const activityIcons = {
 
 export function DashboardContent() {
   const [activityFilter, setActivityFilter] = useState("all")
+  const [user, setUser] = useState<any>(null)
   const router = useRouter()
+
+  useEffect(() => {
+    const verifyAuth = async () => {
+      try {
+        const session = await verifySession()
+        if (session.success) {
+          setUser(session.user)
+        }
+      } catch (error) {
+        console.error("Auth verification error:", error)
+      }
+    }
+
+    verifyAuth()
+  }, [])
 
   const filteredActivities = recentActivities.filter(
     (activity) => activityFilter === "all" || activity.category === activityFilter,
@@ -155,7 +172,7 @@ export function DashboardContent() {
       <div className="space-y-2">
         <div className="flex items-center gap-3">
           <h1 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text">
-            Welcome back, Sarah
+            Welcome back, {user?.firstName}
           </h1>
           <Sparkles className="h-6 w-6 text-primary" />
         </div>
