@@ -12,7 +12,9 @@ export const COOKIE_OPTIONS = {
 export const CORS_OPTIONS = {
   origin: [
     process.env.FRONTEND_URL || 'http://localhost:3000',
-    process.env.DASHBOARD_URL || 'http://localhost:3001'
+    process.env.DASHBOARD_URL || 'http://localhost:3001',
+    'https://*.vercel.app',
+    'https://*.skillment.vercel.app'
   ],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],

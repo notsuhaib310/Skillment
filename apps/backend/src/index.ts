@@ -21,21 +21,25 @@ app.use(express.json());
 app.use(cookieParser());
 app.use(morgan('dev'));
 
+// Health check endpoint
+app.get('/health', (req, res) => {
+  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
 // Routes
 app.use('/api/auth', authRouter);
 
 // Error handling
 app.use(errorHandler);
 
-// Health check endpoint
-app.get('/health', (req, res) => {
-  res.json({ status: 'ok' });
-});
-
 // Start server
-app.listen(port, () => {
-  console.log(`Server is running on port ${port}`);
-});
+if (process.env.NODE_ENV !== 'production') {
+  app.listen(port, () => {
+    console.log(`Server is running on port ${port}`);
+  });
+}
+
+export default app;
 
 // Handle shutdown
 process.on('SIGINT', async () => {
