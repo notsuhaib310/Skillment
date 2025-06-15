@@ -1,5 +1,9 @@
-import type { Metadata } from 'next'
+import type { Metadata, Viewport } from 'next'
 import './globals.css'
+
+export const viewport: Viewport = {
+  themeColor: '#086c74',
+}
 
 export const metadata: Metadata = {
   title: 'Skillment Compiler - Fast Online Code Editor',
@@ -44,7 +48,6 @@ export const metadata: Metadata = {
     images: ['https://compiler.skillment.in/twitter-image.jpg'],
   },
   metadataBase: new URL('https://compiler.skillment.in'),
-  themeColor: '#086c74',
   generator: 'Next.js + Piston + Tailwind + Protool',
 }
 

@@ -16,22 +16,24 @@ export default function Home() {
 
   // Check for shared code in URL on component mount
   useEffect(() => {
-    const urlParams = new URLSearchParams(window.location.search)
-    const sharedData = urlParams.get("shared")
+    if (typeof window !== 'undefined') {
+      const urlParams = new URLSearchParams(window.location.search)
+      const sharedData = urlParams.get("shared")
 
-    if (sharedData) {
-      try {
-        const decoded = JSON.parse(atob(sharedData))
-        const sharedLanguage = SUPPORTED_LANGUAGES.find((lang) => lang.id === decoded.language)
+      if (sharedData) {
+        try {
+          const decoded = JSON.parse(atob(sharedData))
+          const sharedLanguage = SUPPORTED_LANGUAGES.find((lang) => lang.id === decoded.language)
 
-        if (sharedLanguage && decoded.code) {
-          setSelectedLanguage(sharedLanguage)
-          setCode(decoded.code)
-          // Clear the URL parameter after loading
-          window.history.replaceState({}, document.title, window.location.pathname)
+          if (sharedLanguage && decoded.code) {
+            setSelectedLanguage(sharedLanguage)
+            setCode(decoded.code)
+            // Clear the URL parameter after loading
+            window.history.replaceState({}, document.title, window.location.pathname)
+          }
+        } catch (error) {
+          console.error("Failed to load shared code:", error)
         }
-      } catch (error) {
-        console.error("Failed to load shared code:", error)
       }
     }
   }, [])
