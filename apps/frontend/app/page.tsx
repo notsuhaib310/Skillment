@@ -13,8 +13,8 @@ import { MinimalistFooter } from "@/components/ui/aceternity/minimalist-footer"
 import { ScrollStack } from "@/components/ui/aceternity/scroll-stack"
 import { EnhancedHero } from "@/components/ui/aceternity/enhanced-hero"
 import { EnhancedSecurity } from "@/components/ui/aceternity/enhanced-security"
+import { PartnersSection } from "@/components/ui/aceternity/partners-section"
 import { CompilerPromo } from "@/components/ui/aceternity/compiler-promo"
-import { GlowingEffect } from "@/components/ui/glowing-effect"
 
 export default function LandingPage() {
   const testimonials = [
@@ -43,56 +43,29 @@ export default function LandingPage() {
       {/* Modern Navigation */}
       <ModernNavbar />
 
-      {/* Enhanced Hero Section with Glowing Effect */}
-      <div className="relative">
-        <GlowingEffect 
-          blur={20}
-          spread={30}
-          proximity={100}
-          glow={true}
-          disabled={false}
-          className="absolute inset-0 z-0"
-        />
-        <EnhancedHero />
-      </div>
+      {/* Enhanced Hero Section */}
+      <EnhancedHero />
 
-      {/* Platform Showcase Section with Glowing Effect */}
+      {/* Platform Showcase Section */}
       <section id="platform" className="max-w-8xl mx-auto px-6 lg:px-12 xl:px-16 py-20 relative z-10">
-        <div className="relative">
-          <GlowingEffect 
-            blur={15}
-            spread={25}
-            proximity={80}
-            glow={true}
-            disabled={false}
-            className="absolute inset-0 z-0"
-          />
-          <div className="text-center mb-16 max-w-4xl mx-auto relative z-10">
-            <TextReveal className="text-4xl md:text-5xl font-bold mb-4">
-              <h2>Experience the Future of Coding Assessments</h2>
-            </TextReveal>
-            <p className="text-xl text-gray-300 max-w-2xl mx-auto">
-              Discover how our AI-powered platform transforms the way you conduct and manage coding examinations
-            </p>
-          </div>
-
-          <PlatformShowcase />
+        <div className="text-center mb-16 max-w-4xl mx-auto">
+          <TextReveal className="text-4xl md:text-5xl font-bold mb-4">
+            <h2>Experience the Future of Coding Assessments</h2>
+          </TextReveal>
+          <p className="text-xl text-gray-300 max-w-2xl mx-auto">
+            Discover how our AI-powered platform transforms the way you conduct and manage coding examinations
+          </p>
         </div>
+
+        <PlatformShowcase />
       </section>
 
-      {/* How it Works - Scroll Stack with Glowing Effect */}
+      {/* Partners & Integrations Section */}
+      <PartnersSection />
+
+      {/* How it Works - Scroll Stack */}
       <section id="how-it-works" className="relative z-10">
-        <div className="relative">
-          <GlowingEffect 
-            blur={10}
-            spread={20}
-            proximity={60}
-            glow={true}
-            disabled={false}
-            className="absolute inset-0 z-0"
-          />
-          <ScrollStack />
-        </div>
+        <ScrollStack />
       </section>
 
       {/* Enhanced Security Section */}
@@ -100,165 +73,135 @@ export default function LandingPage() {
         <EnhancedSecurity />
       </section>
 
-      {/* Testimonials with Glowing Effect */}
+      {/* Testimonials */}
       <section className="max-w-8xl mx-auto px-6 lg:px-12 xl:px-16 py-20 relative z-10">
-        <div className="relative">
-          <GlowingEffect 
-            blur={15}
-            spread={25}
-            proximity={80}
-            glow={true}
-            disabled={false}
-            className="absolute inset-0 z-0"
-          />
-          <div className="text-center mb-16 relative z-10">
-            <TextReveal className="text-4xl md:text-5xl font-bold mb-4">
-              <h2>Trusted by Leading Institutions</h2>
-            </TextReveal>
-            <p className="text-xl text-gray-300 max-w-2xl mx-auto">
-              See what educators and recruiters say about CodeProctor
-            </p>
-          </div>
+        <div className="text-center mb-16">
+          <TextReveal className="text-4xl md:text-5xl font-bold mb-4">
+            <h2>Trusted by Leading Institutions</h2>
+          </TextReveal>
+          <p className="text-xl text-gray-300 max-w-2xl mx-auto">
+            See what educators and recruiters say about CodeProctor
+          </p>
+        </div>
 
-          <div className="flex justify-center mb-8 relative z-10">
-            <AnimatedTooltip items={testimonials} />
-          </div>
+        <div className="flex justify-center mb-8">
+          <AnimatedTooltip items={testimonials} />
+        </div>
 
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8 max-w-7xl mx-auto relative z-10">
-            <CardHover>
-              <div className="bg-white/10 backdrop-blur-sm border-white/20 p-6 rounded-lg h-full">
-                <div className="flex mb-4">
-                  {[...Array(5)].map((_, i) => (
-                    <Star key={i} className="w-5 h-5 text-yellow-400 fill-current" />
-                  ))}
-                </div>
-                <p className="text-gray-300 mb-4">
-                  "CodeProctor has revolutionized how we conduct coding assessments. The AI proctoring gives us confidence
-                  in exam integrity while the instant feedback helps our students learn faster."
-                </p>
-                <div className="flex items-center">
-                  <img
-                    src="/placeholder.svg?height=40&width=40"
-                    alt="Dr. Sarah Chen"
-                    className="w-10 h-10 rounded-full mr-3"
-                  />
-                  <div>
-                    <p className="font-semibold">Dr. Sarah Chen</p>
-                    <p className="text-sm text-gray-400">Stanford University</p>
-                  </div>
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8 max-w-7xl mx-auto">
+          <CardHover>
+            <div className="bg-white/10 backdrop-blur-sm border-white/20 p-6 rounded-lg h-full">
+              <div className="flex mb-4">
+                {[...Array(5)].map((_, i) => (
+                  <Star key={i} className="w-5 h-5 text-yellow-400 fill-current" />
+                ))}
+              </div>
+              <p className="text-gray-300 mb-4">
+                "CodeProctor has revolutionized how we conduct coding assessments. The AI proctoring gives us confidence
+                in exam integrity while the instant feedback helps our students learn faster."
+              </p>
+              <div className="flex items-center">
+                <img
+                  src="/placeholder.svg?height=40&width=40"
+                  alt="Dr. Sarah Chen"
+                  className="w-10 h-10 rounded-full mr-3"
+                />
+                <div>
+                  <p className="font-semibold">Dr. Sarah Chen</p>
+                  <p className="text-sm text-gray-400">Stanford University</p>
                 </div>
               </div>
-            </CardHover>
+            </div>
+          </CardHover>
 
-            <CardHover>
-              <div className="bg-white/10 backdrop-blur-sm border-white/20 p-6 rounded-lg h-full">
-                <div className="flex mb-4">
-                  {[...Array(5)].map((_, i) => (
-                    <Star key={i} className="w-5 h-5 text-yellow-400 fill-current" />
-                  ))}
-                </div>
-                <p className="text-gray-300 mb-4">
-                  "The multi-language support and AI-generated test cases have saved us countless hours. Our bootcamp
-                  students love the immediate feedback and detailed analytics."
-                </p>
-                <div className="flex items-center">
-                  <img
-                    src="/placeholder.svg?height=40&width=40"
-                    alt="Mike Rodriguez"
-                    className="w-10 h-10 rounded-full mr-3"
-                  />
-                  <div>
-                    <p className="font-semibold">Mike Rodriguez</p>
-                    <p className="text-sm text-gray-400">Lambda School</p>
-                  </div>
+          <CardHover>
+            <div className="bg-white/10 backdrop-blur-sm border-white/20 p-6 rounded-lg h-full">
+              <div className="flex mb-4">
+                {[...Array(5)].map((_, i) => (
+                  <Star key={i} className="w-5 h-5 text-yellow-400 fill-current" />
+                ))}
+              </div>
+              <p className="text-gray-300 mb-4">
+                "The multi-language support and AI-generated test cases have saved us countless hours. Our bootcamp
+                students love the immediate feedback and detailed analytics."
+              </p>
+              <div className="flex items-center">
+                <img
+                  src="/placeholder.svg?height=40&width=40"
+                  alt="Mike Rodriguez"
+                  className="w-10 h-10 rounded-full mr-3"
+                />
+                <div>
+                  <p className="font-semibold">Mike Rodriguez</p>
+                  <p className="text-sm text-gray-400">Lambda School</p>
                 </div>
               </div>
-            </CardHover>
+            </div>
+          </CardHover>
 
-            <CardHover>
-              <div className="bg-white/10 backdrop-blur-sm border-white/20 p-6 rounded-lg h-full">
-                <div className="flex mb-4">
-                  {[...Array(5)].map((_, i) => (
-                    <Star key={i} className="w-5 h-5 text-yellow-400 fill-current" />
-                  ))}
-                </div>
-                <p className="text-gray-300 mb-4">
-                  "As a tech recruiter, CodeProctor has streamlined our technical screening process. The proctoring
-                  ensures candidate authenticity while the detailed reports help us make better hiring decisions."
-                </p>
-                <div className="flex items-center">
-                  <img
-                    src="/placeholder.svg?height=40&width=40"
-                    alt="Emily Johnson"
-                    className="w-10 h-10 rounded-full mr-3"
-                  />
-                  <div>
-                    <p className="font-semibold">Emily Johnson</p>
-                    <p className="text-sm text-gray-400">TechCorp Recruiting</p>
-                  </div>
+          <CardHover>
+            <div className="bg-white/10 backdrop-blur-sm border-white/20 p-6 rounded-lg h-full">
+              <div className="flex mb-4">
+                {[...Array(5)].map((_, i) => (
+                  <Star key={i} className="w-5 h-5 text-yellow-400 fill-current" />
+                ))}
+              </div>
+              <p className="text-gray-300 mb-4">
+                "As a tech recruiter, CodeProctor has streamlined our technical screening process. The proctoring
+                ensures candidate authenticity while the detailed reports help us make better hiring decisions."
+              </p>
+              <div className="flex items-center">
+                <img
+                  src="/placeholder.svg?height=40&width=40"
+                  alt="Emily Johnson"
+                  className="w-10 h-10 rounded-full mr-3"
+                />
+                <div>
+                  <p className="font-semibold">Emily Johnson</p>
+                  <p className="text-sm text-gray-400">TechCorp Recruiting</p>
                 </div>
               </div>
-            </CardHover>
-          </div>
+            </div>
+          </CardHover>
         </div>
       </section>
 
       {/* Online Compiler Promo */}
       <CompilerPromo />
 
-      {/* Enhanced Pricing with Glowing Effect */}
+      {/* Enhanced Pricing */}
       <AnimatedGradient
         containerClassName="py-20"
         colors={["rgba(15, 32, 39, 0.8)", "rgba(32, 58, 67, 0.8)", "rgba(44, 83, 100, 0.8)"]}
         className="w-full h-full"
       >
         <section id="pricing" className="max-w-8xl mx-auto px-6 lg:px-12 xl:px-16 relative z-10">
-          <div className="relative">
-            <GlowingEffect 
-              blur={15}
-              spread={25}
-              proximity={80}
-              glow={true}
-              disabled={false}
-              className="absolute inset-0 z-0"
-            />
-            <div className="text-center mb-16 relative z-10">
-              <TextReveal className="text-4xl md:text-5xl font-bold mb-4">
-                <h2>Simple, Transparent Pricing</h2>
-              </TextReveal>
-              <p className="text-xl text-gray-300 max-w-2xl mx-auto">
-                Choose the plan that fits your institution's needs
-              </p>
-            </div>
-
-            <EnhancedPricing />
+          <div className="text-center mb-16">
+            <TextReveal className="text-4xl md:text-5xl font-bold mb-4">
+              <h2>Simple, Transparent Pricing</h2>
+            </TextReveal>
+            <p className="text-xl text-gray-300 max-w-2xl mx-auto">
+              Choose the plan that fits your institution's needs
+            </p>
           </div>
+
+          <EnhancedPricing />
         </section>
       </AnimatedGradient>
 
-      {/* Final CTA with Glowing Effect */}
+      {/* Final CTA */}
       <Spotlight className="max-w-8xl mx-auto px-6 lg:px-12 xl:px-16 py-20 text-center">
-        <div className="relative">
-          <GlowingEffect 
-            blur={20}
-            spread={30}
-            proximity={100}
-            glow={true}
-            disabled={false}
-            className="absolute inset-0 z-0"
-          />
-          <div className="max-w-5xl mx-auto relative z-10">
-            <TextReveal className="text-4xl md:text-5xl font-bold mb-6">
-              <h2>Ready to Launch Your Coding Exams with AI?</h2>
-            </TextReveal>
-            <p className="text-xl text-gray-300 mb-8">
-              Join thousands of educators and recruiters who trust Skillment for secure, efficient coding assessments.
-            </p>
-            <AnimatedButton colors={["#ea580c", "#dc2626", "#be185d"]} className="px-12 py-4 text-xl group">
-              Start Your Free Trial
-              <ArrowRight className="ml-2 w-6 h-6 group-hover:translate-x-1 transition-transform" />
-            </AnimatedButton>
-          </div>
+        <div className="max-w-5xl mx-auto">
+          <TextReveal className="text-4xl md:text-5xl font-bold mb-6">
+            <h2>Ready to Launch Your Coding Exams with AI?</h2>
+          </TextReveal>
+          <p className="text-xl text-gray-300 mb-8">
+            Join thousands of educators and recruiters who trust Skillment for secure, efficient coding assessments.
+          </p>
+          <AnimatedButton colors={["#ea580c", "#dc2626", "#be185d"]} className="px-12 py-4 text-xl group">
+            Start Your Free Trial
+            <ArrowRight className="ml-2 w-6 h-6 group-hover:translate-x-1 transition-transform" />
+          </AnimatedButton>
         </div>
       </Spotlight>
 
