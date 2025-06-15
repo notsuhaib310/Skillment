@@ -13,30 +13,35 @@ export default function Home() {
   const [customInput, setCustomInput] = useState<string>("")
   const [output, setOutput] = useState<SubmissionResult | null>(null)
   const [isRunning, setIsRunning] = useState<boolean>(false)
+  const [isClient, setIsClient] = useState(false)
+
+  useEffect(() => {
+    setIsClient(true)
+  }, [])
 
   // Check for shared code in URL on component mount
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const urlParams = new URLSearchParams(window.location.search)
-      const sharedData = urlParams.get("shared")
+    if (!isClient) return
 
-      if (sharedData) {
-        try {
-          const decoded = JSON.parse(atob(sharedData))
-          const sharedLanguage = SUPPORTED_LANGUAGES.find((lang) => lang.id === decoded.language)
+    const urlParams = new URLSearchParams(window.location.search)
+    const sharedData = urlParams.get("shared")
 
-          if (sharedLanguage && decoded.code) {
-            setSelectedLanguage(sharedLanguage)
-            setCode(decoded.code)
-            // Clear the URL parameter after loading
-            window.history.replaceState({}, document.title, window.location.pathname)
-          }
-        } catch (error) {
-          console.error("Failed to load shared code:", error)
+    if (sharedData) {
+      try {
+        const decoded = JSON.parse(atob(sharedData))
+        const sharedLanguage = SUPPORTED_LANGUAGES.find((lang) => lang.id === decoded.language)
+
+        if (sharedLanguage && decoded.code) {
+          setSelectedLanguage(sharedLanguage)
+          setCode(decoded.code)
+          // Clear the URL parameter after loading
+          window.history.replaceState({}, document.title, window.location.pathname)
         }
+      } catch (error) {
+        console.error("Failed to load shared code:", error)
       }
     }
-  }, [])
+  }, [isClient])
 
   const handleLanguageChange = (language: Language) => {
     setSelectedLanguage(language)
@@ -79,6 +84,10 @@ export default function Home() {
     } finally {
       setIsRunning(false)
     }
+  }
+
+  if (!isClient) {
+    return null // or a loading state
   }
 
   return (
