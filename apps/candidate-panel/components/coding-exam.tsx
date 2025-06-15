@@ -1,0 +1,1557 @@
+"use client"
+
+import { useState, useEffect, useRef } from "react"
+import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
+import { Alert, AlertDescription } from "@/components/ui/alert"
+import { Progress } from "@/components/ui/progress"
+import {
+  Clock,
+  Camera,
+  AlertTriangle,
+  Eye,
+  Shield,
+  Mic,
+  Play,
+  Square,
+  CheckCircle,
+  Code,
+  FileText,
+  TestTube,
+  ZoomIn,
+  ZoomOut,
+  Check,
+  X,
+  Lock,
+  Unlock,
+  Skull,
+  Ban,
+} from "lucide-react"
+
+interface CodingExamProps {
+  candidateData: any
+  systemStatus: any
+  onComplete?: (results: any) => void
+}
+
+interface TestCase {
+  id: number
+  type: "public" | "private"
+  input: string
+  expectedOutput: string
+  actualOutput?: string
+  status?: "passed" | "failed" | "pending" | "running"
+  runtime?: number
+  memory?: number
+  visible: boolean
+}
+
+interface CodingProblem {
+  id: number
+  title: string
+  difficulty: "Easy" | "Medium" | "Hard"
+  description: string
+  examples: Array<{
+    input: string
+    output: string
+    explanation?: string
+  }>
+  constraints: string[]
+  testCases: TestCase[]
+  starterCode: {
+    [key: string]: string
+  }
+  timeLimit: number
+  marks: number
+}
+
+interface Violation {
+  id: number
+  type: "critical" | "warning" | "minor"
+  message: string
+  timestamp: Date
+  action: string
+}
+
+export default function CodingExam({ candidateData, systemStatus, onComplete }: CodingExamProps) {
+  const [currentProblem, setCurrentProblem] = useState(0)
+  const [code, setCode] = useState("")
+  const [language, setLanguage] = useState("javascript")
+  const [timeLeft, setTimeLeft] = useState(60 * 60)
+  const [problemTimeLeft, setProblemTimeLeft] = useState(0)
+  const [violations, setViolations] = useState<Violation[]>([])
+  const [violationLogs, setViolationLogs] = useState<string[]>([])
+  const [examComplete, setExamComplete] = useState(false)
+  const [isRunning, setIsRunning] = useState(false)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [testResults, setTestResults] = useState<TestCase[]>([])
+  const [fontSize, setFontSize] = useState(14)
+  const [activeTab, setActiveTab] = useState<"description" | "submissions">("description")
+  const [submissions, setSubmissions] = useState<any[]>([])
+  const [consoleOutput, setConsoleOutput] = useState<string[]>([])
+  const [editorLoaded, setEditorLoaded] = useState(false)
+
+  // Advanced Proctoring States
+  const [isFullscreen, setIsFullscreen] = useState(false)
+  const [fullscreenViolations, setFullscreenViolations] = useState(0)
+  const [tabSwitchCount, setTabSwitchCount] = useState(0)
+  const [focusLossCount, setFocusLossCount] = useState(0)
+  const [showCriticalWarning, setShowCriticalWarning] = useState(false)
+  const [warningMessage, setWarningMessage] = useState("")
+  const [suspiciousActivity, setSuspiciousActivity] = useState<string[]>([])
+  const [mouseOutsideCount, setMouseOutsideCount] = useState(0)
+  const [keyboardViolations, setKeyboardViolations] = useState(0)
+  const [audioViolations, setAudioViolations] = useState(0)
+  const [faceDetectionActive, setFaceDetectionActive] = useState(false)
+  const [eyeTrackingActive, setEyeTrackingActive] = useState(false)
+
+  const editorRef = useRef<HTMLDivElement>(null)
+  const monacoEditorRef = useRef<any>(null)
+  const videoRef = useRef<HTMLVideoElement>(null)
+  const audioContextRef = useRef<AudioContext | null>(null)
+  const fullscreenTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+
+  // Sample coding problems with public and private test cases
+  const problems: CodingProblem[] = [
+    {
+      id: 1,
+      title: "Two Sum",
+      difficulty: "Easy",
+      description: `Given an array of integers nums and an integer target, return indices of the two numbers such that they add up to target.
+
+You may assume that each input would have exactly one solution, and you may not use the same element twice.
+
+You can return the answer in any order.`,
+      examples: [
+        {
+          input: "nums = [2,7,11,15], target = 9",
+          output: "[0,1]",
+          explanation: "Because nums[0] + nums[1] == 9, we return [0, 1].",
+        },
+        {
+          input: "nums = [3,2,4], target = 6",
+          output: "[1,2]",
+        },
+      ],
+      constraints: [
+        "2 ≤ nums.length ≤ 10⁴",
+        "-10⁹ ≤ nums[i] ≤ 10⁹",
+        "-10⁹ ≤ target ≤ 10⁹",
+        "Only one valid answer exists.",
+      ],
+      testCases: [
+        {
+          id: 1,
+          type: "public",
+          input: "[2,7,11,15], 9",
+          expectedOutput: "[0,1]",
+          visible: true,
+          status: "pending",
+        },
+        {
+          id: 2,
+          type: "public",
+          input: "[3,2,4], 6",
+          expectedOutput: "[1,2]",
+          visible: true,
+          status: "pending",
+        },
+        {
+          id: 3,
+          type: "private",
+          input: "[3,3], 6",
+          expectedOutput: "[0,1]",
+          visible: false,
+          status: "pending",
+        },
+        {
+          id: 4,
+          type: "private",
+          input: "[1,2,3,4,5], 8",
+          expectedOutput: "[2,4]",
+          visible: false,
+          status: "pending",
+        },
+        {
+          id: 5,
+          type: "private",
+          input: "[5,5,5,5], 10",
+          expectedOutput: "[0,1]",
+          visible: false,
+          status: "pending",
+        },
+      ],
+      starterCode: {
+        javascript: `/**
+ * @param {number[]} nums
+ * @param {number} target
+ * @return {number[]}
+ */
+var twoSum = function(nums, target) {
+    
+};`,
+        python: `class Solution:
+    def twoSum(self, nums: List[int], target: int) -> List[int]:
+        pass`,
+        java: `class Solution {
+    public int[] twoSum(int[] nums, int target) {
+        
+    }
+}`,
+        cpp: `class Solution {
+public:
+    vector<int> twoSum(vector<int>& nums, int target) {
+        
+    }
+};`,
+      },
+      timeLimit: 30,
+      marks: 10,
+    },
+  ]
+
+  const languages = [
+    { id: "javascript", name: "JavaScript", monacoId: "javascript" },
+    { id: "python", name: "Python", monacoId: "python" },
+    { id: "java", name: "Java", monacoId: "java" },
+    { id: "cpp", name: "C++", monacoId: "cpp" },
+  ]
+
+  useEffect(() => {
+    initializeUltraStrictProctoring()
+    setProblemTimeLeft(problems[0].timeLimit * 60)
+    setCode(problems[0].starterCode[language])
+    setTestResults(problems[0].testCases)
+    return () => cleanup()
+  }, [])
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      initializeMonacoEditor()
+    }, 500)
+    return () => clearTimeout(timer)
+  }, [])
+
+  useEffect(() => {
+    setCode(problems[currentProblem].starterCode[language])
+    setTestResults(problems[currentProblem].testCases)
+  }, [currentProblem, language])
+
+  const initializeMonacoEditor = async () => {
+    if (editorRef.current && !monacoEditorRef.current) {
+      try {
+        // Import Monaco Editor dynamically
+        const monaco = await import("monaco-editor")
+
+        // Configure Monaco Editor theme
+        monaco.editor.defineTheme("coding-dark", {
+          base: "vs-dark",
+          inherit: true,
+          rules: [
+            { token: "comment", foreground: "6A9955", fontStyle: "italic" },
+            { token: "keyword", foreground: "569CD6", fontStyle: "bold" },
+            { token: "string", foreground: "CE9178" },
+            { token: "number", foreground: "B5CEA8" },
+            { token: "type", foreground: "4EC9B0" },
+            { token: "function", foreground: "DCDCAA" },
+            { token: "variable", foreground: "9CDCFE" },
+            { token: "operator", foreground: "D4D4D4" },
+            { token: "delimiter", foreground: "D4D4D4" },
+            { token: "identifier", foreground: "9CDCFE" },
+            { token: "class", foreground: "4EC9B0" },
+          ],
+          colors: {
+            "editor.background": "#1e1e1e",
+            "editor.foreground": "#d4d4d4",
+            "editorLineNumber.foreground": "#858585",
+            "editorLineNumber.activeForeground": "#ff6b35",
+            "editor.selectionBackground": "#264f78",
+            "editor.lineHighlightBackground": "#2a2d31",
+            "editorCursor.foreground": "#ff6b35",
+            "editor.selectionHighlightBackground": "#add6ff26",
+            "editorIndentGuide.background": "#404040",
+            "editorIndentGuide.activeBackground": "#ff6b35",
+            "editorBracketMatch.background": "#0064001a",
+            "editorBracketMatch.border": "#ff6b35",
+            "scrollbar.shadow": "#000000",
+            "scrollbarSlider.background": "#79797966",
+            "scrollbarSlider.hoverBackground": "#646464b3",
+            "scrollbarSlider.activeBackground": "#bfbfbf66",
+          },
+        })
+
+        // Clear container
+        editorRef.current.innerHTML = ""
+
+        // Create editor
+        monacoEditorRef.current = monaco.editor.create(editorRef.current, {
+          value: code,
+          language: languages.find((l) => l.id === language)?.monacoId || "javascript",
+          theme: "coding-dark",
+          fontSize: fontSize,
+          fontFamily: "'JetBrains Mono', 'Fira Code', 'Consolas', 'Monaco', monospace",
+          minimap: { enabled: false },
+          scrollBeyondLastLine: false,
+          automaticLayout: true,
+          tabSize: 4,
+          insertSpaces: true,
+          wordWrap: "off",
+          lineNumbers: "on",
+          lineNumbersMinChars: 3,
+          renderLineHighlight: "line",
+          selectOnLineNumbers: true,
+          roundedSelection: false,
+          readOnly: false,
+          cursorStyle: "line",
+          cursorWidth: 2,
+          cursorBlinking: "blink",
+          folding: true,
+          foldingHighlight: true,
+          showFoldingControls: "always",
+          contextmenu: false,
+          mouseWheelZoom: false,
+          smoothScrolling: false,
+          renderWhitespace: "none",
+          bracketPairColorization: { enabled: true },
+          guides: {
+            bracketPairs: true,
+            indentation: true,
+          },
+          scrollbar: {
+            vertical: "visible",
+            horizontal: "visible",
+            verticalScrollbarSize: 12,
+            horizontalScrollbarSize: 12,
+            useShadows: false,
+          },
+          overviewRulerLanes: 0,
+          hideCursorInOverviewRuler: true,
+          overviewRulerBorder: false,
+        })
+
+        // Set up change listener
+        monacoEditorRef.current.onDidChangeModelContent(() => {
+          if (monacoEditorRef.current) {
+            const newValue = monacoEditorRef.current.getValue()
+            setCode(newValue)
+          }
+        })
+
+        // Force layout and focus
+        setTimeout(() => {
+          if (monacoEditorRef.current) {
+            monacoEditorRef.current.layout()
+            monacoEditorRef.current.focus()
+            setEditorLoaded(true)
+          }
+        }, 100)
+      } catch (error) {
+        console.error("Failed to initialize Monaco Editor:", error)
+        setConsoleOutput((prev) => [...prev, `Editor Error: ${error.message}`])
+      }
+    }
+  }
+
+  const initializeUltraStrictProctoring = async () => {
+    try {
+      // Initialize camera and microphone
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { width: 1280, height: 720 },
+        audio: true,
+      })
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream
+      }
+
+      // Initialize audio monitoring
+      await initializeAudioMonitoring(stream)
+
+      // Initialize face detection
+      initializeFaceDetection()
+
+      // Initialize eye tracking
+      initializeEyeTracking()
+    } catch (error) {
+      addViolation("critical", "Camera/Microphone access failed", "System access denied")
+    }
+
+    // Setup ultra-strict security
+    setupUltraStrictSecurity()
+  }
+
+  const initializeAudioMonitoring = async (stream: MediaStream) => {
+    try {
+      audioContextRef.current = new AudioContext()
+      const analyser = audioContextRef.current.createAnalyser()
+      const source = audioContextRef.current.createMediaStreamSource(stream)
+
+      source.connect(analyser)
+      analyser.fftSize = 256
+
+      const dataArray = new Uint8Array(analyser.frequencyBinCount)
+
+      const checkAudioLevel = () => {
+        analyser.getByteFrequencyData(dataArray)
+        const average = dataArray.reduce((a, b) => a + b) / dataArray.length
+
+        // Detect suspicious audio patterns
+        if (average > 50) {
+          setAudioViolations((prev) => prev + 1)
+          if (audioViolations > 5) {
+            addViolation("warning", "Suspicious audio activity detected", "Multiple voices detected")
+          }
+        }
+
+        requestAnimationFrame(checkAudioLevel)
+      }
+
+      checkAudioLevel()
+    } catch (error) {
+      addViolation("warning", "Audio monitoring failed", "Audio analysis disabled")
+    }
+  }
+
+  const initializeFaceDetection = () => {
+    // Simulate face detection
+    setFaceDetectionActive(true)
+
+    setInterval(() => {
+      // Simulate face detection analysis
+      const faceCount = Math.random() > 0.95 ? 2 : 1 // 5% chance of multiple faces
+
+      if (faceCount > 1) {
+        addViolation("critical", "Multiple faces detected", "Identity verification failed")
+      }
+    }, 5000)
+  }
+
+  const initializeEyeTracking = () => {
+    // Simulate eye tracking
+    setEyeTrackingActive(true)
+
+    setInterval(() => {
+      // Simulate eye tracking analysis
+      const lookingAway = Math.random() > 0.9 // 10% chance of looking away
+
+      if (lookingAway) {
+        addViolation("minor", "Candidate looking away from screen", "Attention monitoring")
+      }
+    }, 3000)
+  }
+
+  const enterFullscreen = async () => {
+    try {
+      if (!document.fullscreenElement) {
+        await document.documentElement.requestFullscreen()
+        setIsFullscreen(true)
+      }
+    } catch (error) {
+      addViolation("critical", "Failed to enter fullscreen", "Fullscreen enforcement failed")
+    }
+  }
+
+  const setupUltraStrictSecurity = () => {
+    // Disable text selection globally
+    document.body.style.userSelect = "none"
+    document.body.style.webkitUserSelect = "none"
+    document.body.style.mozUserSelect = "none"
+    document.body.style.msUserSelect = "none"
+
+    // Block all keyboard shortcuts except essential coding ones
+    document.addEventListener(
+      "keydown",
+      (e) => {
+        // Block function keys
+        if (e.key.startsWith("F") && e.key.length <= 3) {
+          e.preventDefault()
+          e.stopPropagation()
+          setKeyboardViolations((prev) => prev + 1)
+          addViolation("warning", `Function key ${e.key} blocked`, "Unauthorized shortcut")
+          return false
+        }
+
+        // Block dangerous Ctrl combinations
+        if (e.ctrlKey) {
+          const allowedKeys = ["c", "v", "x", "z", "y", "a", "s", "f"] // Essential coding shortcuts
+          if (!allowedKeys.includes(e.key.toLowerCase())) {
+            e.preventDefault()
+            e.stopPropagation()
+            setKeyboardViolations((prev) => prev + 1)
+            addViolation("warning", `Ctrl+${e.key} blocked`, "Unauthorized shortcut")
+            return false
+          }
+        }
+
+        // Block Alt combinations
+        if (e.altKey) {
+          e.preventDefault()
+          e.stopPropagation()
+          setKeyboardViolations((prev) => prev + 1)
+          addViolation("warning", `Alt+${e.key} blocked`, "Unauthorized shortcut")
+          return false
+        }
+
+        // Block Windows/Cmd key
+        if (e.metaKey) {
+          e.preventDefault()
+          e.stopPropagation()
+          setKeyboardViolations((prev) => prev + 1)
+          addViolation("critical", "System key blocked", "OS access attempt")
+          return false
+        }
+
+        // Block Escape key
+        if (e.key === "Escape") {
+          e.preventDefault()
+          e.stopPropagation()
+          addViolation("warning", "Escape key blocked", "Exit attempt")
+          return false
+        }
+      },
+      true,
+    )
+
+    // Disable right-click completely
+    document.addEventListener(
+      "contextmenu",
+      (e) => {
+        e.preventDefault()
+        e.stopPropagation()
+        addViolation("minor", "Right-click blocked", "Context menu attempt")
+        return false
+      },
+      true,
+    )
+
+    // Ultra-strict fullscreen monitoring - only warn after initial entry
+    document.addEventListener("fullscreenchange", () => {
+      if (!document.fullscreenElement) {
+        // Only show warnings and violations if we were previously in fullscreen
+        if (isFullscreen) {
+          setIsFullscreen(false)
+          setFullscreenViolations((prev) => prev + 1)
+          addViolation("critical", "Fullscreen exit detected", "Security breach")
+
+          // Immediately force back to fullscreen
+          if (fullscreenTimeoutRef.current) {
+            clearTimeout(fullscreenTimeoutRef.current)
+          }
+
+          fullscreenTimeoutRef.current = setTimeout(() => {
+            enterFullscreen()
+          }, 100)
+
+          // Show critical warning after 3 violations
+          if (fullscreenViolations >= 3) {
+            showCriticalWarningPopup(
+              "CRITICAL: Multiple fullscreen violations detected! Exam will be auto-submitted if this continues.",
+            )
+          }
+        }
+      } else {
+        setIsFullscreen(true)
+      }
+    })
+
+    // Tab switching detection with zero tolerance
+    document.addEventListener("visibilitychange", () => {
+      if (document.hidden) {
+        setTabSwitchCount((prev) => prev + 1)
+        addViolation("critical", "Tab switch detected", "Navigation violation")
+
+        // Show critical warning after 2 tab switches
+        if (tabSwitchCount >= 2) {
+          showCriticalWarningPopup(
+            "CRITICAL: Tab switching detected! This is your final warning before auto-submission.",
+          )
+        }
+
+        // Auto-submit after 3 tab switches
+        if (tabSwitchCount >= 3) {
+          submitExam(true, "Multiple tab switching violations")
+        }
+      }
+    })
+
+    // Window focus monitoring
+    window.addEventListener("blur", () => {
+      setFocusLossCount((prev) => prev + 1)
+      addViolation("warning", "Window focus lost", "Attention violation")
+
+      if (focusLossCount >= 5) {
+        showCriticalWarningPopup("WARNING: Multiple focus loss events detected. Please keep the exam window active.")
+      }
+    })
+
+    // Mouse movement monitoring
+    document.addEventListener("mousemove", (e) => {
+      const examArea = document.body.getBoundingClientRect()
+
+      // Check if mouse is outside exam area
+      if (e.clientX < 0 || e.clientY < 0 || e.clientX > examArea.width || e.clientY > examArea.height) {
+        setMouseOutsideCount((prev) => prev + 1)
+
+        if (mouseOutsideCount > 20) {
+          // Allow some tolerance
+          addViolation("minor", "Mouse outside exam area", "Attention monitoring")
+          setMouseOutsideCount(0) // Reset counter
+        }
+      }
+    })
+
+    // Clipboard monitoring
+    document.addEventListener("paste", (e) => {
+      const pastedText = e.clipboardData?.getData("text") || ""
+      if (pastedText.length > 100) {
+        addViolation("warning", "Large code paste detected", "Potential cheating")
+      }
+    })
+
+    // Network monitoring
+    const originalFetch = window.fetch
+    window.fetch = function (...args) {
+      const url = args[0]?.toString() || ""
+
+      // Allow only Judge0 API calls and essential resources
+      const allowedDomains = ["judge0.skillment.in", "localhost", window.location.hostname]
+      const isAllowed = allowedDomains.some((domain) => url.includes(domain))
+
+      if (!isAllowed) {
+        addViolation("critical", "Unauthorized network request blocked", "External API access")
+        return Promise.reject(new Error("Network request blocked"))
+      }
+
+      return originalFetch.apply(this, args)
+    }
+
+    // Developer tools detection
+    const devtools = { open: false, orientation: null }
+    const threshold = 160
+
+    setInterval(() => {
+      if (window.outerHeight - window.innerHeight > threshold || window.outerWidth - window.innerWidth > threshold) {
+        if (!devtools.open) {
+          devtools.open = true
+          addViolation("critical", "Developer tools detected", "Security breach")
+          showCriticalWarningPopup("CRITICAL: Developer tools detected! Close immediately or exam will be terminated.")
+        }
+      } else {
+        devtools.open = false
+      }
+    }, 1000)
+
+    // Disable drag and drop
+    document.addEventListener(
+      "dragstart",
+      (e) => {
+        e.preventDefault()
+        addViolation("minor", "Drag operation blocked", "Content protection")
+        return false
+      },
+      true,
+    )
+
+    // Disable print
+    window.addEventListener("beforeprint", (e) => {
+      e.preventDefault()
+      addViolation("warning", "Print attempt blocked", "Content protection")
+      return false
+    })
+  }
+
+  const addViolation = (type: "critical" | "warning" | "minor", message: string, action: string) => {
+    const violation: Violation = {
+      id: Date.now(),
+      type,
+      message,
+      timestamp: new Date(),
+      action,
+    }
+
+    setViolations((prev) => [...prev, violation])
+    setViolationLogs((prev) => [...prev, `${violation.timestamp.toLocaleTimeString()}: ${message}`])
+
+    // Add to suspicious activity
+    setSuspiciousActivity((prev) => [...prev.slice(-10), `${type.toUpperCase()}: ${message}`])
+
+    // Auto-submit on critical violations
+    const criticalCount = violations.filter((v) => v.type === "critical").length + (type === "critical" ? 1 : 0)
+
+    if (criticalCount >= 5) {
+      submitExam(true, "Multiple critical security violations")
+    }
+  }
+
+  const showCriticalWarningPopup = (message: string) => {
+    setWarningMessage(message)
+    setShowCriticalWarning(true)
+
+    // Auto-hide after 5 seconds
+    setTimeout(() => {
+      setShowCriticalWarning(false)
+    }, 5000)
+  }
+
+  // Timers
+  useEffect(() => {
+    if (timeLeft > 0 && !examComplete) {
+      const timer = setInterval(() => {
+        setTimeLeft((prev) => {
+          if (prev <= 1) {
+            submitExam(true, "Time expired")
+            return 0
+          }
+          return prev - 1
+        })
+      }, 1000)
+      return () => clearInterval(timer)
+    }
+  }, [timeLeft, examComplete])
+
+  useEffect(() => {
+    if (problemTimeLeft > 0 && !examComplete) {
+      const timer = setInterval(() => {
+        setProblemTimeLeft((prev) => {
+          if (prev <= 1) {
+            if (currentProblem < problems.length - 1) {
+              setCurrentProblem((prev) => prev + 1)
+              setProblemTimeLeft(problems[currentProblem + 1].timeLimit * 60)
+            } else {
+              submitExam(false, "All problems completed")
+            }
+            return 0
+          }
+          return prev - 1
+        })
+      }, 1000)
+      return () => clearInterval(timer)
+    }
+  }, [problemTimeLeft, currentProblem, examComplete])
+
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60)
+    const secs = seconds % 60
+    return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`
+  }
+
+  const runCode = async () => {
+    setIsRunning(true)
+    setConsoleOutput(["Compiling and running code..."])
+
+    // Reset test results to running state
+    setTestResults((prev) =>
+      prev.map((test) => ({
+        ...test,
+        status: "running" as const,
+        actualOutput: undefined,
+        runtime: undefined,
+        memory: undefined,
+      })),
+    )
+
+    try {
+      const languageMap = {
+        javascript: 63, // Node.js
+        python: 71, // Python 3
+        java: 62, // Java
+        cpp: 54, // C++
+      }
+
+      const languageId = languageMap[language as keyof typeof languageMap]
+
+      // Run all test cases
+      const testCases = problems[currentProblem].testCases
+      const results = []
+
+      for (let i = 0; i < testCases.length; i++) {
+        const testCase = testCases[i]
+
+        setConsoleOutput((prev) => [...prev, `Running test case ${i + 1}/${testCases.length}...`])
+
+        try {
+          // Create submission
+          const submission = await fetch("https://judge0.skillment.in/submissions", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "X-RapidAPI-Host": "judge0.skillment.in",
+            },
+            body: JSON.stringify({
+              source_code: btoa(code),
+              language_id: languageId,
+              stdin: btoa(testCase.input),
+              expected_output: btoa(testCase.expectedOutput),
+            }),
+          })
+
+          const submissionData = await submission.json()
+          const token = submissionData.token
+
+          // Poll for results
+          let attempts = 0
+          const maxAttempts = 30
+
+          const pollResults = async (): Promise<any> => {
+            const result = await fetch(`https://judge0.skillment.in/submissions/${token}`, {
+              headers: {
+                "X-RapidAPI-Host": "judge0.skillment.in",
+              },
+            })
+
+            const resultData = await result.json()
+
+            if (resultData.status.id <= 2 && attempts < maxAttempts) {
+              attempts++
+              await new Promise((resolve) => setTimeout(resolve, 1000))
+              return pollResults()
+            }
+
+            return resultData
+          }
+
+          const resultData = await pollResults()
+
+          const output = resultData.stdout ? atob(resultData.stdout) : ""
+          const error = resultData.stderr ? atob(resultData.stderr) : ""
+          const status = resultData.status.description
+
+          const testResult = {
+            ...testCase,
+            actualOutput: output || error || "No output",
+            status: output.trim() === testCase.expectedOutput.trim() ? ("passed" as const) : ("failed" as const),
+            runtime: resultData.time || 0,
+            memory: resultData.memory || 0,
+          }
+
+          results.push(testResult)
+
+          // Update individual test case result
+          setTestResults((prev) => prev.map((test, index) => (index === i ? testResult : test)))
+
+          setConsoleOutput((prev) => [
+            ...prev,
+            `Test Case ${i + 1}: ${testResult.status.toUpperCase()}`,
+            testCase.type === "public" ? `Input: ${testCase.input}` : `Input: [Hidden]`,
+            testCase.type === "public" ? `Expected: ${testCase.expectedOutput}` : `Expected: [Hidden]`,
+            testCase.type === "public" ? `Got: ${output || "No output"}` : `Got: [Hidden]`,
+            `Runtime: ${resultData.time || 0}ms, Memory: ${resultData.memory || 0}KB`,
+            "",
+          ])
+        } catch (error) {
+          const testResult = {
+            ...testCase,
+            actualOutput: `Error: ${error.message}`,
+            status: "failed" as const,
+            runtime: 0,
+            memory: 0,
+          }
+
+          results.push(testResult)
+
+          setTestResults((prev) => prev.map((test, index) => (index === i ? testResult : test)))
+
+          setConsoleOutput((prev) => [...prev, `Test Case ${i + 1}: ERROR - ${error.message}`, ""])
+        }
+      }
+
+      const passedCount = results.filter((r) => r.status === "passed").length
+      const totalCount = results.length
+
+      setConsoleOutput((prev) => [
+        ...prev,
+        "=".repeat(50),
+        `SUMMARY: ${passedCount}/${totalCount} test cases passed`,
+        `Public Tests: ${
+          results.filter((r) => r.type === "public" && r.status === "passed").length
+        }/${results.filter((r) => r.type === "public").length} passed`,
+        `Private Tests: ${
+          results.filter((r) => r.type === "private" && r.status === "passed").length
+        }/${results.filter((r) => r.type === "private").length} passed`,
+        "=".repeat(50),
+      ])
+
+      setIsRunning(false)
+    } catch (error) {
+      setConsoleOutput((prev) => [...prev, `Compilation Error: ${error.message}`])
+      setIsRunning(false)
+    }
+  }
+
+  const submitCode = async () => {
+    setIsSubmitting(true)
+
+    // Run all test cases first
+    await runCode()
+
+    setTimeout(() => {
+      const passedTests = testResults.filter((test) => test.status === "passed").length
+      const totalTests = testResults.length
+      const score = Math.round((passedTests / totalTests) * 100)
+
+      const submission = {
+        id: submissions.length + 1,
+        timestamp: new Date().toISOString(),
+        status: score >= 70 ? "Accepted" : "Partial",
+        score: score,
+        passedTests: passedTests,
+        totalTests: totalTests,
+        runtime: Math.max(...testResults.map((t) => t.runtime || 0)),
+        memory: Math.max(...testResults.map((t) => t.memory || 0)),
+        language: language,
+        code: code,
+      }
+
+      setSubmissions((prev) => [submission, ...prev])
+      setConsoleOutput((prev) => [
+        ...prev,
+        "",
+        `✅ Solution ${submission.status}!`,
+        `Score: ${submission.score}%`,
+        `Tests Passed: ${submission.passedTests}/${submission.totalTests}`,
+        `Runtime: ${submission.runtime}ms`,
+        `Memory: ${submission.memory}KB`,
+      ])
+      setIsSubmitting(false)
+
+      // Move to next problem or complete exam
+      if (currentProblem < problems.length - 1) {
+        setTimeout(() => {
+          setCurrentProblem((prev) => prev + 1)
+          setProblemTimeLeft(problems[currentProblem + 1].timeLimit * 60)
+        }, 2000)
+      } else {
+        setTimeout(() => {
+          submitExam(false, "All problems completed")
+        }, 2000)
+      }
+    }, 1000)
+  }
+
+  const submitExam = (autoSubmit = false, reason = "") => {
+    setExamComplete(true)
+
+    const results = {
+      candidateId: candidateData.candidateId,
+      submissions,
+      violations: violations,
+      violationLogs,
+      suspiciousActivity,
+      proctoring: {
+        fullscreenViolations,
+        tabSwitchCount,
+        focusLossCount,
+        keyboardViolations,
+        audioViolations,
+        faceDetectionActive,
+        eyeTrackingActive,
+      },
+      timeSpent: 60 * 60 - timeLeft,
+      autoSubmit,
+      reason,
+      problemsCompleted: currentProblem + 1,
+      totalProblems: problems.length,
+      timestamp: new Date().toISOString(),
+    }
+
+    cleanup()
+
+    if (onComplete) {
+      onComplete(results)
+    }
+  }
+
+  const cleanup = () => {
+    if (videoRef.current?.srcObject) {
+      const stream = videoRef.current.srcObject as MediaStream
+      stream.getTracks().forEach((track) => track.stop())
+    }
+    if (monacoEditorRef.current) {
+      monacoEditorRef.current.dispose()
+    }
+    if (audioContextRef.current) {
+      audioContextRef.current.close()
+    }
+    if (fullscreenTimeoutRef.current) {
+      clearTimeout(fullscreenTimeoutRef.current)
+    }
+  }
+
+  const getDifficultyColor = (difficulty: string) => {
+    switch (difficulty) {
+      case "Easy":
+        return "text-green-400 bg-green-900/30 border-green-500/30"
+      case "Medium":
+        return "text-yellow-400 bg-yellow-900/30 border-yellow-500/30"
+      case "Hard":
+        return "text-red-400 bg-red-900/30 border-red-500/30"
+      default:
+        return "text-gray-400 bg-gray-900/30 border-gray-500/30"
+    }
+  }
+
+  const getViolationColor = (type: string) => {
+    switch (type) {
+      case "critical":
+        return "text-red-400"
+      case "warning":
+        return "text-yellow-400"
+      case "minor":
+        return "text-blue-400"
+      default:
+        return "text-gray-400"
+    }
+  }
+
+  const progress = ((currentProblem + 1) / problems.length) * 100
+  const criticalViolations = violations.filter((v) => v.type === "critical").length
+  const warningViolations = violations.filter((v) => v.type === "warning").length
+
+  useEffect(() => {
+    if (monacoEditorRef.current) {
+      const monaco = require("monaco-editor")
+      const model = monacoEditorRef.current.getModel()
+      if (model) {
+        monaco.editor.setModelLanguage(model, languages.find((l) => l.id === language)?.monacoId || "javascript")
+      }
+    }
+  }, [language])
+
+  useEffect(() => {
+    if (monacoEditorRef.current) {
+      monacoEditorRef.current.updateOptions({ fontSize })
+      setTimeout(() => {
+        if (monacoEditorRef.current) {
+          monacoEditorRef.current.layout()
+        }
+      }, 100)
+    }
+  }, [fontSize])
+
+  // Initial fullscreen entry without warnings
+  useEffect(() => {
+    const enterInitialFullscreen = async () => {
+      try {
+        if (!document.fullscreenElement) {
+          await document.documentElement.requestFullscreen()
+          setIsFullscreen(true)
+        }
+      } catch (error) {
+        console.error("Initial fullscreen failed:", error)
+      }
+    }
+
+    // Enter fullscreen immediately when component mounts
+    enterInitialFullscreen()
+  }, [])
+
+  return (
+    <div className="h-screen bg-[#0a0b0d] text-white overflow-hidden">
+      {/* Critical Warning Popup */}
+      {showCriticalWarning && (
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-[9999]">
+          <div className="bg-red-900 border-2 border-red-500 rounded-lg p-8 max-w-md mx-4 animate-pulse">
+            <div className="flex items-center space-x-4 mb-4">
+              <Skull className="w-8 h-8 text-red-400" />
+              <h2 className="text-xl font-bold text-red-400">CRITICAL WARNING</h2>
+            </div>
+            <p className="text-red-200 mb-6">{warningMessage}</p>
+            <div className="flex justify-center">
+              <Button onClick={() => setShowCriticalWarning(false)} className="bg-red-600 hover:bg-red-700 text-white">
+                I UNDERSTAND
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Header - Fixed */}
+      <div className="h-16 bg-[#1a1d21] border-b border-[#2a2d31] p-4 flex items-center justify-between">
+        <div className="flex items-center space-x-4">
+          <div className="w-8 h-8 bg-gradient-to-r from-[#ff4d00] to-[#ff6b35] rounded-lg flex items-center justify-center">
+            <Code className="w-4 h-4 text-white" />
+          </div>
+          <h1 className="text-lg font-semibold">Coding Assessment</h1>
+          <Badge className="bg-red-900/30 text-red-400 border-red-500/30">
+            <Shield className="w-3 h-3 mr-1" />
+            Ultra Secure
+          </Badge>
+          {!isFullscreen && (
+            <Badge className="bg-red-600 text-white border-red-500 animate-pulse">
+              <Ban className="w-3 h-3 mr-1" />
+              FULLSCREEN REQUIRED
+            </Badge>
+          )}
+        </div>
+
+        <div className="flex items-center space-x-6">
+          <div className="flex items-center space-x-2 bg-red-900/30 border border-red-500/30 px-3 py-1 rounded">
+            <Clock className="w-4 h-4 text-red-400" />
+            <span className="font-mono font-bold text-red-400">{formatTime(timeLeft)}</span>
+          </div>
+
+          <div className="flex items-center space-x-2 bg-orange-900/30 border border-orange-500/30 px-3 py-1 rounded">
+            <Clock className="w-4 h-4 text-orange-400" />
+            <span className="font-mono font-bold text-orange-400">{formatTime(problemTimeLeft)}</span>
+          </div>
+
+          {criticalViolations > 0 && (
+            <div className="flex items-center space-x-2 bg-red-900/30 border border-red-500/30 px-3 py-1 rounded animate-pulse">
+              <AlertTriangle className="w-4 h-4 text-red-400" />
+              <span className="text-red-400 font-bold">{criticalViolations}</span>
+            </div>
+          )}
+
+          {warningViolations > 0 && (
+            <div className="flex items-center space-x-2 bg-yellow-900/30 border border-yellow-500/30 px-3 py-1 rounded">
+              <AlertTriangle className="w-4 h-4 text-yellow-400" />
+              <span className="text-yellow-400 font-bold">{warningViolations}</span>
+            </div>
+          )}
+
+          <div className="flex items-center space-x-2 bg-green-900/30 border border-green-500/30 px-3 py-1 rounded">
+            <Camera className="w-4 h-4 text-green-400" />
+            <Eye className="w-4 h-4 text-green-400" />
+            <Mic className="w-4 h-4 text-green-400" />
+          </div>
+
+          <Button
+            onClick={() => {
+              if (window.confirm("Are you sure you want to end the test? This action cannot be undone.")) {
+                submitExam(false, "Manual submission by candidate")
+              }
+            }}
+            variant="destructive"
+            size="sm"
+            className="bg-red-600 hover:bg-red-700 text-white border-red-500"
+          >
+            End Test
+          </Button>
+        </div>
+      </div>
+
+      {/* Main Content - Fixed Height */}
+      <div className="h-[calc(100vh-64px)] flex">
+        {/* Left Panel - Problem Description - Fixed Width */}
+        <div className="w-96 border-r border-[#2a2d31] flex flex-col">
+          {/* Problem Header - Fixed */}
+          <div className="h-20 p-4 border-b border-[#2a2d31] flex-shrink-0">
+            <div className="flex items-center justify-between mb-2">
+              <h2 className="text-lg font-bold truncate">{problems[currentProblem].title}</h2>
+              <Badge className={getDifficultyColor(problems[currentProblem].difficulty)}>
+                {problems[currentProblem].difficulty}
+              </Badge>
+            </div>
+            <div className="flex items-center space-x-4 text-xs text-gray-400">
+              <span>
+                Problem {currentProblem + 1} of {problems.length}
+              </span>
+              <span>{problems[currentProblem].marks} marks</span>
+            </div>
+            <Progress value={progress} className="h-1 mt-2 bg-[#2a2d31]" />
+          </div>
+
+          {/* Tabs - Fixed */}
+          <div className="h-12 flex border-b border-[#2a2d31] flex-shrink-0">
+            {[
+              { id: "description", label: "Description", icon: FileText },
+              { id: "submissions", label: "Submissions", icon: CheckCircle },
+            ].map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id as any)}
+                className={`flex items-center space-x-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
+                  activeTab === tab.id
+                    ? "border-[#ff4d00] text-[#ff4d00]"
+                    : "border-transparent text-gray-400 hover:text-gray-300"
+                }`}
+              >
+                <tab.icon className="w-4 h-4" />
+                <span>{tab.label}</span>
+              </button>
+            ))}
+          </div>
+
+          {/* Tab Content - ONLY SCROLLABLE SECTION */}
+          <div className="flex-1 overflow-y-auto p-4">
+            {activeTab === "description" && (
+              <div className="space-y-6">
+                <div>
+                  <p className="text-gray-300 leading-relaxed whitespace-pre-line">
+                    {problems[currentProblem].description}
+                  </p>
+                </div>
+
+                <div>
+                  <h3 className="text-lg font-semibold mb-3">Examples</h3>
+                  {problems[currentProblem].examples.map((example, index) => (
+                    <div key={index} className="mb-4 p-4 bg-[#1a1d21] rounded-lg border border-[#2a2d31]">
+                      <div className="mb-2">
+                        <strong className="text-gray-300">Input:</strong>
+                        <code className="ml-2 text-[#ff4d00]">{example.input}</code>
+                      </div>
+                      <div className="mb-2">
+                        <strong className="text-gray-300">Output:</strong>
+                        <code className="ml-2 text-[#ff4d00]">{example.output}</code>
+                      </div>
+                      {example.explanation && (
+                        <div>
+                          <strong className="text-gray-300">Explanation:</strong>
+                          <span className="ml-2 text-gray-400">{example.explanation}</span>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+
+                <div>
+                  <h3 className="text-lg font-semibold mb-3">Constraints</h3>
+                  <ul className="space-y-1">
+                    {problems[currentProblem].constraints.map((constraint, index) => (
+                      <li key={index} className="text-gray-400">
+                        • {constraint}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+            )}
+
+            {activeTab === "submissions" && (
+              <div className="space-y-4">
+                {submissions.length === 0 ? (
+                  <div className="text-center text-gray-400 py-8">
+                    <CheckCircle className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                    <p>No submissions yet</p>
+                  </div>
+                ) : (
+                  submissions.map((submission) => (
+                    <div key={submission.id} className="p-4 bg-[#1a1d21] rounded-lg border border-[#2a2d31]">
+                      <div className="flex items-center justify-between mb-2">
+                        <Badge
+                          className={
+                            submission.status === "Accepted"
+                              ? "bg-green-900/30 text-green-400 border-green-500/30"
+                              : "bg-yellow-900/30 text-yellow-400 border-yellow-500/30"
+                          }
+                        >
+                          {submission.status}
+                        </Badge>
+                        <span className="text-sm text-gray-400">
+                          {new Date(submission.timestamp).toLocaleTimeString()}
+                        </span>
+                      </div>
+                      <div className="flex items-center space-x-4 text-sm text-gray-400">
+                        <span>Score: {submission.score}%</span>
+                        <span>
+                          Tests: {submission.passedTests}/{submission.totalTests}
+                        </span>
+                        <span>Runtime: {submission.runtime}ms</span>
+                        <span>Memory: {submission.memory}KB</span>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Middle Panel - Code Editor - Flexible Width */}
+        <div className="flex-1 flex flex-col">
+          {/* Editor Header - Fixed */}
+          <div className="h-14 p-4 border-b border-[#2a2d31] flex items-center justify-between flex-shrink-0">
+            <div className="flex items-center space-x-4">
+              <select
+                value={language}
+                onChange={(e) => setLanguage(e.target.value)}
+                className="bg-[#2a2d31] border border-[#3a3d41] rounded px-3 py-1 text-sm text-white"
+              >
+                {languages.map((lang) => (
+                  <option key={lang.id} value={lang.id}>
+                    {lang.name}
+                  </option>
+                ))}
+              </select>
+
+              <div className="flex items-center space-x-2">
+                <button
+                  onClick={() => setFontSize((prev) => Math.max(prev - 2, 10))}
+                  className="p-1 text-gray-400 hover:text-white"
+                >
+                  <ZoomOut className="w-4 h-4" />
+                </button>
+                <span className="text-sm text-gray-400 min-w-[3rem] text-center">{fontSize}px</span>
+                <button
+                  onClick={() => setFontSize((prev) => Math.min(prev + 2, 24))}
+                  className="p-1 text-gray-400 hover:text-white"
+                >
+                  <ZoomIn className="w-4 h-4" />
+                </button>
+              </div>
+
+              {editorLoaded && (
+                <Badge className="bg-green-900/30 text-green-400 border-green-500/30 text-xs">Editor Ready</Badge>
+              )}
+            </div>
+
+            <div className="flex items-center space-x-2">
+              <Button
+                onClick={runCode}
+                disabled={isRunning || !editorLoaded}
+                variant="outline"
+                size="sm"
+                className="border-[#2a2d31] text-gray-300 hover:bg-[#2a2d31]"
+              >
+                {isRunning ? (
+                  <>
+                    <Square className="w-4 h-4 mr-2" />
+                    Running...
+                  </>
+                ) : (
+                  <>
+                    <Play className="w-4 h-4 mr-2" />
+                    Run
+                  </>
+                )}
+              </Button>
+
+              <Button
+                onClick={submitCode}
+                disabled={isSubmitting || !editorLoaded}
+                className="bg-gradient-to-r from-[#ff4d00] to-[#ff6b35] hover:from-[#e63900] hover:to-[#ff5722] text-white"
+                size="sm"
+              >
+                {isSubmitting ? "Submitting..." : "Submit"}
+              </Button>
+            </div>
+          </div>
+
+          {/* Monaco Editor - Fixed Height */}
+          <div className="flex-1 relative bg-[#1e1e1e]">
+            <div ref={editorRef} className="absolute inset-0" />
+            {!editorLoaded && (
+              <div className="absolute inset-0 flex items-center justify-center bg-[#1e1e1e]">
+                <div className="text-center">
+                  <div className="w-8 h-8 border-2 border-[#ff6b35] border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+                  <p className="text-gray-400">Loading Editor...</p>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Test Cases Section - Fixed Height */}
+          <div className="h-64 border-t border-[#2a2d31] bg-[#1a1d21] flex-shrink-0">
+            <div className="h-10 flex items-center justify-between p-3 border-b border-[#2a2d31]">
+              <div className="flex items-center space-x-4">
+                <button className="flex items-center space-x-2 text-sm font-medium text-[#ff4d00]">
+                  <TestTube className="w-4 h-4" />
+                  <span>Test Cases</span>
+                </button>
+                <div className="flex items-center space-x-2 text-xs">
+                  <span className="text-gray-400">
+                    Passed: {testResults.filter((t) => t.status === "passed").length}/{testResults.length}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div className="h-[calc(100%-40px)] flex">
+              {/* Test Cases List */}
+              <div className="w-1/3 border-r border-[#2a2d31] p-2 overflow-y-auto">
+                <div className="space-y-2">
+                  {testResults.map((testCase, index) => (
+                    <div
+                      key={testCase.id}
+                      className={`p-3 rounded border text-sm ${
+                        testCase.status === "passed"
+                          ? "bg-green-900/20 border-green-500/30 text-green-400"
+                          : testCase.status === "failed"
+                            ? "bg-red-900/20 border-red-500/30 text-red-400"
+                            : testCase.status === "running"
+                              ? "bg-yellow-900/20 border-yellow-500/30 text-yellow-400"
+                              : "bg-[#2a2d31] border-[#3a3d41] text-gray-400"
+                      }`}
+                    >
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="font-medium">Test Case {index + 1}</span>
+                        <div className="flex items-center space-x-1">
+                          {testCase.type === "private" ? <Lock className="w-3 h-3" /> : <Unlock className="w-3 h-3" />}
+                          {testCase.status === "passed" && <Check className="w-3 h-3" />}
+                          {testCase.status === "failed" && <X className="w-3 h-3" />}
+                          {testCase.status === "running" && (
+                            <div className="w-3 h-3 border border-current border-t-transparent rounded-full animate-spin"></div>
+                          )}
+                        </div>
+                      </div>
+                      <div className="text-xs opacity-75">
+                        {testCase.type === "public" ? "Public Test" : "Private Test"}
+                      </div>
+                      {testCase.runtime !== undefined && (
+                        <div className="text-xs opacity-75 mt-1">
+                          {testCase.runtime}ms • {testCase.memory}KB
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Console Output */}
+              <div className="flex-1 p-4 overflow-y-auto">
+                {consoleOutput.length === 0 ? (
+                  <div className="text-gray-400 text-sm">Click "Run" to test your code against all test cases</div>
+                ) : (
+                  <div className="space-y-1">
+                    {consoleOutput.map((line, index) => (
+                      <div key={index} className="text-sm font-mono text-gray-300">
+                        {line}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Right Panel - Monitoring Sidebar - Fixed Width */}
+        <div className="w-80 bg-[#1a1d21] border-l border-[#2a2d31] p-4 flex flex-col">
+          <div className="mb-6 flex-shrink-0">
+            <h3 className="text-sm font-medium text-gray-300 mb-2">Live Monitoring</h3>
+            <video
+              ref={videoRef}
+              autoPlay
+              muted
+              className="w-full h-32 bg-[#0a0b0d] rounded object-cover border border-[#2a2d31]"
+            />
+            <div className="mt-2 text-xs text-green-400 text-center">
+              <Eye className="w-3 h-3 inline mr-1" />
+              AI Monitoring Active
+            </div>
+            <div className="mt-1 flex justify-center space-x-2 text-xs">
+              {faceDetectionActive && (
+                <Badge className="bg-blue-900/30 text-blue-400 border-blue-500/30 text-xs">FACE</Badge>
+              )}
+              {eyeTrackingActive && (
+                <Badge className="bg-purple-900/30 text-purple-400 border-purple-500/30 text-xs">EYE</Badge>
+              )}
+            </div>
+          </div>
+
+          <div className="mb-6 flex-shrink-0">
+            <h3 className="text-sm font-medium text-gray-300 mb-3">Problems</h3>
+            <div className="space-y-2">
+              {problems.map((problem, index) => (
+                <button
+                  key={index}
+                  onClick={() => {
+                    setCurrentProblem(index)
+                    setProblemTimeLeft(problem.timeLimit * 60)
+                  }}
+                  className={`w-full text-left p-3 rounded border transition-colors ${
+                    index === currentProblem
+                      ? "bg-gradient-to-r from-[#ff4d00] to-[#ff6b35] text-white border-transparent"
+                      : submissions.some((s) => s.id === problem.id)
+                        ? "bg-green-600 text-white border-transparent"
+                        : "bg-[#2a2d31] text-gray-300 border-[#3a3d41] hover:border-[#ff4d00]/30"
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="font-medium text-sm">{problem.title}</span>
+                    <Badge className={`text-xs ${getDifficultyColor(problem.difficulty)}`}>{problem.difficulty}</Badge>
+                  </div>
+                  <div className="text-xs opacity-75 mt-1">
+                    {problem.marks} marks • {problem.timeLimit}min
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="bg-[#0a0b0d] p-4 rounded border border-[#2a2d31] mb-4 flex-shrink-0">
+            <h3 className="text-sm font-medium text-gray-300 mb-3">Security Status</h3>
+            <div className="space-y-2 text-xs">
+              <div className="flex items-center justify-between">
+                <span className="text-gray-400">Fullscreen</span>
+                <Badge
+                  className={
+                    isFullscreen
+                      ? "bg-green-900/30 text-green-400 border-green-500/30"
+                      : "bg-red-900/30 text-red-400 border-red-500/30"
+                  }
+                >
+                  {isFullscreen ? "Active" : "Violated"}
+                </Badge>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-gray-400">Tab Switches</span>
+                <Badge
+                  className={
+                    tabSwitchCount === 0
+                      ? "bg-green-900/30 text-green-400 border-green-500/30"
+                      : "bg-red-900/30 text-red-400 border-red-500/30"
+                  }
+                >
+                  {tabSwitchCount}
+                </Badge>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-gray-400">Critical Violations</span>
+                <Badge
+                  className={
+                    criticalViolations === 0
+                      ? "bg-green-900/30 text-green-400 border-green-500/30"
+                      : "bg-red-900/30 text-red-400 border-red-500/30"
+                  }
+                >
+                  {criticalViolations}
+                </Badge>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-gray-400">Warnings</span>
+                <Badge
+                  className={
+                    warningViolations === 0
+                      ? "bg-green-900/30 text-green-400 border-green-500/30"
+                      : "bg-yellow-900/30 text-yellow-400 border-yellow-500/30"
+                  }
+                >
+                  {warningViolations}
+                </Badge>
+              </div>
+            </div>
+          </div>
+
+          {violations.length > 0 && (
+            <div className="bg-[#0a0b0d] p-4 rounded border border-[#2a2d31] flex-1 min-h-0">
+              <h3 className="text-sm font-medium text-gray-300 mb-2">Security Alerts</h3>
+              <div className="space-y-1 h-full overflow-y-auto">
+                {violations
+                  .slice(-10)
+                  .reverse()
+                  .map((violation, index) => (
+                    <div key={violation.id} className={`text-xs ${getViolationColor(violation.type)}`}>
+                      <div className="font-medium">{violation.type.toUpperCase()}</div>
+                      <div className="opacity-75">{violation.message}</div>
+                      <div className="opacity-50">{violation.timestamp.toLocaleTimeString()}</div>
+                    </div>
+                  ))}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Security Warnings - Fixed Position */}
+      {criticalViolations > 0 && (
+        <Alert className="fixed bottom-4 right-4 w-96 bg-red-900/20 border-red-500/50 z-50 animate-pulse">
+          <AlertTriangle className="h-4 w-4 text-red-400" />
+          <AlertDescription className="text-red-400">
+            <strong>CRITICAL ALERT:</strong> {criticalViolations} critical violation(s) detected. Exam will auto-submit
+            after 5 critical violations.
+          </AlertDescription>
+        </Alert>
+      )}
+    </div>
+  )
+}
