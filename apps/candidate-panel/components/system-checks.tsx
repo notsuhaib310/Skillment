@@ -158,11 +158,24 @@ export default function SystemChecks({ onComplete }: SystemChecksProps) {
   }, [])
 
   const runSystemChecks = async () => {
-    for (let i = 0; i < checks.length; i++) {
-      setCurrentCheckIndex(i)
-      await runSingleCheck(checks[i].id, i)
-      await new Promise((resolve) => setTimeout(resolve, 800)) // Delay between checks
+    // First check non-permission requirements
+    const nonPermissionChecks = ["internet", "bandwidth", "screen_resolution", "browser_compatibility", "system_resources", "battery_status"]
+    for (const checkId of nonPermissionChecks) {
+      const index = checks.findIndex(c => c.id === checkId)
+      setCurrentCheckIndex(index)
+      await runSingleCheck(checkId, index)
+      await new Promise((resolve) => setTimeout(resolve, 800))
     }
+
+    // Then request permissions in sequence
+    const permissionChecks = ["camera", "camera_quality", "microphone", "audio_quality", "location", "photo_capture"]
+    for (const checkId of permissionChecks) {
+      const index = checks.findIndex(c => c.id === checkId)
+      setCurrentCheckIndex(index)
+      await runSingleCheck(checkId, index)
+      await new Promise((resolve) => setTimeout(resolve, 800))
+    }
+
     setAllChecksComplete(true)
   }
 
@@ -244,12 +257,20 @@ export default function SystemChecks({ onComplete }: SystemChecksProps) {
 
   const checkCamera = async (checkId: string) => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true })
+      // Request camera permission explicitly
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        video: { 
+          width: { ideal: 1280 },
+          height: { ideal: 720 }
+        } 
+      })
       const videoTrack = stream.getVideoTracks()[0]
       const settings = videoTrack.getSettings()
+      const width = typeof settings.width === 'number' ? settings.width : 0
+      const height = typeof settings.height === 'number' ? settings.height : 0
 
       stream.getTracks().forEach((track) => track.stop())
-      updateCheck(checkId, "success", `Camera access granted (${settings.width}x${settings.height})`)
+      updateCheck(checkId, "success", `Camera access granted (${width}x${height})`)
     } catch (error: any) {
       updateCheck(checkId, "error", `Camera access denied: ${error.message}`)
     }
@@ -277,7 +298,14 @@ export default function SystemChecks({ onComplete }: SystemChecksProps) {
 
   const checkMicrophone = async (checkId: string) => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      // Request microphone permission explicitly
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true
+        } 
+      })
       const audioTrack = stream.getAudioTracks()[0]
       const settings = audioTrack.getSettings()
 
@@ -312,11 +340,17 @@ export default function SystemChecks({ onComplete }: SystemChecksProps) {
 
   const checkLocation = async (checkId: string) => {
     try {
+      // Request location permission explicitly with high accuracy
       const position = await new Promise<GeolocationPosition>((resolve, reject) => {
-        navigator.geolocation.getCurrentPosition(resolve, reject, {
-          timeout: 10000,
-          enableHighAccuracy: true,
-        })
+        navigator.geolocation.getCurrentPosition(
+          resolve,
+          reject,
+          {
+            enableHighAccuracy: true,
+            timeout: 10000,
+            maximumAge: 0
+          }
+        )
       })
 
       updateCheck(checkId, "success", `Location acquired (±${Math.round(position.coords.accuracy)}m accuracy)`)
@@ -462,6 +496,7 @@ export default function SystemChecks({ onComplete }: SystemChecksProps) {
 
   const criticalErrors = checks.filter((c) => c.critical && c.status === "error").length
   const totalErrors = checks.filter((c) => c.status === "error").length
+  const isDevelopment = process.env.NODE_ENV === 'development'
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#0a0b0d] p-4">
@@ -475,6 +510,19 @@ export default function SystemChecks({ onComplete }: SystemChecksProps) {
           <CardTitle className="text-2xl font-bold text-white">Advanced System Verification</CardTitle>
           <p className="text-gray-400">Comprehensive security and compatibility assessment</p>
 
+          {/* Permission Notice */}
+          <div className="mt-4 p-4 bg-blue-900/20 border border-blue-500/50 rounded-lg">
+            <p className="text-blue-400 text-sm">
+              This assessment requires access to your camera, microphone, and location. 
+              Please allow these permissions when prompted to ensure a smooth testing experience.
+              {isDevelopment && (
+                <span className="block mt-2 text-yellow-400">
+                  Development Mode: You can proceed even if some permissions are not granted.
+                </span>
+              )}
+            </p>
+          </div>
+
           {/* Overall Progress */}
           <div className="mt-4">
             <div className="flex justify-between items-center mb-2">
@@ -486,7 +534,7 @@ export default function SystemChecks({ onComplete }: SystemChecksProps) {
         </CardHeader>
 
         <CardContent className="space-y-4">
-          {criticalErrors > 0 && (
+          {criticalErrors > 0 && !isDevelopment && (
             <Alert className="bg-red-900/20 border-red-500/50">
               <AlertTriangle className="h-4 w-4 text-red-400" />
               <AlertDescription className="text-red-400">
@@ -495,61 +543,41 @@ export default function SystemChecks({ onComplete }: SystemChecksProps) {
             </Alert>
           )}
 
+          {criticalErrors > 0 && isDevelopment && (
+            <Alert className="bg-yellow-900/20 border-yellow-500/50">
+              <AlertTriangle className="h-4 w-4 text-yellow-400" />
+              <AlertDescription className="text-yellow-400">
+                {criticalErrors} critical system requirement(s) failed. Development mode: You can proceed anyway.
+              </AlertDescription>
+            </Alert>
+          )}
+
           {/* System Checks Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-96 overflow-y-auto">
-            {checks.map((check, index) => {
-              const Icon = check.icon
-              const isActive = index <= currentCheckIndex
-              const isCurrent = index === currentCheckIndex
-
-              return (
-                <div
-                  key={check.id}
-                  className={`flex items-center justify-between p-3 rounded-lg border transition-all ${
-                    isCurrent
-                      ? "border-[#ff4d00] bg-[#ff4d00]/5 shadow-lg"
-                      : isActive
-                        ? check.status === "success"
-                          ? "border-green-500/30 bg-green-900/10"
-                          : check.status === "error"
-                            ? "border-red-500/30 bg-red-900/10"
-                            : "border-[#2a2d31] bg-[#2a2d31]/50"
-                        : "border-[#2a2d31] bg-[#2a2d31]/30"
-                  }`}
-                >
-                  <div className="flex items-center space-x-3 flex-1">
-                    <Icon
-                      className={`w-5 h-5 ${
-                        isCurrent
-                          ? "text-[#ff4d00]"
-                          : check.status === "success"
-                            ? "text-green-400"
-                            : check.status === "error"
-                              ? "text-red-400"
-                              : isActive
-                                ? "text-[#ff4d00]"
-                                : "text-gray-500"
-                      }`}
-                    />
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center space-x-2">
-                        <h3 className="font-medium text-white text-sm">{check.name}</h3>
-                        {check.critical && (
-                          <Badge className="bg-red-900/30 text-red-400 border-red-500/30 hover:bg-red-900/30 text-xs">
-                            Critical
-                          </Badge>
-                        )}
-                      </div>
-                      <p className="text-xs text-gray-400 truncate">{check.message}</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    {getStatusBadge(check.status)}
-                    {getStatusIcon(check.status)}
+            {checks.map((check) => (
+              <div
+                key={check.id}
+                className="flex items-center justify-between p-3 bg-[#2a2d31] rounded-lg border border-[#3a3d41]"
+              >
+                <div className="flex items-center gap-3">
+                  {getStatusIcon(check.status)}
+                  <div>
+                    <h3 className="text-white font-medium">{check.name}</h3>
+                    <p className="text-sm text-gray-400">{check.message}</p>
                   </div>
                 </div>
-              )
-            })}
+                {check.critical && !isDevelopment && (
+                  <span className="text-xs px-2 py-1 bg-red-500/10 text-red-500 rounded">
+                    Critical
+                  </span>
+                )}
+                {check.critical && isDevelopment && (
+                  <span className="text-xs px-2 py-1 bg-yellow-500/10 text-yellow-500 rounded">
+                    Critical (Dev)
+                  </span>
+                )}
+              </div>
+            ))}
           </div>
 
           {/* Photo Preview */}
@@ -584,17 +612,20 @@ export default function SystemChecks({ onComplete }: SystemChecksProps) {
             </div>
           )}
 
-          <div className="flex justify-center pt-4">
+          <div className="flex justify-end gap-3 mt-6">
+            <Button
+              variant="outline"
+              onClick={() => runSystemChecks()}
+              className="text-gray-400 hover:text-white"
+            >
+              Recheck All
+            </Button>
             <Button
               onClick={handleContinue}
-              disabled={!allChecksComplete || criticalErrors > 0}
-              className="px-8 py-3 bg-gradient-to-r from-[#ff4d00] to-[#ff6b35] hover:from-[#e63900] hover:to-[#ff5722] text-white font-medium shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={!isDevelopment && criticalErrors > 0}
+              className="bg-[#ff4d00] hover:bg-[#ff6b35] text-white"
             >
-              {!allChecksComplete
-                ? "Running System Checks..."
-                : criticalErrors > 0
-                  ? "Resolve Critical Issues"
-                  : "Continue to Assessment"}
+              Continue
             </Button>
           </div>
         </CardContent>
