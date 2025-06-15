@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import { ChevronDown, Settings, Maximize2, RotateCcw, Play, Clock, MemoryStick, Zap, CheckCircle } from "lucide-react"
-import ProfessionalCodeEditor from "@/components/ProfessionalCodeEditor"
+import MonaccoEditor from "@/components/MonaccoEditor"
 import type { Language, SubmissionResult } from "@/lib/types"
 import { SUPPORTED_LANGUAGES } from "@/lib/constants"
 
@@ -102,7 +102,7 @@ export default function CodeEditorPanel({
 
       {/* Code Editor - 60% */}
       <div className="flex-1 bg-[#1a1a1a] overflow-hidden" style={{ height: "60%" }}>
-        <ProfessionalCodeEditor code={code} language={selectedLanguage} onChange={onCodeChange} />
+        <MonaccoEditor code={code} language={selectedLanguage} onChange={onCodeChange} />
       </div>
 
       {/* Status Panel - 40% */}
