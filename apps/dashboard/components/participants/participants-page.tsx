@@ -62,9 +62,8 @@ const assessments = [
 ]
 
 const statusColors = {
-  completed: "bg-emerald-500/20 text-emerald-400 border-emerald-500/30",
-  ongoing: "bg-blue-500/20 text-blue-400 border-blue-500/30",
-  "not-started": "bg-amber-500/20 text-amber-400 border-amber-500/30",
+  active: "bg-emerald-500/20 text-emerald-400 border-emerald-500/30",
+  inactive: "bg-amber-500/20 text-amber-400 border-amber-500/30",
 }
 
 const performanceColors = {
@@ -591,9 +590,9 @@ export function ParticipantsPage() {
                   </TableCell>
                   <TableCell>
                     <Badge
-                      className={`rounded-2xl border ${statusColors[participant.status as keyof typeof statusColors]} font-medium`}
+                      className={`rounded-2xl border ${statusColors.active} font-medium`}
                     >
-                      {participant.status.replace("-", " ")}
+                      Active
                     </Badge>
                   </TableCell>
                   <TableCell>
@@ -613,16 +612,6 @@ export function ParticipantsPage() {
                           }}
                         />
                       </div>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-2">
-                      <div
-                        className={`font-semibold ${performanceColors[participant.performance as keyof typeof performanceColors]}`}
-                      >
-                        {participant.score > 0 ? `${participant.score}%` : "-"}
-                      </div>
-                      {participant.performance === "excellent" && <Star className="h-4 w-4 text-emerald-400" />}
                     </div>
                   </TableCell>
                   <TableCell>

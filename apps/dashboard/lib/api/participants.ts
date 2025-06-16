@@ -10,22 +10,8 @@ export interface Participant {
   tags: string[]
   createdAt: string
   updatedAt: string
-  status: "completed" | "ongoing" | "not-started"
-  score: number
-  performance: "excellent" | "good" | "average" | "pending"
   avatar?: string
   lastActivity?: string
-  completedAssessments: number
-  ongoingAssessments: number
-  notStartedAssessments: number
-  totalAssessments: number
-  assessmentHistory: Array<{
-    id: string
-    score: number
-    type: string
-    notes?: string
-    createdAt: string
-  }>
   activityLogs: Array<{
     id: string
     activity: string
@@ -106,18 +92,5 @@ export const participantsApi = {
   // Delete a participant
   deleteParticipant: async (id: string): Promise<void> => {
     await api.delete(`/participants/${id}`)
-  },
-
-  // Add assessment for a participant
-  addAssessment: async (
-    id: string,
-    data: {
-      score: number
-      type: string
-      notes?: string
-    }
-  ): Promise<ParticipantResponse> => {
-    const response = await api.post(`/participants/${id}/assessments`, data)
-    return response.data
-  },
+  }
 } 
