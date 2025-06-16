@@ -33,10 +33,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Progress } from "@/components/ui/progress"
 import { XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, BarChart, Bar } from "recharts"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { useState, useEffect } from "react"
+import { Select, SelectContent, SelectItem, SelectTrigger } from "@/components/ui/select"
+import { useState } from "react"
 import { useRouter } from "next/navigation"
-import { verifySession } from "@/lib/auth-client"
 
 // Mock data for charts
 const chartData = [
@@ -142,25 +141,13 @@ const activityIcons = {
   interview: Calendar,
 }
 
-export function DashboardContent() {
+interface DashboardContentProps {
+  user: any
+}
+
+export function DashboardContent({ user }: DashboardContentProps) {
   const [activityFilter, setActivityFilter] = useState("all")
-  const [user, setUser] = useState<any>(null)
   const router = useRouter()
-
-  useEffect(() => {
-    const verifyAuth = async () => {
-      try {
-        const session = await verifySession()
-        if (session.success) {
-          setUser(session.user)
-        }
-      } catch (error) {
-        console.error("Auth verification error:", error)
-      }
-    }
-
-    verifyAuth()
-  }, [])
 
   const filteredActivities = recentActivities.filter(
     (activity) => activityFilter === "all" || activity.category === activityFilter,
@@ -172,16 +159,16 @@ export function DashboardContent() {
       <div className="space-y-2">
         <div className="flex items-center gap-3">
           <h1 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text">
-            Welcome back, {user?.firstName}
+            Welcome back, {user?.firstName || "User"}
           </h1>
           <Sparkles className="h-6 w-6 text-primary" />
         </div>
-        <p className="text-muted-foreground">Here's what's happening with your talent assessments today.</p>
+        <p className="text-muted-foreground">{"Here's what's happening with your talent assessments today."}</p>
       </div>
 
       {/* Enhanced Metrics Cards */}
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
-        <Card className="card-gradient rounded-3xl border-border/40 shadow-xl backdrop-blur-sm">
+        <Card className="rounded-3xl border-border/40 shadow-xl backdrop-blur-sm bg-gradient-to-br from-card to-card/50">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-foreground">Total Participants</CardTitle>
             <div className="rounded-2xl bg-blue-500/10 p-2">
@@ -199,7 +186,7 @@ export function DashboardContent() {
           </CardContent>
         </Card>
 
-        <Card className="card-gradient rounded-3xl border-border/40 shadow-xl backdrop-blur-sm">
+        <Card className="rounded-3xl border-border/40 shadow-xl backdrop-blur-sm bg-gradient-to-br from-card to-card/50">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-foreground">Assessments Created</CardTitle>
             <div className="rounded-2xl bg-purple-500/10 p-2">
@@ -217,7 +204,7 @@ export function DashboardContent() {
           </CardContent>
         </Card>
 
-        <Card className="card-gradient rounded-3xl border-border/40 shadow-xl backdrop-blur-sm">
+        <Card className="rounded-3xl border-border/40 shadow-xl backdrop-blur-sm bg-gradient-to-br from-card to-card/50">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-foreground">Invitations Sent</CardTitle>
             <div className="rounded-2xl bg-green-500/10 p-2">
@@ -235,7 +222,7 @@ export function DashboardContent() {
           </CardContent>
         </Card>
 
-        <Card className="card-gradient rounded-3xl border-border/40 shadow-xl backdrop-blur-sm">
+        <Card className="rounded-3xl border-border/40 shadow-xl backdrop-blur-sm bg-gradient-to-br from-card to-card/50">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-foreground">Upcoming Interviews</CardTitle>
             <div className="rounded-2xl bg-orange-500/10 p-2">
@@ -253,7 +240,7 @@ export function DashboardContent() {
           </CardContent>
         </Card>
 
-        <Card className="card-gradient rounded-3xl border-border/40 shadow-xl backdrop-blur-sm">
+        <Card className="rounded-3xl border-border/40 shadow-xl backdrop-blur-sm bg-gradient-to-br from-card to-card/50">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-foreground">Avg. Score This Month</CardTitle>
             <div className="rounded-2xl bg-cyan-500/10 p-2">
@@ -271,7 +258,7 @@ export function DashboardContent() {
           </CardContent>
         </Card>
 
-        <Card className="card-gradient rounded-3xl border-border/40 shadow-xl backdrop-blur-sm">
+        <Card className="rounded-3xl border-border/40 shadow-xl backdrop-blur-sm bg-gradient-to-br from-card to-card/50">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-foreground">Proctoring Alerts</CardTitle>
             <div className="rounded-2xl bg-red-500/10 p-2">
@@ -291,7 +278,7 @@ export function DashboardContent() {
       </div>
 
       {/* Quick Actions */}
-      <Card className="card-gradient rounded-3xl border-border/40 shadow-xl backdrop-blur-sm">
+      <Card className="rounded-3xl border-border/40 shadow-xl backdrop-blur-sm bg-gradient-to-br from-card to-card/50">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-foreground">
             <Zap className="h-5 w-5 text-primary" />
@@ -302,7 +289,7 @@ export function DashboardContent() {
           <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
             <Button
               onClick={() => router.push("/dashboard/assessments")}
-              className="h-20 flex-col gap-2 rounded-2xl primary-gradient glow-primary"
+              className="h-20 flex-col gap-2 rounded-2xl bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70"
             >
               <Plus className="h-5 w-5" />
               <span className="text-sm">Create Assessment</span>
@@ -347,7 +334,7 @@ export function DashboardContent() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Recent Assessments Table */}
         <div className="lg:col-span-2">
-          <Card className="card-gradient rounded-3xl border-border/40 shadow-xl backdrop-blur-sm">
+          <Card className="rounded-3xl border-border/40 shadow-xl backdrop-blur-sm bg-gradient-to-br from-card to-card/50">
             <CardHeader>
               <CardTitle className="text-foreground">Recent Assessments</CardTitle>
             </CardHeader>
@@ -441,7 +428,7 @@ export function DashboardContent() {
 
         {/* Recent Activity Feed */}
         <div className="lg:col-span-1">
-          <Card className="card-gradient rounded-3xl border-border/40 shadow-xl backdrop-blur-sm">
+          <Card className="rounded-3xl border-border/40 shadow-xl backdrop-blur-sm bg-gradient-to-br from-card to-card/50">
             <CardHeader>
               <div className="flex items-center justify-between">
                 <CardTitle className="flex items-center gap-2 text-foreground">
@@ -491,7 +478,7 @@ export function DashboardContent() {
 
       {/* Performance Trends */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        <Card className="card-gradient rounded-3xl border-border/40 shadow-xl backdrop-blur-sm">
+        <Card className="rounded-3xl border-border/40 shadow-xl backdrop-blur-sm bg-gradient-to-br from-card to-card/50">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-foreground">
               <TrendingUp className="h-5 w-5 text-primary" />
@@ -526,7 +513,7 @@ export function DashboardContent() {
           </CardContent>
         </Card>
 
-        <Card className="card-gradient rounded-3xl border-border/40 shadow-xl backdrop-blur-sm">
+        <Card className="rounded-3xl border-border/40 shadow-xl backdrop-blur-sm bg-gradient-to-br from-card to-card/50">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-foreground">
               <Mail className="h-5 w-5 text-primary" />
@@ -559,7 +546,7 @@ export function DashboardContent() {
 
       {/* System Status & Notices */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <Card className="card-gradient rounded-3xl border-border/40 shadow-xl backdrop-blur-sm">
+        <Card className="rounded-3xl border-border/40 shadow-xl backdrop-blur-sm bg-gradient-to-br from-card to-card/50">
           <CardHeader className="pb-3">
             <CardTitle className="flex items-center gap-2 text-sm text-foreground">
               <Settings className="h-4 w-4" />
@@ -573,12 +560,12 @@ export function DashboardContent() {
                 <span className="text-foreground">800/1000</span>
               </div>
               <Progress value={80} className="h-2 rounded-full" />
-              <p className="text-xs text-amber-400">You've used 80% of your email quota</p>
+              <p className="text-xs text-amber-400">{"You've used 80% of your email quota"}</p>
             </div>
           </CardContent>
         </Card>
 
-        <Card className="card-gradient rounded-3xl border-border/40 shadow-xl backdrop-blur-sm">
+        <Card className="rounded-3xl border-border/40 shadow-xl backdrop-blur-sm bg-gradient-to-br from-card to-card/50">
           <CardHeader className="pb-3">
             <CardTitle className="flex items-center gap-2 text-sm text-foreground">
               <AlertTriangle className="h-4 w-4 text-amber-400" />
@@ -603,7 +590,7 @@ export function DashboardContent() {
           </CardContent>
         </Card>
 
-        <Card className="card-gradient rounded-3xl border-border/40 shadow-xl backdrop-blur-sm">
+        <Card className="rounded-3xl border-border/40 shadow-xl backdrop-blur-sm bg-gradient-to-br from-card to-card/50">
           <CardHeader className="pb-3">
             <CardTitle className="flex items-center gap-2 text-sm text-foreground">
               <Bell className="h-4 w-4 text-primary" />
