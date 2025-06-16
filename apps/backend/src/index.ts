@@ -7,7 +7,6 @@ import participantsRouter from './routes/participants';
 import { errorHandler } from './middleware/errorHandler';
 import { PrismaClient } from '@prisma/client';
 import cookieParser from 'cookie-parser';
-import { CORS_OPTIONS } from './config/constants';
 
 // Load environment variables
 config();
@@ -17,14 +16,19 @@ const prisma = new PrismaClient();
 const port = process.env.PORT || 5000;
 
 // Middleware
-app.use(cors(CORS_OPTIONS));
+app.use(cors({
+  origin: ["http://localhost:3000", "http://localhost:3001"],
+  credentials: true,
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"],
+}));
 app.use(express.json());
 app.use(cookieParser());
 app.use(morgan('dev'));
 
 // Health check endpoint
 app.get('/', (_req, res) => {
-  res.json({ status: 'WORKING NIGGA DONT CHECK AGAIN', timestamp: new Date().toISOString() });
+  res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
 // Routes
@@ -35,11 +39,9 @@ app.use('/api/participants', participantsRouter);
 app.use(errorHandler);
 
 // Start server
-if (process.env.NODE_ENV !== 'production') {
-  app.listen(port, () => {
-    console.log(`Server is running on port ${port}`);
-  });
-}
+app.listen(port, () => {
+  console.log(`Server is running on port ${port}`);
+});
 
 export default app;
 

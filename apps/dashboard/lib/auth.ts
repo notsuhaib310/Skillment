@@ -1,19 +1,51 @@
 import { cookies } from 'next/headers'
 
-export async function logout() {
-  // Clear all cookies
-  const cookieStore = await cookies()
-  const allCookies = cookieStore.getAll()
-  
-  allCookies.forEach(cookie => {
-    cookieStore.delete(cookie.name)
-  })
-  
-  // Redirect to login page
-  return {
-    redirect: {
-      destination: '/login',
-      permanent: false,
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api"
+
+export const getAuthToken = () => {
+  if (typeof window === "undefined") return null
+  return localStorage.getItem("auth_token")
+}
+
+export const setAuthToken = (token: string) => {
+  if (typeof window === "undefined") return
+  localStorage.setItem("auth_token", token)
+}
+
+export const removeAuthToken = () => {
+  if (typeof window === "undefined") return
+  localStorage.removeItem("auth_token")
+}
+
+export const getAuthHeaders = () => {
+  const token = getAuthToken()
+  return token ? { Authorization: `Bearer ${token}` } : {}
+}
+
+export const isAuthenticated = () => {
+  return !!getAuthToken()
+}
+
+export const login = async (email: string, password: string) => {
+  const response = await fetch(`${API_URL}/auth/login`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
     },
+    body: JSON.stringify({ email, password }),
+  })
+
+  const data = await response.json()
+
+  if (!response.ok) {
+    throw new Error(data.message || "Login failed")
   }
+
+  // Store token
+  setAuthToken(data.token)
+  return data
+}
+
+export const logout = () => {
+  removeAuthToken()
 } 

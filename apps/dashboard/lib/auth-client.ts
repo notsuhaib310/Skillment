@@ -1,38 +1,40 @@
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api"
 
-export async function verifySession() {
-  try {
-    const response = await fetch(`${API_URL}/auth/verify`, {
-      credentials: "include",
-    })
-    const data = await response.json()
-
-    if (!response.ok) {
-      return { success: false, error: data.message }
-    }
-
-    return { success: true, user: data.user }
-  } catch (error) {
-    console.error("Session verification error:", error)
-    return { success: false, error: "Failed to verify session" }
+export const verifySession = async () => {
+  const token = sessionStorage.getItem("auth_token")
+  if (!token) {
+    throw new Error("No session found")
   }
+
+  const response = await fetch(`${API_URL}/auth/verify`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+    credentials: "include",
+  })
+
+  if (!response.ok) {
+    throw new Error("Session verification failed")
+  }
+
+  return response.json()
 }
 
-export async function logout() {
+export const logout = async () => {
+  const token = sessionStorage.getItem("auth_token")
+  if (!token) {
+    return
+  }
+
   try {
-    const response = await fetch(`${API_URL}/auth/logout`, {
+    await fetch(`${API_URL}/auth/logout`, {
       method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
       credentials: "include",
     })
-
-    if (!response.ok) {
-      const data = await response.json()
-      throw new Error(data.message)
-    }
-
-    return { success: true }
-  } catch (error) {
-    console.error("Logout error:", error)
-    throw error
+  } finally {
+    sessionStorage.removeItem("auth_token")
   }
 } 

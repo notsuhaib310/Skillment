@@ -11,7 +11,10 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Checkbox } from "@/components/ui/checkbox"
 import { ArrowLeft, Eye, EyeOff, User, Building2 } from "lucide-react"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { toast } from "sonner"
 
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api"
 const DASHBOARD_URL = process.env.NEXT_PUBLIC_DASHBOARD_URL || "http://localhost:3001"
 
 export default function SignUpPage() {
@@ -20,6 +23,18 @@ export default function SignUpPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
+  const [formData, setFormData] = useState({
+    firstName: "",
+    lastName: "",
+    email: "",
+    phone: "",
+    gender: "",
+    password: "",
+    confirmPassword: "",
+    orgName: "",
+    orgType: "",
+    orgSize: "",
+  })
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -27,16 +42,21 @@ export default function SignUpPage() {
     setIsLoading(true)
 
     try {
-      const formData = new FormData(event.currentTarget)
-      const result = await registerUser(formData)
+      const response = await fetch(`${API_URL}/auth/register`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(formData),
+      })
 
-      if (!result.success) {
-        setError(result.error || "Registration failed")
-        return
+      if (!response.ok) {
+        throw new Error("Signup failed")
       }
 
-      // Redirect to dashboard app on port 3001
-      window.location.href = `${DASHBOARD_URL}/dashboard`
+      toast.success("Account created successfully! Please login to continue.")
+      // Redirect to dashboard login
+      router.push(`${DASHBOARD_URL}/login`)
     } catch (error: any) {
       setError(error.message || "Registration failed")
     } finally {
@@ -207,290 +227,185 @@ export default function SignUpPage() {
 
       {/* Right Panel - Form Section */}
       <div className="flex-1 flex items-center justify-center p-8 lg:p-16">
-        <div className="w-full max-w-lg">
-          {/* Header */}
-          <div className="mb-8">
-            <div className="flex items-center mb-6">
-              <button className="p-2 hover:bg-gray-100 rounded-full transition-colors mr-3">
-                <ArrowLeft className="w-5 h-5 text-gray-600" />
-              </button>
-              <h1 className="text-2xl font-semibold text-gray-900">Sign up as recruiter</h1>
-            </div>
-          </div>
-
-          {/* Form */}
-          <form onSubmit={handleSubmit} className="space-y-6">
-            {/* Name Fields */}
-            <div className="grid grid-cols-2 gap-4">
+        <Card className="w-[400px]">
+          <CardHeader>
+            <CardTitle>Create an account</CardTitle>
+            <CardDescription>Enter your details to get started</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="firstName" className="text-sm font-medium text-gray-700">
-                  First Name<span className="text-red-500">*</span>
-                </Label>
+                <Label htmlFor="firstName">First Name</Label>
                 <Input
                   id="firstName"
-                  name="firstName"
                   type="text"
+                  placeholder="John"
+                  value={formData.firstName}
+                  onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
                   required
-                  className="h-12 border-gray-200 rounded-lg focus:border-blue-500 focus:ring-blue-500 bg-white"
-                  placeholder="First Name"
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="lastName" className="text-sm font-medium text-gray-700">
-                  Last Name
-                </Label>
+                <Label htmlFor="lastName">Last Name</Label>
                 <Input
                   id="lastName"
-                  name="lastName"
                   type="text"
+                  placeholder="Doe"
+                  value={formData.lastName}
+                  onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
                   required
-                  className="h-12 border-gray-200 rounded-lg focus:border-blue-500 focus:ring-blue-500 bg-white"
-                  placeholder="Last Name"
                 />
               </div>
-            </div>
-
-            {/* Organization Email */}
-            <div className="space-y-2">
-              <Label htmlFor="email" className="text-sm font-medium text-gray-700">
-                Organisation Email<span className="text-red-500">*</span>
-              </Label>
-              <Input
-                id="email"
-                name="email"
-                type="email"
-                required
-                className="h-12 border-gray-200 rounded-lg focus:border-blue-500 focus:ring-blue-500 bg-white"
-                placeholder="Official Email"
-              />
-            </div>
-
-            {/* Phone */}
-            <div className="space-y-2">
-              <Label htmlFor="phone" className="text-sm font-medium text-gray-700">
-                Phone<span className="text-red-500">*</span>
-              </Label>
-              <div className="flex">
-                <Select defaultValue="+91">
-                  <SelectTrigger className="w-20 h-12 border-gray-200 rounded-l-lg border-r-0 focus:border-blue-500 focus:ring-blue-500">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="+91">+91</SelectItem>
-                    <SelectItem value="+1">+1</SelectItem>
-                    <SelectItem value="+44">+44</SelectItem>
-                  </SelectContent>
-                </Select>
+              <div className="space-y-2">
+                <Label htmlFor="email">Email</Label>
                 <Input
-                  id="phone"
-                  name="phone"
-                  type="tel"
+                  id="email"
+                  type="email"
+                  placeholder="name@example.com"
+                  value={formData.email}
+                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                   required
-                  className="flex-1 h-12 border-gray-200 rounded-r-lg border-l-0 focus:border-blue-500 focus:ring-blue-500 bg-white"
-                  placeholder="Phone Number"
                 />
               </div>
-            </div>
-
-            {/* Gender */}
-            <div className="space-y-3">
-              <Label className="text-sm font-medium text-gray-700">
-                Gender<span className="text-red-500">*</span>
-              </Label>
-              <div className="flex space-x-6">
-                <label className="flex items-center space-x-2 cursor-pointer">
-                  <input
-                    type="radio"
-                    name="gender"
-                    value="male"
-                    className="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500"
-                    required
-                  />
-                  <span className="text-sm text-gray-700">Male</span>
-                </label>
-                <label className="flex items-center space-x-2 cursor-pointer">
-                  <input
-                    type="radio"
-                    name="gender"
-                    value="female"
-                    className="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500"
-                    required
-                  />
-                  <span className="text-sm text-gray-700">Female</span>
-                </label>
-                <label className="flex items-center space-x-2 cursor-pointer">
-                  <input
-                    type="radio"
-                    name="gender"
-                    value="other"
-                    className="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500"
-                    required
-                  />
-                  <span className="text-sm text-gray-700">More Options</span>
-                </label>
-              </div>
-            </div>
-
-            {/* Organization Name */}
-            <div className="space-y-2">
-              <Label htmlFor="orgName" className="text-sm font-medium text-gray-700">
-                Organization Name<span className="text-red-500">*</span>
-              </Label>
-              <Input
-                id="orgName"
-                name="orgName"
-                type="text"
-                required
-                className="h-12 border-gray-200 rounded-lg focus:border-blue-500 focus:ring-blue-500 bg-white"
-                placeholder="Organization Name"
-              />
-            </div>
-
-            {/* Organization Type */}
-            <div className="space-y-2">
-              <Label htmlFor="orgType" className="text-sm font-medium text-gray-700">
-                Organization Type<span className="text-red-500">*</span>
-              </Label>
-              <Select name="orgType" required>
-                <SelectTrigger className="h-12 border-gray-200 rounded-lg focus:border-blue-500 focus:ring-blue-500 bg-white">
-                  <SelectValue placeholder="Select organization type" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="startup">Startup</SelectItem>
-                  <SelectItem value="enterprise">Enterprise</SelectItem>
-                  <SelectItem value="agency">Agency</SelectItem>
-                  <SelectItem value="other">Other</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Organization Size */}
-            <div className="space-y-2">
-              <Label htmlFor="orgSize" className="text-sm font-medium text-gray-700">
-                Organization Size<span className="text-red-500">*</span>
-              </Label>
-              <Select name="orgSize" required>
-                <SelectTrigger className="h-12 border-gray-200 rounded-lg focus:border-blue-500 focus:ring-blue-500 bg-white">
-                  <SelectValue placeholder="Select organization size" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="1-10">1-10 employees</SelectItem>
-                  <SelectItem value="11-50">11-50 employees</SelectItem>
-                  <SelectItem value="51-200">51-200 employees</SelectItem>
-                  <SelectItem value="201-500">201-500 employees</SelectItem>
-                  <SelectItem value="501+">501+ employees</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Password Fields */}
-            <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="password" className="text-sm font-medium text-gray-700">
-                  Password<span className="text-red-500">*</span>
-                </Label>
-                <div className="relative">
+                <Label htmlFor="phone">Phone</Label>
+                <div className="flex">
+                  <Select defaultValue="+91">
+                    <SelectTrigger className="w-20 h-12 border-gray-200 rounded-l-lg border-r-0 focus:border-blue-500 focus:ring-blue-500">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="+91">+91</SelectItem>
+                      <SelectItem value="+1">+1</SelectItem>
+                      <SelectItem value="+44">+44</SelectItem>
+                    </SelectContent>
+                  </Select>
                   <Input
-                    id="password"
-                    name="password"
-                    type={showPassword ? "text" : "password"}
-                    required
-                    className="h-12 border-gray-200 rounded-lg focus:border-blue-500 focus:ring-blue-500 bg-white pr-10"
-                    placeholder="Password"
+                    id="phone"
+                    type="tel"
+                    value={formData.phone}
+                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                    className="flex-1 h-12 border-gray-200 rounded-r-lg border-l-0 focus:border-blue-500 focus:ring-blue-500 bg-white"
+                    placeholder="Phone Number"
                   />
-                  <button
-                    type="button"
-                    className="absolute inset-y-0 right-0 pr-3 flex items-center"
-                    onClick={() => setShowPassword(!showPassword)}
-                  >
-                    {showPassword ? (
-                      <EyeOff className="h-4 w-4 text-gray-400" />
-                    ) : (
-                      <Eye className="h-4 w-4 text-gray-400" />
-                    )}
-                  </button>
                 </div>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="confirmPassword" className="text-sm font-medium text-gray-700">
-                  Confirm Password<span className="text-red-500">*</span>
-                </Label>
-                <div className="relative">
-                  <Input
-                    id="confirmPassword"
-                    name="confirmPassword"
-                    type={showConfirmPassword ? "text" : "password"}
-                    required
-                    className="h-12 border-gray-200 rounded-lg focus:border-blue-500 focus:ring-blue-500 bg-white pr-10"
-                    placeholder="Confirm Password"
-                  />
-                  <button
-                    type="button"
-                    className="absolute inset-y-0 right-0 pr-3 flex items-center"
-                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                  >
-                    {showConfirmPassword ? (
-                      <EyeOff className="h-4 w-4 text-gray-400" />
-                    ) : (
-                      <Eye className="h-4 w-4 text-gray-400" />
-                    )}
-                  </button>
+                <Label htmlFor="gender">Gender</Label>
+                <div className="flex space-x-6">
+                  <label className="flex items-center space-x-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="gender"
+                      value="male"
+                      checked={formData.gender === "male"}
+                      onChange={(e) => setFormData({ ...formData, gender: e.target.value })}
+                    />
+                    <span className="text-sm text-gray-700">Male</span>
+                  </label>
+                  <label className="flex items-center space-x-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="gender"
+                      value="female"
+                      checked={formData.gender === "female"}
+                      onChange={(e) => setFormData({ ...formData, gender: e.target.value })}
+                    />
+                    <span className="text-sm text-gray-700">Female</span>
+                  </label>
+                  <label className="flex items-center space-x-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="gender"
+                      value="other"
+                      checked={formData.gender === "other"}
+                      onChange={(e) => setFormData({ ...formData, gender: e.target.value })}
+                    />
+                    <span className="text-sm text-gray-700">More Options</span>
+                  </label>
                 </div>
               </div>
-            </div>
-
-            {/* Checkboxes */}
-            <div className="space-y-4">
-              <div className="flex items-start space-x-3">
-                <Checkbox id="terms" className="mt-1" />
-                <Label htmlFor="terms" className="text-sm text-gray-600 leading-relaxed">
-                  All your information is collected, stored and processed as per our{" "}
-                  <a href="#" className="text-blue-600 hover:underline">
-                    data processing guidelines
-                  </a>
-                  . By signing up on TalentHub, you agree to our{" "}
-                  <a href="#" className="text-blue-600 hover:underline">
-                    Privacy Policy
-                  </a>{" "}
-                  and{" "}
-                  <a href="#" className="text-blue-600 hover:underline">
-                    Terms of Use
-                  </a>
-                </Label>
+              <div className="space-y-2">
+                <Label htmlFor="orgName">Organization Name</Label>
+                <Input
+                  id="orgName"
+                  type="text"
+                  placeholder="Your Company"
+                  value={formData.orgName}
+                  onChange={(e) => setFormData({ ...formData, orgName: e.target.value })}
+                />
               </div>
-              <div className="flex items-start space-x-3">
-                <Checkbox id="newsletter" className="mt-1" />
-                <Label htmlFor="newsletter" className="text-sm text-gray-600">
-                  Stay in the loop – Get relevant updates curated just for <em>you!</em>
-                </Label>
+              <div className="space-y-2">
+                <Label htmlFor="orgType">Organization Type</Label>
+                <Input
+                  id="orgType"
+                  type="text"
+                  placeholder="Company, School, etc."
+                  value={formData.orgType}
+                  onChange={(e) => setFormData({ ...formData, orgType: e.target.value })}
+                />
               </div>
-            </div>
-
-            {/* Error Message */}
-            {error && (
-              <div className="rounded-lg bg-red-50 border border-red-200 p-4">
-                <div className="text-sm text-red-700">{error}</div>
+              <div className="space-y-2">
+                <Label htmlFor="orgSize">Organization Size</Label>
+                <Input
+                  id="orgSize"
+                  type="text"
+                  placeholder="1-10, 11-50, etc."
+                  value={formData.orgSize}
+                  onChange={(e) => setFormData({ ...formData, orgSize: e.target.value })}
+                />
               </div>
-            )}
-
-            {/* Footer */}
-            <div className="flex items-center justify-between pt-6">
-              <p className="text-sm text-gray-600">
-                Already have an account?{" "}
-                <a href="/login" className="text-blue-600 hover:underline font-medium">
-                  Login
-                </a>
-              </p>
-              <Button
-                type="submit"
-                className="px-8 py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors"
-                disabled={isLoading}
-              >
-                {isLoading ? "Creating..." : "Next"}
+              <div className="space-y-2">
+                <Label htmlFor="password">Password</Label>
+                <Input
+                  id="password"
+                  type="password"
+                  value={formData.password}
+                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="confirmPassword">Confirm Password</Label>
+                <Input
+                  id="confirmPassword"
+                  type="password"
+                  value={formData.confirmPassword}
+                  onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
+                  required
+                />
+              </div>
+              <div className="space-y-4">
+                <div className="flex items-start space-x-3">
+                  <Checkbox id="terms" className="mt-1" />
+                  <Label htmlFor="terms" className="text-sm text-gray-600 leading-relaxed">
+                    All your information is collected, stored and processed as per our{" "}
+                    <a href="#" className="text-blue-600 hover:underline">
+                      data processing guidelines
+                    </a>
+                    . By signing up on TalentHub, you agree to our{" "}
+                    <a href="#" className="text-blue-600 hover:underline">
+                      Privacy Policy
+                    </a>{" "}
+                    and{" "}
+                    <a href="#" className="text-blue-600 hover:underline">
+                      Terms of Use
+                    </a>
+                  </Label>
+                </div>
+                <div className="flex items-start space-x-3">
+                  <Checkbox id="newsletter" className="mt-1" />
+                  <Label htmlFor="newsletter" className="text-sm text-gray-600">
+                    Stay in the loop – Get relevant updates curated just for <em>you!</em>
+                  </Label>
+                </div>
+              </div>
+              <Button type="submit" className="w-full" disabled={isLoading}>
+                {isLoading ? "Creating account..." : "Create account"}
               </Button>
-            </div>
-          </form>
-        </div>
+            </form>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Floating Profile Images (Background Decoration) */}

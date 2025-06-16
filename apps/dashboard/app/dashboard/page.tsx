@@ -1,55 +1,42 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { useRouter } from "next/navigation"
-import { Button } from "@/components/ui/button"
-import { verifySession, logout } from "@/lib/auth-client"
+import { toast } from "sonner"
 import { DashboardContent } from "@/components/dashboard-content"
 
+interface User {
+  id: string
+  email: string
+  firstName: string
+  lastName: string
+}
+
 export default function DashboardPage() {
-  const router = useRouter()
-  const [user, setUser] = useState<any>(null)
-  const [loading, setLoading] = useState(true)
+  const [user, setUser] = useState<User | null>(null)
 
   useEffect(() => {
-    const verifyAuth = async () => {
-      try {
-        const session = await verifySession()
-        if (!session.success) {
-          window.location.href = "http://localhost:3000/login"
-          return
-        }
+    // Check for token
+    const token = localStorage.getItem("token")
+    if (!token) {
+      window.location.href = "/login"
+      return
+    }
 
-        setUser(session.user)
+    // Get user info
+    const userStr = localStorage.getItem("user")
+    if (userStr) {
+      try {
+        const userData = JSON.parse(userStr)
+        setUser(userData)
       } catch (error) {
-        console.error("Auth verification error:", error)
-        window.location.href = "http://localhost:3000/login"
-      } finally {
-        setLoading(false)
+        console.error("Error parsing user data:", error)
+        window.location.href = "/login"
       }
     }
-
-    verifyAuth()
   }, [])
 
-  const handleLogout = async () => {
-    try {
-      await logout()
-      window.location.href = "http://localhost:3000/login"
-    } catch (error) {
-      console.error("Logout error:", error)
-    }
-  }
-
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="flex items-center space-x-2">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-          <p className="text-muted-foreground">Loading dashboard...</p>
-        </div>
-      </div>
-    )
+  if (!user) {
+    return <div>Loading...</div>
   }
 
   return (
@@ -59,11 +46,20 @@ export default function DashboardPage() {
           <div className="flex justify-between items-center">
             <div className="flex items-center space-x-4">
               <h2 className="text-lg font-semibold text-foreground">Dashboard</h2>
-              <div className="text-sm text-muted-foreground">Logged in as {user?.email}</div>
+              <div className="text-sm text-muted-foreground">
+                Logged in as {user.email}
+              </div>
             </div>
-            <Button onClick={handleLogout} variant="outline" className="rounded-xl border-border/40 hover:bg-accent/80">
+            <button
+              onClick={() => {
+                localStorage.removeItem("token")
+                localStorage.removeItem("user")
+                window.location.href = "/login"
+              }}
+              className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-md text-sm font-medium"
+            >
               Logout
-            </Button>
+            </button>
           </div>
         </div>
       </div>
