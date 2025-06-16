@@ -13,8 +13,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { CommandSearch } from "./command-search"
 import { useEffect, useState } from "react"
-import { verifySession } from "@/lib/auth-client"
-import { logout } from "@/app/actions/auth"
+import { logout } from "@/lib/auth-client"
 
 const pageNames: Record<string, string> = {
   "/dashboard": "Dashboard Overview",
@@ -28,37 +27,36 @@ const pageNames: Record<string, string> = {
   "/dashboard/help": "Help & Support",
 }
 
+interface User {
+  id: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+}
+
 export function DashboardHeader() {
   const pathname = usePathname()
   const currentPageName = pageNames[pathname] || "Dashboard"
-  const [user, setUser] = useState<any>(null)
+  const [user, setUser] = useState<User | null>(null)
 
   useEffect(() => {
-    const verifyAuth = async () => {
+    // Get user info from localStorage
+    const userStr = localStorage.getItem('user')
+    if (userStr) {
       try {
-        const session = await verifySession()
-        if (session.success) {
-          setUser(session.user)
-        }
+        const userData = JSON.parse(userStr)
+        setUser(userData)
       } catch (error) {
-        console.error("Auth verification error:", error)
+        console.error('Error parsing user data:', error)
+        logout()
       }
+    } else {
+      logout()
     }
-
-    verifyAuth()
   }, [])
 
-  const handleLogout = async () => {
-    try {
-      // Call the server action
-      await logout()
-      
-      // Force a hard refresh to clear any client-side state
-      const frontendUrl = process.env.NEXT_PUBLIC_FRONTEND_URL || 'http://localhost:3000'
-      window.location.href = `${frontendUrl}/login`
-    } catch (error) {
-      console.error('Logout failed:', error)
-    }
+  if (!user) {
+    return null
   }
 
   return (
@@ -66,6 +64,9 @@ export function DashboardHeader() {
       <div className="flex h-16 items-center justify-between px-6">
         <div className="flex items-center gap-4">
           <h2 className="text-xl font-semibold text-foreground">{currentPageName}</h2>
+          <div className="text-sm text-muted-foreground">
+            {/* Logged in as {user.email} */}
+          </div>
         </div>
 
         <div className="flex items-center gap-4">
@@ -84,7 +85,7 @@ export function DashboardHeader() {
                 <Avatar className="h-10 w-10 rounded-2xl">
                   <AvatarImage src="/placeholder.svg" />
                   <AvatarFallback className="rounded-2xl bg-gradient-to-br from-primary to-orange-600 text-primary-foreground">
-                    {user?.firstName?.[0]}{user?.lastName?.[0]}
+                    {user.firstName?.[0]}{user.lastName?.[0]}
                   </AvatarFallback>
                 </Avatar>
               </Button>
@@ -92,7 +93,7 @@ export function DashboardHeader() {
             <DropdownMenuContent className="w-56 rounded-2xl border-border/40 bg-card/80 backdrop-blur-xl" align="end">
               <DropdownMenuItem className="rounded-xl">
                 <User className="mr-2 h-4 w-4" />
-                {user?.firstName} {user?.lastName}
+                {user.firstName} {user.lastName}
               </DropdownMenuItem>
               <DropdownMenuItem className="rounded-xl">
                 <Settings className="mr-2 h-4 w-4" />
@@ -101,7 +102,7 @@ export function DashboardHeader() {
               <DropdownMenuSeparator />
               <DropdownMenuItem 
                 className="rounded-xl text-red-600 hover:text-red-700 hover:bg-red-50" 
-                onClick={handleLogout}
+                onClick={logout}
               >
                 Log out
               </DropdownMenuItem>

@@ -14,8 +14,7 @@ import {
   SidebarHeader,
   SidebarFooter,
 } from "@/components/ui/sidebar"
-import { useEffect, useState } from "react"
-import { verifySession } from "@/lib/auth-client"
+import {  useState } from "react"
 
 const menuItems = [
   {
@@ -69,20 +68,20 @@ export function DashboardSidebar() {
   const pathname = usePathname()
   const [user, setUser] = useState<any>(null)
 
-  useEffect(() => {
-    const verifyAuth = async () => {
-      try {
-        const session = await verifySession()
-        if (session.success) {
-          setUser(session.user)
-        }
-      } catch (error) {
-        console.error("Auth verification error:", error)
-      }
-    }
+  // useEffect(() => {
+  //   const verifyAuth = async () => {
+  //     try {
+  //       const session = await verifySession()
+  //       if (session.success) {
+  //         setUser(session.user)
+  //       }
+  //     } catch (error) {
+  //       console.error("Auth verification error:", error)
+  //     }
+  //   }
 
-    verifyAuth()
-  }, [])
+  //   verifyAuth()
+  // }, [])
 
   return (
     <Sidebar className="border-r border-border/40 bg-card/30 backdrop-blur-xl">

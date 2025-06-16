@@ -1,40 +1,24 @@
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api"
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
 
-export const verifySession = async () => {
-  const token = sessionStorage.getItem("auth_token")
-  if (!token) {
-    throw new Error("No session found")
-  }
-
-  const response = await fetch(`${API_URL}/auth/verify`, {
+export const login = async (email: string, password: string) => {
+  const response = await fetch(`${API_URL}/auth/login`, {
+    method: 'POST',
     headers: {
-      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
     },
-    credentials: "include",
-  })
+    body: JSON.stringify({ email, password }),
+  });
 
   if (!response.ok) {
-    throw new Error("Session verification failed")
+    const error = await response.json();
+    throw new Error(error.message || 'Login failed');
   }
 
-  return response.json()
-}
+  return response.json();
+};
 
-export const logout = async () => {
-  const token = sessionStorage.getItem("auth_token")
-  if (!token) {
-    return
-  }
-
-  try {
-    await fetch(`${API_URL}/auth/logout`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-      credentials: "include",
-    })
-  } finally {
-    sessionStorage.removeItem("auth_token")
-  }
-} 
+export const logout = () => {
+  localStorage.removeItem('token');
+  localStorage.removeItem('user');
+  window.location.href = '/login';
+}; 

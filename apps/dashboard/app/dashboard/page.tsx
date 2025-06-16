@@ -45,7 +45,7 @@ export default function DashboardPage() {
         <div className="max-w-7xl mx-auto px-6 py-4">
           <div className="flex justify-between items-center">
             <div className="flex items-center space-x-4">
-              <h2 className="text-lg font-semibold text-foreground">Dashboard</h2>
+              {/* <h2 className="text-lg font-semibold text-foreground"></h2> */}
               <div className="text-sm text-muted-foreground">
                 Logged in as {user.email}
               </div>
