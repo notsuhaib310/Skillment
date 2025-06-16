@@ -3,6 +3,8 @@ import { MinimalistFooter } from "@/components/ui/aceternity/minimalist-footer"
 import { getCurrentUser } from "@/app/actions/auth"
 import { redirect } from "next/navigation"
 
+export const dynamic = 'force-dynamic'
+
 export default async function DashboardPage() {
   const { success, user } = await getCurrentUser()
 
