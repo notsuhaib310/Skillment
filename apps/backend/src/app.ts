@@ -23,7 +23,7 @@ app.use(
 app.use("/api/auth", authRoutes)
 
 // Error handling middleware
-app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
   console.error(err)
   const statusCode = err.statusCode || 500
   const message = err.message || "Internal server error"

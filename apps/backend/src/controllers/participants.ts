@@ -3,13 +3,13 @@ import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
-export const getParticipants = async (req: Request, res: Response) => {
+export const getParticipants = async (_req: Request, res: Response) => {
   try {
     const participants = await prisma.participant.findMany();
-    res.status(200).json({ success: true, participants });
+    return res.status(200).json({ success: true, participants });
   } catch (error: any) {
     console.error('Error fetching participants:', error);
-    res.status(500).json({ success: false, error: error.message });
+    return res.status(500).json({ success: false, error: error.message });
   }
 };
 
@@ -31,10 +31,10 @@ export const addParticipant = async (req: Request, res: Response) => {
       },
     });
 
-    res.status(201).json({ success: true, participant: newParticipant });
+    return res.status(201).json({ success: true, participant: newParticipant });
   } catch (error: any) {
     console.error('Error adding participant:', error);
-    res.status(500).json({ success: false, error: error.message });
+    return res.status(500).json({ success: false, error: error.message });
   }
 };
 
@@ -53,9 +53,9 @@ export const getParticipantById = async (req: Request, res: Response) => {
       return res.status(404).json({ success: false, error: 'Participant not found.' });
     }
 
-    res.status(200).json({ success: true, participant });
+    return res.status(200).json({ success: true, participant });
   } catch (error: any) {
     console.error('Error fetching participant by ID:', error);
-    res.status(500).json({ success: false, error: error.message });
+    return res.status(500).json({ success: false, error: error.message });
   }
 }; 

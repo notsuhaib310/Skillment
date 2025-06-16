@@ -22,8 +22,8 @@ app.use(cookieParser());
 app.use(morgan('dev'));
 
 // Health check endpoint
-app.get('/health', (req, res) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+app.get('/health', (_req, res) => {
+  res.json({ status: 'WORKING NIGGA DONT CHECK AGAIN', timestamp: new Date().toISOString() });
 });
 
 // Routes

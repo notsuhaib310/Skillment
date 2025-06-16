@@ -1,19 +1,17 @@
+// ecosystem.config.js
 module.exports = {
-  apps: [{
-    name: 'skillment-backend',
-    script: 'dist/index.js',
-    instances: 'max',
-    exec_mode: 'cluster',
-    autorestart: true,
-    watch: false,
-    max_memory_restart: '1G',
-    env: {
-      NODE_ENV: 'production',
-      PORT: 5000
-    },
-    env_production: {
-      NODE_ENV: 'production',
-      PORT: 5000
+  apps: [
+    {
+      name: "skillment-backend",
+      script: "dist/index.js",
+      instances: 1, // or "max" for multi-core
+      exec_mode: "fork", // or "cluster" if stateless
+      watch: false,
+      env: {
+        NODE_ENV: "production",
+        PORT: 5000,
+        
+      }
     }
-  }]
-} 
+  ]
+};
