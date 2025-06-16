@@ -3,6 +3,7 @@ import cors from 'cors';
 import morgan from 'morgan';
 import { config } from 'dotenv';
 import authRouter from './routes/auth';
+import participantsRouter from './routes/participants';
 import { errorHandler } from './middleware/errorHandler';
 import { PrismaClient } from '@prisma/client';
 import cookieParser from 'cookie-parser';
@@ -28,6 +29,7 @@ app.get('/', (_req, res) => {
 
 // Routes
 app.use('/api/auth', authRouter);
+app.use('/api/participants', participantsRouter);
 
 // Error handling
 app.use(errorHandler);

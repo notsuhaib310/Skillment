@@ -1,6 +1,8 @@
 "use client"
 
 import { useState } from "react"
+import { toast } from "@/components/ui/use-toast"
+import { participantsApi } from "@/lib/api/participants"
 import { X, Mail, Lock, Shield } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -8,12 +10,19 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Switch } from "@/components/ui/switch"
 import { Badge } from "@/components/ui/badge"
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 import { Checkbox } from "@/components/ui/checkbox"
 
 interface AddParticipantModalProps {
   open: boolean
   onOpenChange: (open: boolean) => void
+  onParticipantAdded: () => void
 }
 
 const assessments = [
@@ -36,11 +45,12 @@ const predefinedTags = [
   "Batch-2023",
 ]
 
-export function AddParticipantModal({ open, onOpenChange }: AddParticipantModalProps) {
+export function AddParticipantModal({ open, onOpenChange, onParticipantAdded }: AddParticipantModalProps) {
   const [formData, setFormData] = useState({
     fullName: "",
     email: "",
     phone: "",
+    organization: "",
     tags: [] as string[],
     assignedAssessments: [] as number[],
     scheduleDate: "",
@@ -78,26 +88,74 @@ export function AddParticipantModal({ open, onOpenChange }: AddParticipantModalP
     }
   }
 
-  const handleSubmit = (action: "save-close" | "save-another") => {
-    // Handle form submission
-    console.log("Form submitted:", formData, action)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
-    if (action === "save-close") {
-      onOpenChange(false)
-    } else {
-      // Reset form for adding another
-      setFormData({
-        fullName: "",
-        email: "",
-        phone: "",
-        tags: [],
-        assignedAssessments: [],
-        scheduleDate: "",
-        notes: "",
-        sendEmailNow: true,
-        autoGeneratePassword: true,
-        enableProctoring: false,
+  const handleSubmit = async (action: "save-close" | "save-another") => {
+    if (!formData.fullName || !formData.email || !formData.organization) {
+      setError("Name, email, and organization are required")
+      toast({
+        title: "Error",
+        description: "Please fill in all required fields",
+        variant: "destructive",
       })
+      return
+    }
+
+    setIsSubmitting(true)
+    setError(null)
+    
+    try {
+      // Call the API to create a new participant
+      await participantsApi.createParticipant({
+        name: formData.fullName,
+        email: formData.email,
+        phone: formData.phone,
+        tags: formData.tags,
+        location: "", // Optional field
+        organization: formData.organization,
+      })
+
+      onParticipantAdded()
+
+      if (action === "save-close") {
+        onOpenChange(false)
+        toast({
+          title: "Success",
+          description: "Participant added successfully",
+          variant: "default",
+        })
+      } else {
+        // Reset form for adding another
+        setFormData({
+          fullName: "",
+          email: "",
+          phone: "",
+          organization: "",
+          tags: [],
+          assignedAssessments: [],
+          scheduleDate: "",
+          notes: "",
+          sendEmailNow: true,
+          autoGeneratePassword: true,
+          enableProctoring: false,
+        })
+        toast({
+          title: "Success",
+          description: "Participant added successfully",
+          variant: "default",
+        })
+      }
+    } catch (err) {
+      console.error("Error creating participant:", err)
+      setError("Failed to create participant. Please try again.")
+      toast({
+        title: "Error",
+        description: "Failed to create participant",
+        variant: "destructive",
+      })
+    } finally {
+      setIsSubmitting(false)
     }
   }
 
@@ -152,16 +210,29 @@ export function AddParticipantModal({ open, onOpenChange }: AddParticipantModalP
               </div>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="phone">Phone Number</Label>
-              <Input
-                id="phone"
-                type="tel"
-                value={formData.phone}
-                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                className="rounded-2xl"
-                placeholder="+1 (555) 123-4567"
-              />
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="phone">Phone Number</Label>
+                <Input
+                  id="phone"
+                  type="tel"
+                  value={formData.phone}
+                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                  className="rounded-2xl"
+                  placeholder="Enter phone number"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="organization">Organization *</Label>
+                <Input
+                  id="organization"
+                  value={formData.organization}
+                  onChange={(e) => setFormData({ ...formData, organization: e.target.value })}
+                  className="rounded-2xl"
+                  placeholder="Enter organization name"
+                />
+              </div>
             </div>
           </div>
 
@@ -316,15 +387,30 @@ export function AddParticipantModal({ open, onOpenChange }: AddParticipantModalP
         </div>
 
         {/* Actions */}
+        {error && (
+          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mt-6">
+            {error}
+          </div>
+        )}
+        
         <div className="flex justify-end gap-3 pt-4 border-t border-border/40">
-          <Button variant="outline" onClick={() => onOpenChange(false)} className="rounded-2xl">
+          <Button variant="outline" onClick={() => onOpenChange(false)} className="rounded-2xl" disabled={isSubmitting}>
             Cancel
           </Button>
-          <Button variant="outline" onClick={() => handleSubmit("save-another")} className="rounded-2xl">
-            Save & Add Another
+          <Button 
+            variant="outline" 
+            onClick={() => handleSubmit("save-another")} 
+            className="rounded-2xl"
+            disabled={isSubmitting}
+          >
+            {isSubmitting ? "Saving..." : "Save & Add Another"}
           </Button>
-          <Button onClick={() => handleSubmit("save-close")} className="rounded-2xl primary-gradient glow-primary">
-            Save & Close
+          <Button 
+            onClick={() => handleSubmit("save-close")} 
+            className="rounded-2xl primary-gradient glow-primary"
+            disabled={isSubmitting}
+          >
+            {isSubmitting ? "Saving..." : "Save & Close"}
           </Button>
         </div>
       </DialogContent>

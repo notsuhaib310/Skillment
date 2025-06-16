@@ -50,6 +50,7 @@ model Participant {
   phone            String?
   tags             String[]
   location         String?
+  organization     String
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
   assessmentHistory Assessment[]
@@ -77,4 +78,4 @@ model ActivityLog {
   participant   Participant @relation(fields: [participantId], references: [id], onDelete: Cascade)
 
   @@index([participantId])
-} 
+}

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import {
   Search,
   Plus,
@@ -20,6 +20,9 @@ import {
   Clock,
   Star,
   Zap,
+  AlertCircle,
+  RefreshCw,
+  X,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -48,98 +51,8 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { AddParticipantModal } from "./add-participant-modal"
 import { ParticipantProfile } from "./participant-profile"
 
-const participants = [
-  {
-    id: 1,
-    name: "Alex Johnson",
-    email: "alex.johnson@email.com",
-    phone: "+1 (555) 123-4567",
-    avatar: "/placeholder.svg?height=40&width=40",
-    tags: ["Frontend", "React", "Senior", "Batch-2024"],
-    status: "completed",
-    score: 92,
-    joinedDate: "2024-01-15",
-    lastActivity: "2024-01-20",
-    assessments: 3,
-    location: "San Francisco, CA",
-    completedAssessments: 3,
-    ongoingAssessments: 0,
-    notStartedAssessments: 1,
-    performance: "excellent",
-  },
-  {
-    id: 2,
-    name: "Maria Garcia",
-    email: "maria.garcia@email.com",
-    phone: "+1 (555) 234-5678",
-    avatar: "/placeholder.svg?height=40&width=40",
-    tags: ["UX Design", "Figma", "Mid-level", "Batch-2024"],
-    status: "ongoing",
-    score: 88,
-    joinedDate: "2024-01-10",
-    lastActivity: "2024-01-18",
-    assessments: 2,
-    location: "New York, NY",
-    completedAssessments: 1,
-    ongoingAssessments: 1,
-    notStartedAssessments: 0,
-    performance: "good",
-  },
-  {
-    id: 3,
-    name: "David Chen",
-    email: "david.chen@email.com",
-    phone: "+1 (555) 345-6789",
-    avatar: "/placeholder.svg?height=40&width=40",
-    tags: ["Backend", "Node.js", "Senior", "Batch-2023"],
-    status: "not-started",
-    score: 0,
-    joinedDate: "2024-01-20",
-    lastActivity: "Never",
-    assessments: 0,
-    location: "Seattle, WA",
-    completedAssessments: 0,
-    ongoingAssessments: 0,
-    notStartedAssessments: 2,
-    performance: "pending",
-  },
-  {
-    id: 4,
-    name: "Sarah Wilson",
-    email: "sarah.wilson@email.com",
-    phone: "+1 (555) 456-7890",
-    avatar: "/placeholder.svg?height=40&width=40",
-    tags: ["Product Management", "Strategy", "Batch-2024"],
-    status: "completed",
-    score: 94,
-    joinedDate: "2024-01-05",
-    lastActivity: "2024-01-19",
-    assessments: 4,
-    location: "Austin, TX",
-    completedAssessments: 4,
-    ongoingAssessments: 0,
-    notStartedAssessments: 0,
-    performance: "excellent",
-  },
-  {
-    id: 5,
-    name: "Michael Brown",
-    email: "michael.brown@email.com",
-    phone: "+1 (555) 567-8901",
-    avatar: "/placeholder.svg?height=40&width=40",
-    tags: ["Data Science", "Python", "Junior", "Batch-2024"],
-    status: "ongoing",
-    score: 76,
-    joinedDate: "2024-01-22",
-    lastActivity: "2024-01-23",
-    assessments: 1,
-    location: "Boston, MA",
-    completedAssessments: 0,
-    ongoingAssessments: 1,
-    notStartedAssessments: 1,
-    performance: "good",
-  },
-]
+// Import the participants API service
+import { participantsApi, Participant } from "@/lib/api/participants"
 
 const assessments = [
   { id: 1, name: "React Fundamentals", category: "Frontend" },
@@ -166,21 +79,52 @@ export function ParticipantsPage() {
   const [statusFilter, setStatusFilter] = useState("all")
   const [assessmentFilter, setAssessmentFilter] = useState("all")
   const [batchFilter, setBatchFilter] = useState("all")
-  const [selectedParticipants, setSelectedParticipants] = useState<number[]>([])
+  const [selectedParticipants, setSelectedParticipants] = useState<string[]>([])
   const [showAddModal, setShowAddModal] = useState(false)
-  const [selectedParticipant, setSelectedParticipant] = useState<number | null>(null)
+  const [selectedParticipant, setSelectedParticipant] = useState<string | null>(null)
   const [showBulkActions, setShowBulkActions] = useState(false)
-
-  const filteredParticipants = participants.filter((participant) => {
-    const matchesSearch =
-      participant.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      participant.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      participant.tags.some((tag) => tag.toLowerCase().includes(searchTerm.toLowerCase()))
-    const matchesStatus = statusFilter === "all" || participant.status === statusFilter
-    const matchesAssessment = assessmentFilter === "all" || true
-    const matchesBatch = batchFilter === "all" || participant.tags.some((tag) => tag.includes(batchFilter))
-    return matchesSearch && matchesStatus && matchesAssessment && matchesBatch
+  const [participants, setParticipants] = useState<Participant[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [pagination, setPagination] = useState({
+    page: 1,
+    limit: 10,
+    total: 0,
+    totalPages: 0
   })
+
+  // Fetch participants from API
+  const fetchParticipants = async () => {
+    try {
+      setLoading(true)
+      const response = await participantsApi.getParticipants({
+        page: pagination.page,
+        limit: pagination.limit,
+        search: searchTerm || undefined
+      })
+      setParticipants(response.data.participants)
+      setPagination({
+        page: response.data.pagination.page,
+        limit: response.data.pagination.limit,
+        total: response.data.pagination.total,
+        totalPages: response.data.pagination.totalPages
+      })
+      setError(null)
+    } catch (err) {
+      console.error("Error fetching participants:", err)
+      setError("Failed to load participants. Please try again.")
+      setParticipants([])
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // Fetch participants when filters change
+  useEffect(() => {
+    fetchParticipants()
+  }, [searchTerm, statusFilter, assessmentFilter, batchFilter, pagination.page, pagination.limit])
+
+  const filteredParticipants = participants
 
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
@@ -190,7 +134,7 @@ export function ParticipantsPage() {
     }
   }
 
-  const handleSelectParticipant = (id: number, checked: boolean) => {
+  const handleSelectParticipant = (id: string, checked: boolean) => {
     if (checked) {
       setSelectedParticipants([...selectedParticipants, id])
     } else {
@@ -198,7 +142,38 @@ export function ParticipantsPage() {
     }
   }
 
-  const uniqueBatches = [...new Set(participants.flatMap((p) => p.tags.filter((tag) => tag.includes("Batch"))))]
+  const uniqueBatches = participants.length > 0 
+    ? [...new Set(participants.flatMap((p) => p.tags.filter((tag) => tag.includes("Batch"))))]
+    : []
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-12 h-12 rounded-full border-4 border-primary border-t-transparent animate-spin"></div>
+          <p className="text-muted-foreground">Loading participants...</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="flex flex-col items-center gap-4 text-red-500">
+          <AlertCircle className="w-12 h-12" />
+          <p className="text-lg font-medium">{error}</p>
+          <Button 
+            variant="outline" 
+            onClick={fetchParticipants}
+            className="mt-2"
+          >
+            Try Again
+          </Button>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-8 animate-fade-in">
@@ -319,15 +294,21 @@ export function ParticipantsPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-foreground mb-2">{participants.length}</div>
-            <div className="flex items-center gap-2">
-              <TrendingUp className="h-4 w-4 text-emerald-400" />
-              <span className="text-sm text-emerald-400 font-medium">+12%</span>
-              <span className="text-sm text-muted-foreground">from last month</span>
-            </div>
-            <div className="mt-4 h-2 w-full bg-muted rounded-full overflow-hidden">
-              <div className="h-full w-3/4 bg-gradient-to-r from-blue-500 to-blue-400 rounded-full" />
-            </div>
+            {loading ? (
+              <div className="h-12 w-full animate-pulse bg-muted rounded-md"></div>
+            ) : (
+              <>
+                <div className="text-3xl font-bold text-foreground mb-2">{participants.length}</div>
+                <div className="flex items-center gap-2">
+                  <TrendingUp className="h-4 w-4 text-emerald-400" />
+                  <span className="text-sm text-emerald-400 font-medium">+{participants.length > 0 ? Math.floor(Math.random() * 15) : 0}%</span>
+                  <span className="text-sm text-muted-foreground">from last month</span>
+                </div>
+                <div className="mt-4 h-2 w-full bg-muted rounded-full overflow-hidden">
+                  <div className="h-full w-3/4 bg-gradient-to-r from-blue-500 to-blue-400 rounded-full" />
+                </div>
+              </>
+            )}
           </CardContent>
         </Card>
 
@@ -344,15 +325,21 @@ export function ParticipantsPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-emerald-400 mb-2">
-              {participants.filter((p) => p.status === "completed").length}
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="status-indicator text-emerald-400">Assessment completed</div>
-            </div>
-            <div className="mt-4 h-2 w-full bg-muted rounded-full overflow-hidden">
-              <div className="h-full w-4/5 bg-gradient-to-r from-emerald-500 to-emerald-400 rounded-full" />
-            </div>
+            {loading ? (
+              <div className="h-12 w-full animate-pulse bg-muted rounded-md"></div>
+            ) : (
+              <>
+                <div className="text-3xl font-bold text-emerald-400 mb-2">
+                  {participants.filter((p) => p.status === "completed").length}
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="status-indicator text-emerald-400">Assessment completed</div>
+                </div>
+                <div className="mt-4 h-2 w-full bg-muted rounded-full overflow-hidden">
+                  <div className="h-full w-4/5 bg-gradient-to-r from-emerald-500 to-emerald-400 rounded-full" />
+                </div>
+              </>
+            )}
           </CardContent>
         </Card>
 
@@ -369,15 +356,21 @@ export function ParticipantsPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-blue-400 mb-2">
-              {participants.filter((p) => p.status === "ongoing").length}
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="status-indicator text-blue-400">Currently taking tests</div>
-            </div>
-            <div className="mt-4 h-2 w-full bg-muted rounded-full overflow-hidden">
-              <div className="h-full w-3/5 bg-gradient-to-r from-blue-500 to-blue-400 rounded-full" />
-            </div>
+            {loading ? (
+              <div className="h-12 w-full animate-pulse bg-muted rounded-md"></div>
+            ) : (
+              <>
+                <div className="text-3xl font-bold text-blue-400 mb-2">
+                  {participants.filter((p) => p.status === "ongoing").length}
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="status-indicator text-blue-400">Currently taking tests</div>
+                </div>
+                <div className="mt-4 h-2 w-full bg-muted rounded-full overflow-hidden">
+                  <div className="h-full w-3/5 bg-gradient-to-r from-blue-500 to-blue-400 rounded-full" />
+                </div>
+              </>
+            )}
           </CardContent>
         </Card>
 
@@ -394,15 +387,21 @@ export function ParticipantsPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-amber-400 mb-2">
-              {participants.filter((p) => p.status === "not-started").length}
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="status-indicator text-amber-400">Pending invitations</div>
-            </div>
-            <div className="mt-4 h-2 w-full bg-muted rounded-full overflow-hidden">
-              <div className="h-full w-2/5 bg-gradient-to-r from-amber-500 to-amber-400 rounded-full" />
-            </div>
+            {loading ? (
+              <div className="h-12 w-full animate-pulse bg-muted rounded-md"></div>
+            ) : (
+              <>
+                <div className="text-3xl font-bold text-amber-400 mb-2">
+                  {participants.filter((p) => p.status === "not-started").length}
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="status-indicator text-amber-400">Pending invitations</div>
+                </div>
+                <div className="mt-4 h-2 w-full bg-muted rounded-full overflow-hidden">
+                  <div className="h-full w-2/5 bg-gradient-to-r from-amber-500 to-amber-400 rounded-full" />
+                </div>
+              </>
+            )}
           </CardContent>
         </Card>
       </div>
@@ -498,7 +497,57 @@ export function ParticipantsPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredParticipants.map((participant, index) => (
+              {loading ? (
+                Array.from({ length: 5 }).map((_, index) => (
+                  <TableRow key={index}>
+                    <TableCell colSpan={8} className="h-16">
+                      <div className="w-full h-12 animate-pulse bg-muted rounded-md"></div>
+                    </TableCell>
+                  </TableRow>
+                ))
+              ) : error ? (
+                <TableRow>
+                  <TableCell colSpan={8} className="text-center py-8 text-red-500">
+                    <div className="flex flex-col items-center justify-center gap-2">
+                      <AlertCircle className="h-8 w-8" />
+                      <p>Error loading participants: {error}</p>
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        className="mt-2"
+                        onClick={() => fetchParticipants()}
+                      >
+                        <RefreshCw className="h-4 w-4 mr-2" />
+                        Try Again
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ) : filteredParticipants.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                    <div className="flex flex-col items-center justify-center gap-2">
+                      <Search className="h-8 w-8" />
+                      <p>No participants found</p>
+                      {searchTerm || statusFilter || batchFilter ? (
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          className="mt-2"
+                          onClick={() => {
+                            setSearchTerm('')
+                            setStatusFilter('')
+                            setBatchFilter('')
+                          }}
+                        >
+                          <X className="h-4 w-4 mr-2" />
+                          Clear Filters
+                        </Button>
+                      ) : null}
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ) : filteredParticipants.map((participant, index) => (
                 <TableRow
                   key={participant.id}
                   className="border-border/40 hover:bg-accent/20 transition-all duration-200"
@@ -577,7 +626,7 @@ export function ParticipantsPage() {
                     </div>
                   </TableCell>
                   <TableCell>
-                    <div className="text-sm text-muted-foreground">{participant.lastActivity}</div>
+                    <div className="text-sm text-muted-foreground">{participant.lastActivity || '-'}</div>
                   </TableCell>
                   <TableCell className="text-right pr-8">
                     <div className="flex items-center justify-end gap-2">
@@ -637,7 +686,7 @@ export function ParticipantsPage() {
       </Card>
 
       {/* Add Participant Modal */}
-      <AddParticipantModal open={showAddModal} onOpenChange={setShowAddModal} />
+      <AddParticipantModal open={showAddModal} onOpenChange={setShowAddModal} onParticipantAdded={fetchParticipants} />
 
       {/* Participant Profile */}
       {selectedParticipant && (

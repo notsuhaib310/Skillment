@@ -1,42 +1,66 @@
 "use client"
 
+import { useEffect, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { ArrowLeft, Mail, Calendar, Edit } from "lucide-react"
-
-// Mock participant data - in real app, this would come from API
-const participants = [
-  {
-    id: "1",
-    name: "Alex Johnson",
-    email: "alex.johnson@email.com",
-    phone: "+1 (555) 123-4567",
-    avatar: "/placeholder.svg?height=100&width=100",
-    tags: ["Frontend", "React", "Senior", "Batch-2024"],
-    status: "completed",
-    score: 92,
-    joinedDate: "2024-01-15",
-    lastActivity: "2024-01-20",
-    location: "San Francisco, CA",
-    completedAssessments: 3,
-    ongoingAssessments: 0,
-    notStartedAssessments: 1,
-    performance: "excellent",
-  },
-  // Add more participants as needed
-]
+import { participantsApi, type Participant } from "@/lib/api/participants"
+import { toast } from "@/components/ui/use-toast"
 
 export default function ParticipantDetailPage() {
   const params = useParams()
   const router = useRouter()
   const participantId = params.id as string
+  const [participant, setParticipant] = useState<Participant | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
-  const participant = participants.find((p) => p.id === participantId)
+  useEffect(() => {
+    const fetchParticipant = async () => {
+      try {
+        setLoading(true)
+        const response = await participantsApi.getParticipant(participantId)
+        if (response.success && response.data) {
+          setParticipant(response.data)
+        } else {
+          setError("Failed to fetch participant data")
+          toast({
+            title: "Error",
+            description: "Failed to fetch participant data",
+            variant: "destructive",
+          })
+        }
+      } catch (err) {
+        console.error("Error fetching participant:", err)
+        setError("Failed to fetch participant data")
+        toast({
+          title: "Error",
+          description: "Failed to fetch participant data",
+          variant: "destructive",
+        })
+      } finally {
+        setLoading(false)
+      }
+    }
 
-  if (!participant) {
+    fetchParticipant()
+  }, [participantId])
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
+          <p className="mt-4 text-muted-foreground">Loading participant data...</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (error || !participant) {
     return (
       <div className="space-y-6">
         <Button variant="outline" onClick={() => router.back()} className="rounded-2xl">
@@ -45,6 +69,7 @@ export default function ParticipantDetailPage() {
         </Button>
         <div className="text-center">
           <h1 className="text-2xl font-bold">Participant not found</h1>
+          <p className="text-muted-foreground mt-2">{error || "The participant you're looking for doesn't exist."}</p>
         </div>
       </div>
     )
@@ -87,7 +112,7 @@ export default function ParticipantDetailPage() {
         <CardContent className="p-8">
           <div className="flex items-start gap-6">
             <Avatar className="h-24 w-24 rounded-3xl">
-              <AvatarImage src={participant.avatar || "/placeholder.svg"} />
+              <AvatarImage src={participant.avatar} />
               <AvatarFallback className="rounded-3xl bg-gradient-to-br from-primary to-orange-600 text-primary-foreground text-2xl">
                 {participant.name
                   .split(" ")
@@ -99,8 +124,9 @@ export default function ParticipantDetailPage() {
               <div>
                 <h2 className="text-2xl font-bold text-foreground">{participant.name}</h2>
                 <p className="text-muted-foreground">{participant.email}</p>
-                <p className="text-muted-foreground">{participant.phone}</p>
-                <p className="text-muted-foreground">{participant.location}</p>
+                {participant.phone && <p className="text-muted-foreground">{participant.phone}</p>}
+                {participant.location && <p className="text-muted-foreground">{participant.location}</p>}
+                {participant.organization && <p className="text-muted-foreground">{participant.organization}</p>}
               </div>
               <div className="flex flex-wrap gap-2">
                 {participant.tags.map((tag) => (

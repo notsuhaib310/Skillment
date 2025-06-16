@@ -2,6 +2,7 @@ import express from "express"
 import cors from "cors"
 import cookieParser from "cookie-parser"
 import authRoutes from "./routes/auth"
+import participantsRoutes from "./routes/participants"
 import { PrismaClient } from "@prisma/client"
 
 const app = express()
@@ -21,6 +22,7 @@ app.use(
 
 // Routes
 app.use("/api/auth", authRoutes)
+app.use("/api/participants", participantsRoutes)
 
 // Error handling middleware
 app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
