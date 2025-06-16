@@ -1,35 +1,16 @@
 import { Router } from 'express';
-import { body } from 'express-validator';
-import { register, login, logout } from '../controllers/auth';
-import { validateRequest } from '../middleware/validateRequest';
+import { AuthController } from '../controllers/auth';
 
 const router = Router();
+const authController = new AuthController();
 
 // Register route
-router.post(
-  '/register',
-  [
-    body('email').isEmail().withMessage('Please enter a valid email'),
-    body('password').isLength({ min: 8 }).withMessage('Password must be at least 8 characters long'),
-    body('firstName').notEmpty().withMessage('First name is required'),
-    body('lastName').notEmpty().withMessage('Last name is required'),
-    validateRequest
-  ],
-  register
-);
+router.post('/register', authController.register);
 
 // Login route
-router.post(
-  '/login',
-  [
-    body('email').isEmail().withMessage('Please enter a valid email'),
-    body('password').notEmpty().withMessage('Password is required'),
-    validateRequest
-  ],
-  login
-);
+router.post('/login', authController.login);
 
 // Logout route
-router.post('/logout', logout);
+router.post('/logout', authController.logout);
 
 export default router; 
