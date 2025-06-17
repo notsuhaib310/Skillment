@@ -1,4 +1,5 @@
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api.skillment.in/api';
+const FRONTEND_URL = process.env.NEXT_PUBLIC_FRONTEND_URL || 'https://app.skillment.in';
 
 export const login = async (email: string, password: string) => {
   const response = await fetch(`${API_URL}/auth/login`, {
@@ -20,5 +21,5 @@ export const login = async (email: string, password: string) => {
 export const logout = () => {
   localStorage.removeItem('token');
   localStorage.removeItem('user');
-  window.location.href = '/login';
+  window.location.href = `${FRONTEND_URL}/login`;
 }; 

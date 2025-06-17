@@ -16,6 +16,6 @@ export async function logout() {
   cookieStore.delete('auth_token')
   
   // Redirect to the frontend login page
-  const frontendUrl = process.env.NEXT_PUBLIC_FRONTEND_URL || 'http://localhost:3000'
+  const frontendUrl = process.env.NEXT_PUBLIC_FRONTEND_URL || 'https://app.skillment.in'
   redirect(`${frontendUrl}/login`)
 } 

@@ -3,6 +3,9 @@
 import { useState } from "react"
 import { toast } from "sonner"
 
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://api.skillment.in/api"
+const DASHBOARD_URL = process.env.NEXT_PUBLIC_DASHBOARD_URL || "https://app.skillment.in/dashboard"
+
 export default function LoginPage() {
   const [formData, setFormData] = useState({
     email: "",
@@ -15,7 +18,7 @@ export default function LoginPage() {
     setLoading(true)
 
     try {
-      const response = await fetch("https://api.skillment.in/api/auth/login", {
+      const response = await fetch(`${API_URL}/auth/login`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -34,7 +37,7 @@ export default function LoginPage() {
       localStorage.setItem("user", JSON.stringify(data.user))
 
       // Use window.location for a full page reload
-      window.location.href = "/dashboard"
+      window.location.href = DASHBOARD_URL
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Login failed")
     } finally {
