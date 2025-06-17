@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { useState } from "react"
+import { useState, Suspense } from "react"
 import { toast } from "sonner"
 import { Eye, EyeOff, Shield, BarChart3, Users, Calendar, Award, TrendingUp, Target } from "lucide-react"
 import { useSearchParams } from "next/navigation"
@@ -28,7 +28,7 @@ const rightFloatingAvatars = [
   { id: 4, position: "bottom-20 right-24", size: "w-8 h-8" },
 ]
 
-export default function LoginPage() {
+function LoginPageContent() {
   const searchParams = useSearchParams()
   const [formData, setFormData] = useState({
     email: "",
@@ -273,5 +273,13 @@ export default function LoginPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <LoginPageContent />
+    </Suspense>
   )
 }

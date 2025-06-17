@@ -6,161 +6,146 @@ import { z } from 'zod';
 
 const prisma = new PrismaClient();
 
+const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
+
 // Validation schema for registration
 const registerSchema = z.object({
   email: z.string().email(),
   password: z.string().min(8),
-  firstName: z.string().min(1),
-  lastName: z.string().min(1),
-  orgName: z.string().min(1),
-  orgType: z.string().min(1),
-  orgSize: z.string().min(1),
+  firstName: z.string().min(2),
+  lastName: z.string().min(2),
+  orgName: z.string().min(2).regex(/^[a-zA-Z0-9-]+$/, 'Organization name can only contain letters, numbers, and hyphens'),
+  orgType: z.string(),
+  orgSize: z.string(),
 });
 
 export class AuthController {
   async register(req: Request, res: Response) {
     try {
-      // Validate request body
       const validatedData = registerSchema.parse(req.body);
-      const { email, password, firstName, lastName, orgName, orgType, orgSize } = validatedData;
 
       // Check if user already exists
       const existingUser = await prisma.user.findUnique({
-        where: { email }
+        where: { email: validatedData.email },
       });
 
       if (existingUser) {
-        return res.status(400).json({ message: 'User already exists' });
+        return res.status(400).json({ error: 'User already exists' });
       }
 
-      // Check if organization name is already taken
-      const existingOrg = await prisma.user.findFirst({
-        where: { orgName }
+      // Check if organization name is taken
+      const existingOrg = await prisma.organization.findFirst({
+        where: { name: validatedData.orgName },
       });
 
       if (existingOrg) {
-        return res.status(400).json({ message: 'Organization name is already taken' });
+        return res.status(400).json({ error: 'Organization name is already taken' });
       }
 
       // Hash password
-      const salt = await bcrypt.genSalt(10);
-      const hashedPassword = await bcrypt.hash(password, salt);
+      const hashedPassword = await bcrypt.hash(validatedData.password, 10);
 
-      // Create user with organization details
+      // Create organization first
+      const organization = await prisma.organization.create({
+        data: {
+          name: validatedData.orgName,
+          type: validatedData.orgType,
+          size: validatedData.orgSize,
+        },
+      });
+
+      // Create user with organization
       const user = await prisma.user.create({
         data: {
-          email,
+          firstName: validatedData.firstName,
+          lastName: validatedData.lastName,
+          email: validatedData.email,
           password: hashedPassword,
-          firstName,
-          lastName,
-          orgName,
-          orgType,
-          orgSize,
-          role: 'admin' // First user of an organization is an admin
-        }
+          orgId: organization.id,
+          role: 'admin', // First user of an organization is an admin
+        },
       });
 
       // Generate JWT token
       const token = jwt.sign(
-        { 
+        {
           userId: user.id,
-          orgName: user.orgName,
-          role: user.role
+          email: user.email,
+          orgName: organization.name,
         },
-        process.env.JWT_SECRET || 'your-secret-key',
-        { expiresIn: '24h' }
+        JWT_SECRET,
+        { expiresIn: '7d' }
       );
 
-      // Create session
-      await prisma.session.create({
-        data: {
-          userId: user.id,
-          token,
-          expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000) // 24 hours
-        }
-      });
-
-      // Return user data and token
-      res.status(201).json({
+      return res.status(201).json({
+        success: true,
+        token,
         user: {
           id: user.id,
           email: user.email,
           firstName: user.firstName,
           lastName: user.lastName,
-          orgName: user.orgName,
-          role: user.role
+          orgName: organization.name,
         },
-        token,
-        redirectUrl: `https://${orgName.toLowerCase()}.skillment.in/login`
+        redirectUrl: `https://${organization.name}.skillment.in/dashboard`,
       });
     } catch (error) {
       if (error instanceof z.ZodError) {
-        return res.status(400).json({ message: 'Validation error', errors: error.errors });
+        return res.status(400).json({ error: error.errors[0].message });
       }
-      console.error('Error in register:', error);
-      res.status(500).json({ message: 'Server error' });
+      console.error('Registration error:', error);
+      return res.status(500).json({ error: 'Internal server error' });
     }
   }
 
   async login(req: Request, res: Response) {
     try {
-      const { email, password, orgName } = req.body;
+      const { email, password } = req.body;
 
-      // Find user
-      const user = await prisma.user.findFirst({
-        where: { 
-          email,
-          orgName: orgName || undefined // If orgName is provided, filter by it
-        }
+      // Find user with organization
+      const user = await prisma.user.findUnique({
+        where: { email },
+        include: {
+          organization: true,
+        },
       });
 
-      if (!user) {
-        return res.status(401).json({ message: 'Invalid credentials' });
+      if (!user || !user.organization) {
+        return res.status(401).json({ error: 'Invalid credentials' });
       }
 
-      // Check password
-      const isMatch = await bcrypt.compare(password, user.password);
-
-      if (!isMatch) {
-        return res.status(401).json({ message: 'Invalid credentials' });
+      // Verify password
+      const validPassword = await bcrypt.compare(password, user.password);
+      if (!validPassword) {
+        return res.status(401).json({ error: 'Invalid credentials' });
       }
 
       // Generate JWT token
       const token = jwt.sign(
-        { 
+        {
           userId: user.id,
-          orgName: user.orgName,
-          role: user.role
+          email: user.email,
+          orgName: user.organization.name,
         },
-        process.env.JWT_SECRET || 'your-secret-key',
-        { expiresIn: '24h' }
+        JWT_SECRET,
+        { expiresIn: '7d' }
       );
 
-      // Create session
-      await prisma.session.create({
-        data: {
-          userId: user.id,
-          token,
-          expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000) // 24 hours
-        }
-      });
-
-      // Return user data and token
-      res.json({
+      return res.status(200).json({
+        success: true,
+        token,
         user: {
           id: user.id,
           email: user.email,
           firstName: user.firstName,
           lastName: user.lastName,
-          orgName: user.orgName,
-          role: user.role
+          orgName: user.organization.name,
         },
-        token,
-        redirectUrl: `https://${user.orgName?.toLowerCase()}.skillment.in/dashboard`
+        redirectUrl: `https://${user.organization.name}.skillment.in/dashboard`,
       });
     } catch (error) {
-      console.error('Error in login:', error);
-      res.status(500).json({ message: 'Server error' });
+      console.error('Login error:', error);
+      return res.status(500).json({ error: 'Internal server error' });
     }
   }
 

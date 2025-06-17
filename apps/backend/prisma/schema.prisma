@@ -14,13 +14,24 @@ model User {
   firstName     String
   lastName      String
   role          String    @default("user")
-  orgName       String?
-  orgType       String?
-  orgSize       String?
   emailVerified Boolean   @default(false)
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
   sessions      Session[]
+  organization  Organization? @relation(fields: [orgId], references: [id], onDelete: SetNull)
+  orgId         String?
+
+  @@index([orgId])
+}
+
+model Organization {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  type      String
+  size      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  users     User[]
 }
 
 model Session {
