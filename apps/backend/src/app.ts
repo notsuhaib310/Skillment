@@ -19,6 +19,15 @@ app.use(cookieParser())
 // Handle preflight requests
 app.options('*', cors(CORS_OPTIONS))
 
+// Add CORS headers to all responses
+app.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', 'https://app.skillment.in');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
+  res.header('Access-Control-Allow-Credentials', 'true');
+  next();
+});
+
 // Routes
 app.use("/api/auth", authRoutes)
 app.use("/api/participants", participantsRoutes)

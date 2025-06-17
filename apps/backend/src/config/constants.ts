@@ -10,10 +10,10 @@ export const COOKIE_OPTIONS = {
 };
 
 export const CORS_OPTIONS = {
-  origin: ['https://app.skillment.in', 'https://skillment.in'],
+  origin: 'https://app.skillment.in',
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
   exposedHeaders: ['Set-Cookie'],
   maxAge: 86400 // 24 hours
 }; 
