@@ -1,0 +1,10 @@
+# Prisma Migrate lockfile v1
+# Please don't edit this file manually
+provider = "postgresql"
+
+# Prisma schema reference, used for defaults
+prismaSchema = "../schema.prisma"
+
+# Options from environment variables
+binaryTargets = []
+shadowDatabaseUrl = ""

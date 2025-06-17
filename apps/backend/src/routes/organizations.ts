@@ -1,8 +1,28 @@
 import { Router } from "express"
 import { PrismaClient } from "@prisma/client"
+import { OrganizationController } from "../controllers/organization.controller"
+import { authenticate } from "../middleware/authenticate"
+import multer from "multer"
+import { Request } from "express"
 
 const router = Router()
 const prisma = new PrismaClient()
+const organizationController = new OrganizationController()
+
+// Configure multer for file uploads
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 2 * 1024 * 1024, // 2MB limit
+  },
+  fileFilter: (_req: Request, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
+    if (file.mimetype.startsWith('image/')) {
+      cb(null, true)
+    } else {
+      cb(new Error('Only image files are allowed'))
+    }
+  },
+})
 
 // Validate organization name availability
 router.get("/validate/:orgName", async (req, res) => {
@@ -40,5 +60,17 @@ router.get("/validate/:orgName", async (req, res) => {
     return res.status(500).json({ success: false, error: "Internal server error" })
   }
 })
+
+// Apply authentication middleware to all routes below
+router.use(authenticate)
+
+// Get organization details
+router.get("/:orgName", organizationController.getOrganization.bind(organizationController))
+
+// Update organization details
+router.put("/:orgName", organizationController.updateOrganization.bind(organizationController))
+
+// Upload organization logo
+router.post("/:orgName/logo", upload.single('logo'), organizationController.uploadLogo.bind(organizationController))
 
 export default router 

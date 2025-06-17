@@ -131,6 +131,25 @@ export class AuthController {
         { expiresIn: '7d' }
       );
 
+      // Create or update session
+      const session = await prisma.session.upsert({
+        where: {
+          userId_token: {
+            userId: user.id,
+            token,
+          },
+        },
+        create: {
+          userId: user.id,
+          token,
+          expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) // 7 days
+        },
+        update: {
+          token,
+          expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
+        }
+      });
+
       return res.status(200).json({
         success: true,
         token,
