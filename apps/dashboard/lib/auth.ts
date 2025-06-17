@@ -1,6 +1,6 @@
 import { cookies } from 'next/headers'
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api"
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://api.skillment.in/api"
 
 export const getAuthToken = () => {
   if (typeof window === "undefined") return null

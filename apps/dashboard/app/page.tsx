@@ -4,15 +4,11 @@ import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { Rocket, Laptop, Smartphone, ArrowRight } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { verifySession } from "@/lib/auth-client"
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api"
 
 export default function HomePage() {
   const router = useRouter()
   const [isMobile, setIsMobile] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
-  const [user, setUser] = useState<any>(null)
 
   useEffect(() => {
     // Check if device is mobile
@@ -25,26 +21,8 @@ export default function HomePage() {
       return isMobileDevice || isSmallScreen
     }
 
-    // Verify authentication
-    const verifyAuth = async () => {
-      try {
-        const session = await verifySession()
-        if (!session.success) {
-          window.location.href = "http://localhost:3000/login"
-          return
-        }
-
-        setUser(session.user)
-      } catch (error) {
-        console.error("Auth verification error:", error)
-        window.location.href = "http://localhost:3000/login"
-      } finally {
-        setIsLoading(false)
-      }
-    }
-
     setIsMobile(checkMobile())
-    verifyAuth()
+    setIsLoading(false)
 
     // If not mobile, redirect after animation
     if (!checkMobile()) {
@@ -141,7 +119,7 @@ export default function HomePage() {
           {/* Loading Text */}
           <div className="space-y-4">
             <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent animate-fade-in">
-              Welcome, {user?.firstName}!
+              Welcome to TalentHub!
             </h1>
             <div className="flex items-center justify-center space-x-3">
               <div className="flex space-x-1">
