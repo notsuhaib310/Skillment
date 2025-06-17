@@ -21,8 +21,8 @@ export async function middleware(request: NextRequest) {
 
   // Special case for app.skillment.in
   if (subdomain === "app") {
-    return NextResponse.next()
-  }
+  return NextResponse.next()
+}
 
   try {
     // Check if organization exists

@@ -1,14 +1,15 @@
 "use client"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Checkbox } from "@/components/ui/checkbox"
-import { ArrowLeft, ArrowRight, Eye, EyeOff, Shield, Check, User, Building2, Lock, FileText } from "lucide-react"
+import { ArrowLeft, ArrowRight, Eye, EyeOff, Shield, Check, User, Building2, Lock, FileText, CheckCircle, XCircle, Search } from "lucide-react"
 import { Card, CardContent } from "@/components/ui/card"
 import { toast } from "sonner"
+import { cn } from "@/lib/utils"
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api"
 const DASHBOARD_URL = process.env.NEXT_PUBLIC_DASHBOARD_URL || "http://localhost:3001"
@@ -41,18 +42,78 @@ export default function SignUpPage() {
     termsAccepted: false,
     newsletterOptIn: false,
   })
+  const [orgValidation, setOrgValidation] = useState<{
+    isValid: boolean | null;
+    message: string;
+    isChecking: boolean;
+  }>({
+    isValid: null,
+    message: "",
+    isChecking: false
+  })
+
+  const handleCheckOrgName = async () => {
+    if (!formData.orgName) {
+      setOrgValidation({ isValid: null, message: "Please enter an organization name", isChecking: false })
+      return
+    }
+
+    setOrgValidation(prev => ({ ...prev, isChecking: true, isValid: null, message: "Checking availability..." }))
+    
+    try {
+      const response = await fetch(`${API_URL}/organizations/validate/${formData.orgName}`)
+      const data = await response.json()
+
+      console.log("Org Validation Response Status:", response.status)
+      console.log("Org Validation Response Data:", data)
+      
+      if (response.ok) {
+        setOrgValidation({
+          isValid: data.available,
+          message: data.message,
+          isChecking: false
+        })
+      } else {
+        setOrgValidation({
+          isValid: false,
+          message: data.error || "Failed to validate organization name",
+          isChecking: false
+        })
+      }
+    } catch (error) {
+      console.error("Error during organization validation fetch:", error)
+      setOrgValidation({
+        isValid: false,
+        message: "An error occurred while checking. Please try again.",
+        isChecking: false
+      })
+    }
+  }
 
   const validateStep = (step: number): boolean => {
+    console.log(`Frontend Validate Step: Checking step ${step}`)
+    console.log(`Frontend Validate Step: current orgValidation state:`, orgValidation)
+
     switch (step) {
       case 1:
-        return !!(formData.firstName && formData.lastName && formData.email && formData.phone && formData.gender)
+        const step1Valid = !!(formData.firstName && formData.lastName && formData.email && formData.phone && formData.gender)
+        console.log(`Frontend Validate Step 1: ${step1Valid ? 'Valid' : 'Invalid'}`)
+        return step1Valid
       case 2:
-        return !!(formData.orgName && formData.orgType && formData.orgSize)
+        const step2Valid = !!(formData.orgName && formData.orgType && formData.orgSize && orgValidation.isValid === true)
+        console.log(`Frontend Validate Step 2: formData.orgName=${formData.orgName}, formData.orgType=${formData.orgType}, formData.orgSize=${formData.orgSize}, orgValidation.isValid=${orgValidation.isValid}`)
+        console.log(`Frontend Validate Step 2: Final result = ${step2Valid ? 'Valid' : 'Invalid'}`)
+        return step2Valid
       case 3:
-        return !!(formData.password && formData.confirmPassword && formData.password === formData.confirmPassword)
+        const step3Valid = !!(formData.password && formData.confirmPassword && formData.password === formData.confirmPassword)
+        console.log(`Frontend Validate Step 3: ${step3Valid ? 'Valid' : 'Invalid'}`)
+        return step3Valid
       case 4:
-        return formData.termsAccepted
+        const step4Valid = formData.termsAccepted
+        console.log(`Frontend Validate Step 4: ${step4Valid ? 'Valid' : 'Invalid'}`)
+        return step4Valid
       default:
+        console.log(`Frontend Validate Step: Unknown step ${step}`)
         return false
     }
   }
@@ -62,7 +123,11 @@ export default function SignUpPage() {
       setCurrentStep(Math.min(currentStep + 1, steps.length))
       setError(null)
     } else {
-      setError("Please fill in all required fields")
+      if (currentStep === 2 && orgValidation.isValid === false) {
+        setError(orgValidation.message || "Please enter a valid and available organization name.")
+      } else {
+        setError("Please fill in all required fields")
+      }
     }
   }
 
@@ -90,11 +155,17 @@ export default function SignUpPage() {
       })
 
       if (!response.ok) {
-        throw new Error("Signup failed")
+        // Attempt to parse error message from backend
+        const errorData = await response.json()
+        throw new Error(errorData.message || "Signup failed")
       }
 
-      toast.success("Account created successfully! Please login to continue.")
-      router.push(`${DASHBOARD_URL}/login`)
+      toast.success("Account created successfully! Redirecting to your organization's dashboard.")
+      
+      // Construct the organization-specific dashboard URL
+      const orgSpecificDashboardUrl = `https://${formData.orgName.toLowerCase()}.skillment.in/dashboard`
+      router.push(orgSpecificDashboardUrl)
+
     } catch (error: any) {
       setError(error.message || "Registration failed")
     } finally {
@@ -223,15 +294,67 @@ export default function SignUpPage() {
                 <Label htmlFor="orgName" className="text-gray-700 font-medium">
                   Organization Name
                 </Label>
-                <Input
-                  id="orgName"
-                  type="text"
-                  placeholder="Your Company Name"
-                  className="border-gray-300 focus:border-slate-500 focus:ring-slate-500"
-                  value={formData.orgName}
-                  onChange={(e) => setFormData({ ...formData, orgName: e.target.value })}
-                  required
-                />
+                <div className="flex items-center space-x-2">
+                  <div className="relative flex-1">
+                    <Input
+                      id="orgName"
+                      type="text"
+                      placeholder="Your Company Name"
+                      className={cn(
+                        "border-gray-300 focus:ring-slate-500 pr-10",
+                        orgValidation.isChecking
+                          ? "border-yellow-500 focus:border-yellow-500"
+                          : orgValidation.isValid === true
+                            ? "border-green-500 focus:border-green-500"
+                            : orgValidation.isValid === false
+                              ? "border-red-500 focus:border-red-500"
+                              : ""
+                      )}
+                      value={formData.orgName}
+                      onChange={(e) => {
+                        setFormData({ ...formData, orgName: e.target.value })
+                        setOrgValidation({ isValid: null, message: "", isChecking: false })
+                      }}
+                      required
+                      disabled={isLoading || orgValidation.isChecking}
+                    />
+                    {orgValidation.isChecking && (
+                      <div className="absolute right-3 top-1/2 transform -translate-y-1/2 text-yellow-500">
+                        <svg className="animate-spin h-5 w-5 text-yellow-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                      </div>
+                    )}
+                    {orgValidation.isValid === true && !orgValidation.isChecking && (
+                      <CheckCircle className="absolute right-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-green-500" />
+                    )}
+                    {orgValidation.isValid === false && !orgValidation.isChecking && (
+                      <XCircle className="absolute right-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-red-500" />
+                    )}
+                  </div>
+                  <Button
+                    type="button"
+                    onClick={handleCheckOrgName}
+                    disabled={isLoading || !formData.orgName || orgValidation.isChecking}
+                    className="shrink-0"
+                  >
+                    <Search className="w-4 h-4 mr-2" /> Check
+                  </Button>
+                </div>
+                <div className="flex items-center justify-between">
+                  <p className="text-sm text-gray-500">
+                    This will be your subdomain: {formData.orgName ? `${formData.orgName.toLowerCase()}.skillment.in` : ""}
+                  </p>
+                  {orgValidation.message && (
+                    <p className={cn(
+                      "text-sm",
+                      orgValidation.isValid === true ? "text-green-500" : "text-red-500"
+                    )}>
+                      {orgValidation.message}
+                    </p>
+                  )}
+                </div>
               </div>
 
               <div className="space-y-2">

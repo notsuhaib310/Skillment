@@ -1,5 +1,5 @@
 "use client"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import type React from "react"
 
 import { motion } from "framer-motion"
@@ -15,10 +15,12 @@ import {
   Users,
   CheckCircle,
   AlertCircle,
+  XCircle,
 } from "lucide-react"
 import { AnimatedButton } from "@/components/ui/aceternity/animated-button"
 import { registerUser } from "@/app/actions/auth"
 import { useRouter } from "next/navigation"
+import { validateOrganization } from "@/lib/api"
 
 const orgTypes = [
   { id: "university", label: "University/College", icon: School },
@@ -61,6 +63,45 @@ export const SignupForm = () => {
   const totalSteps = 3
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [orgValidation, setOrgValidation] = useState<{
+    isValid: boolean;
+    message: string;
+    isChecking: boolean;
+  }>({
+    isValid: true,
+    message: "",
+    isChecking: false
+  })
+
+  // Add debounced organization validation
+  useEffect(() => {
+    const validateOrgName = async () => {
+      if (!formData.orgName) {
+        setOrgValidation({ isValid: true, message: "", isChecking: false })
+        return
+      }
+
+      setOrgValidation(prev => ({ ...prev, isChecking: true }))
+      
+      try {
+        const result = await validateOrganization(formData.orgName)
+        setOrgValidation({
+          isValid: result.available,
+          message: result.message,
+          isChecking: false
+        })
+      } catch (error) {
+        setOrgValidation({
+          isValid: false,
+          message: "Failed to validate organization name",
+          isChecking: false
+        })
+      }
+    }
+
+    const timeoutId = setTimeout(validateOrgName, 500)
+    return () => clearTimeout(timeoutId)
+  }, [formData.orgName])
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target
@@ -391,15 +432,41 @@ export const SignupForm = () => {
                   name="orgName"
                   value={formData.orgName}
                   onChange={handleChange}
-                  className="w-full bg-black/50 border border-white/10 rounded-lg pl-10 pr-4 py-3 text-white placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-orange-500/50"
+                  className={cn(
+                    "w-full bg-black/50 border rounded-lg pl-10 pr-4 py-3 text-white placeholder:text-gray-500 focus:outline-none focus:ring-2",
+                    orgValidation.isChecking
+                      ? "border-yellow-500/50 focus:ring-yellow-500/50"
+                      : orgValidation.isValid
+                        ? "border-green-500/50 focus:ring-green-500/50"
+                        : "border-red-500/50 focus:ring-red-500/50"
+                  )}
                   placeholder="Your Organization Name"
                   required
                   disabled={isLoading}
                 />
+                {formData.orgName && !orgValidation.isChecking && (
+                  <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                    {orgValidation.isValid ? (
+                      <CheckCircle className="w-5 h-5 text-green-500" />
+                    ) : (
+                      <XCircle className="w-5 h-5 text-red-500" />
+                    )}
+                  </div>
+                )}
               </div>
-              <p className="mt-2 text-sm text-gray-400">
-                This will be your subdomain: {formData.orgName ? `${formData.orgName.toLowerCase()}.skillment.in` : ""}
-              </p>
+              <div className="mt-2 flex items-center justify-between">
+                <p className="text-sm text-gray-400">
+                  This will be your subdomain: {formData.orgName ? `${formData.orgName.toLowerCase()}.skillment.in` : ""}
+                </p>
+                {formData.orgName && !orgValidation.isChecking && (
+                  <p className={cn(
+                    "text-sm",
+                    orgValidation.isValid ? "text-green-500" : "text-red-500"
+                  )}>
+                    {orgValidation.message}
+                  </p>
+                )}
+              </div>
             </div>
 
             <div>
