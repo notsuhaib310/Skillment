@@ -11,7 +11,39 @@ interface AuthenticatedRequest extends Request {
     id: string
     email: string
     role: string
+    orgName: string
   }
+}
+
+type ParticipantWithScores = {
+  id: string
+  name: string
+  email: string
+  phone: string | null
+  tags: string[]
+  location: string | null
+  organization: string
+  createdAt: Date
+  updatedAt: Date
+  assessmentScores: {
+    id: string
+    participantId: string
+    assessmentId: string
+    score: number
+    status: string
+    startedAt: Date | null
+    completedAt: Date | null
+    answers: any | null
+    createdAt: Date
+    updatedAt: Date
+    assessment: {
+      id: string
+      title: string
+    }
+  }[]
+  activityLogs: {
+    createdAt: Date
+  }[]
 }
 
 export class ParticipantController {
@@ -58,9 +90,17 @@ export class ParticipantController {
           skip,
           take: Number(limit),
           include: {
-            assessmentHistory: {
+            assessmentScores: {
               orderBy: { createdAt: "desc" },
               take: 1,
+              include: {
+                assessment: {
+                  select: {
+                    id: true,
+                    title: true
+                  }
+                }
+              }
             },
             activityLogs: {
               orderBy: { createdAt: "desc" },
@@ -73,23 +113,23 @@ export class ParticipantController {
       ])
 
       // Transform data to match frontend expectations
-      const transformedParticipants = participants.map((p) => ({
+      const transformedParticipants = participants.map((p: any) => ({
         id: p.id,
         name: p.name,
         email: p.email,
         phone: p.phone || "",
         avatar: "/placeholder.svg?height=40&width=40",
         tags: p.tags,
-        status: p.assessmentHistory[0]?.type || "not-started",
-        score: p.assessmentHistory[0]?.score || 0,
+        status: p.assessmentScores[0]?.status || "not-started",
+        score: p.assessmentScores[0]?.score || 0,
         joinedDate: p.createdAt.toISOString().split("T")[0],
         lastActivity: p.activityLogs[0]?.createdAt.toISOString().split("T")[0] || "Never",
-        assessments: p.assessmentHistory.length,
+        assessments: p.assessmentScores.length,
         location: p.location || "",
-        completedAssessments: p.assessmentHistory.filter((a) => a.type === "completed").length,
-        ongoingAssessments: p.assessmentHistory.filter((a) => a.type === "ongoing").length,
-        notStartedAssessments: p.assessmentHistory.filter((a) => a.type === "not-started").length,
-        performance: p.assessmentHistory[0]?.score >= 90 ? "excellent" : p.assessmentHistory[0]?.score >= 70 ? "good" : "average",
+        completedAssessments: p.assessmentScores.filter((a: any) => a.status === "completed").length,
+        ongoingAssessments: p.assessmentScores.filter((a: any) => a.status === "in_progress").length,
+        notStartedAssessments: p.assessmentScores.filter((a: any) => a.status === "not_started").length,
+        performance: p.assessmentScores[0]?.score >= 90 ? "excellent" : p.assessmentScores[0]?.score >= 70 ? "good" : "average",
       }))
 
       return res.json({
@@ -130,7 +170,7 @@ export class ParticipantController {
           organization: user.organization.name
         },
         include: {
-          assessmentHistory: {
+          assessmentScores: {
             orderBy: { createdAt: "desc" },
           },
           activityLogs: {
@@ -326,12 +366,31 @@ export class ParticipantController {
 
       const assessment = await prisma.assessment.create({
         data: {
-          participantId: id,
-          score,
-          type,
-          notes,
+          title: `${participant.name}'s Assessment`,
+          description: `Assessment for ${participant.name}`,
+          type: type || "technical",
+          status: "draft",
+          duration: 60, // Default duration in minutes
+          totalMarks: 100, // Default total marks
+          totalQuestions: 0, // Will be updated when questions are added
+          createdBy: {
+            connect: { id: userId }
+          },
+          questions: {
+            create: []
+          }
         },
-      })
+      });
+
+      // Create participant score
+      await prisma.participantScore.create({
+        data: {
+          participantId: id,
+          assessmentId: assessment.id,
+          score: score || 0,
+          status: "not_started"
+        }
+      });
 
       // Add activity log
       await prisma.activityLog.create({

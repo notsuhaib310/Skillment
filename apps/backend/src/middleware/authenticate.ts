@@ -19,22 +19,6 @@ declare global {
   }
 }
 
-interface SessionWithUser {
-  id: string;
-  userId: string;
-  token: string;
-  createdAt: Date;
-  expiresAt: Date | null;
-  user: {
-    id: string;
-    email: string;
-    role: string;
-    organization: {
-      name: string;
-    };
-  };
-}
-
 export const authenticate = async (
   req: Request,
   _res: Response,

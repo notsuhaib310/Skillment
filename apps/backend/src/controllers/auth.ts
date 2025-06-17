@@ -130,7 +130,7 @@ export class AuthController {
       );
 
       // Create or update session
-      const session = await prisma.session.upsert({
+      await prisma.session.upsert({
         where: {
           userId_token: {
             userId: user.id,

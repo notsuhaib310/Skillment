@@ -1,13 +1,11 @@
 import { Request, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
-import {
-  AssessmentWithRelations,
+import type {
   CreateAssessmentInput,
   UpdateAssessmentInput,
   AssessmentListFilters,
-  AssessmentStats,
   AssessmentStatus,
-  CandidateStatus,
+  AssessmentStats,
 } from '../types/assessment';
 
 const prisma = new PrismaClient();
@@ -39,7 +37,7 @@ const buildAssessmentWhere = (filters: AssessmentListFilters) => {
   return where;
 };
 
-export const createAssessment = async (req: Request, res: Response) => {
+export const createAssessment = async (req: Request, res: Response): Promise<Response> => {
   try {
     const data: CreateAssessmentInput = req.body;
     
@@ -81,10 +79,46 @@ export const createAssessment = async (req: Request, res: Response) => {
       },
     });
 
-    res.status(201).json(assessment);
+    return res.status(201).json(assessment);
   } catch (error) {
     console.error('Error creating assessment:', error);
-    res.status(500).json({ error: 'Failed to create assessment' });
+    return res.status(500).json({ error: 'Failed to create assessment' });
+  }
+};
+
+export const getAssessmentById = async (req: Request, res: Response): Promise<Response> => {
+  try {
+    const { id } = req.params;
+
+    const assessment = await prisma.assessment.findUnique({
+      where: { id },
+      include: {
+        createdBy: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+          },
+        },
+        questions: true,
+        analytics: true,
+        _count: {
+          select: {
+            candidates: true,
+          },
+        },
+      },
+    });
+
+    if (!assessment) {
+      return res.status(404).json({ error: 'Assessment not found' });
+    }
+
+    return res.json(assessment);
+  } catch (error) {
+    console.error('Error fetching assessment:', error);
+    return res.status(500).json({ error: 'Failed to fetch assessment' });
   }
 };
 
@@ -142,43 +176,6 @@ export const getAssessments = async (req: Request, res: Response) => {
     res.status(500).json({ error: 'Failed to fetch assessments' });
   }
 };
-
-export const getAssessmentById = async (req: Request, res: Response) => {
-  try {
-    const { id } = req.params;
-
-    const assessment = await prisma.assessment.findUnique({
-      where: { id },
-      include: {
-        createdBy: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            email: true,
-          },
-        },
-        questions: true,
-        analytics: true,
-        _count: {
-          select: {
-            candidates: true,
-          },
-        },
-      },
-    });
-
-    if (!assessment) {
-      return res.status(404).json({ error: 'Assessment not found' });
-    }
-
-    res.json(assessment);
-  } catch (error) {
-    console.error('Error fetching assessment:', error);
-    res.status(500).json({ error: 'Failed to fetch assessment' });
-  }
-};
-
 export const updateAssessment = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
@@ -228,50 +225,37 @@ export const deleteAssessment = async (req: Request, res: Response) => {
   }
 };
 
-export const getAssessmentStats = async (req: Request, res: Response) => {
+export const getAssessmentStats = async (req: Request, res: Response): Promise<Response> => {
   try {
-    const { createdById } = req.query;
-    
-    const where: any = {};
-    if (createdById) {
-      where.createdById = createdById as string;
+    const stats = {
+      totalAssessments: 0,
+      liveAssessments: 0,
+      draftAssessments: 0,
+      totalCandidates: 0,
+      averageScore: 0,
     }
 
-    const [
-      totalAssessments,
-      liveAssessments,
-      draftAssessments,
-      assessmentsWithCandidates,
-    ] = await Promise.all([
-      prisma.assessment.count({ where }),
-      prisma.assessment.count({ where: { ...where, status: 'live' } }),
-      prisma.assessment.count({ where: { ...where, status: 'draft' } }),
-      prisma.assessment.findMany({
-        where,
-        include: {
-          _count: {
-            select: { candidates: true },
-          },
+    const [totalAssessments, liveAssessments, draftAssessments, totalCandidates, averageScore] = await Promise.all([
+      prisma.assessment.count(),
+      prisma.assessment.count({ where: { status: 'live' } }),
+      prisma.assessment.count({ where: { status: 'draft' } }),
+      prisma.candidate.count(),
+      prisma.candidate.aggregate({
+        _avg: {
+          score: true,
         },
       }),
-    ]);
+    ])
 
-    const totalCandidates = assessmentsWithCandidates.reduce(
-      (sum, assessment) => sum + assessment._count.candidates,
-      0
-    );
+    stats.totalAssessments = totalAssessments
+    stats.liveAssessments = liveAssessments
+    stats.draftAssessments = draftAssessments
+    stats.totalCandidates = totalCandidates
+    stats.averageScore = averageScore._avg.score || 0
 
-    const stats: AssessmentStats = {
-      totalAssessments,
-      liveAssessments,
-      draftAssessments,
-      totalCandidates,
-      averageScore: 0, // This would require more complex calculation
-    };
-
-    res.json(stats);
+    return res.json(stats)
   } catch (error) {
-    console.error('Error fetching assessment stats:', error);
-    res.status(500).json({ error: 'Failed to fetch assessment stats' });
+    console.error('Error fetching assessment stats:', error)
+    return res.status(500).json({ error: 'Failed to fetch assessment stats' })
   }
-};
+}

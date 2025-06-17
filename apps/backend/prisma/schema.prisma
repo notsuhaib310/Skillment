@@ -59,17 +59,17 @@ model VerificationToken {
 }
 
 model Participant {
-  id                String        @id @default(cuid())
+  id                String              @id @default(cuid())
   name              String
-  email             String        @unique
+  email             String              @unique
   phone             String?
   tags              String[]
   location          String?
   organization      String
-  createdAt         DateTime      @default(now())
-  updatedAt         DateTime      @updatedAt
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
   activityLogs      ActivityLog[]
-  assessmentHistory Assessment[] @relation("ParticipantScores")
+  assessmentScores  ParticipantScore[]
 }
 
 model ActivityLog {
@@ -84,25 +84,25 @@ model ActivityLog {
 }
 
 model Assessment {
-  id                String        @id @default(cuid())
+  id                String              @id @default(cuid())
   title             String
   description       String?
-  type              String        // mcq, coding, proctored, hybrid
-  status            String        @default("draft") // draft, live, archived
-  duration          Int           // in minutes
+  type              String              // mcq, coding, proctored, hybrid
+  status            String              @default("draft") // draft, live, archived
+  duration          Int                 // in minutes
   totalMarks        Int
   totalQuestions    Int
-  attemptLimit      Int           @default(1)
-  showResults       Boolean       @default(true)
-  enableProctoring  Boolean       @default(false)
-  randomizeQuestions Boolean      @default(false)
+  attemptLimit      Int                 @default(1)
+  showResults       Boolean             @default(true)
+  enableProctoring  Boolean             @default(false)
+  randomizeQuestions Boolean            @default(false)
   tags              String[]
-  notes             String?       // Moved from the first Assessment model
-  participantScores Participant[] @relation("ParticipantScores") // Relation to track participant scores
-  createdAt         DateTime      @default(now())
-  updatedAt         DateTime      @updatedAt
+  notes             String?             // Moved from the first Assessment model
+  participantScores ParticipantScore[]
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
   createdById       String
-  createdBy         User          @relation(fields: [createdById], references: [id])
+  createdBy         User                @relation(fields: [createdById], references: [id])
   questions         Question[]
   candidates        Candidate[]
   analytics         AssessmentAnalytics?
@@ -147,6 +147,23 @@ model Candidate {
   
   @@index([assessmentId])
   @@index([userId])
+}
+
+model ParticipantScore {
+  id             String      @id @default(cuid())
+  participant   Participant @relation(fields: [participantId], references: [id])
+  participantId String
+  assessment    Assessment  @relation(fields: [assessmentId], references: [id])
+  assessmentId  String
+  score         Int
+  status        String      @default("not_started") // not_started, in_progress, completed
+  startedAt     DateTime?
+  completedAt   DateTime?
+  answers       Json?
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  @@unique([participantId, assessmentId])
 }
 
 model AssessmentAnalytics {

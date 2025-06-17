@@ -1,8 +1,43 @@
 import { Request, Response } from 'express';
-import { PrismaClient, Prisma } from '@prisma/client';
+import { PrismaClient } from '@prisma/client';
 import * as crypto from 'crypto';
 
+interface ParticipantWithScores {
+  id: string;
+  name: string;
+  email: string;
+  phone: string | null;
+  tags: string[];
+  location: string | null;
+  organization: string;
+  createdAt: Date;
+  updatedAt: Date;
+  assessmentScores: {
+    id: string;
+    score: number;
+    status: string;
+    startedAt: Date | null;
+    completedAt: Date | null;
+    assessment: {
+      id: string;
+      title: string;
+      totalMarks: number;
+    };
+  }[];
+  activityLogs: { id: string; createdAt: Date }[];
+}
+
 const prisma = new PrismaClient();
+
+interface AddParticipantRequest {
+  name: string;
+  email: string;
+  phone?: string;
+  tags?: string[];
+  location?: string;
+  organization: string;
+  assessmentIds?: string[];
+}
 
 // Helper function to generate Gravatar URL
 const getGravatarUrl = (email: string) => {
@@ -18,38 +53,72 @@ export const getParticipants = async (req: Request, res: Response) => {
     const search = req.query.search as string || '';
     const skip = (page - 1) * limit;
 
-    const where: Prisma.ParticipantWhereInput = search ? {
-      OR: [
-        { name: { contains: search, mode: Prisma.QueryMode.insensitive } },
-        { email: { contains: search, mode: Prisma.QueryMode.insensitive } },
-        { phone: { contains: search, mode: Prisma.QueryMode.insensitive } },
-      ],
-    } : {};
+    const where: any = {};
+    if (search) {
+      where.OR = [
+        { name: { contains: search, mode: 'insensitive' as const } },
+        { email: { contains: search, mode: 'insensitive' as const } },
+      ];
+      if (search.match(/^\d+$/)) {
+        where.OR.push({ phone: { contains: search } });
+      }
+    }
 
     const [participants, total] = await Promise.all([
       prisma.participant.findMany({
         where,
         skip,
         take: limit,
-        orderBy: { createdAt: 'desc' },
+        orderBy: { createdAt: 'desc' as const },
         include: {
-          assessmentHistory: true,
-          activityLogs: true,
+          assessmentScores: {
+            include: {
+              assessment: {
+                select: {
+                  id: true,
+                  title: true,
+                  totalMarks: true,
+                },
+              },
+            },
+          },
+          activityLogs: {
+            select: {
+              id: true,
+              createdAt: true,
+            },
+            orderBy: {
+              createdAt: 'desc' as const,
+            },
+            take: 1,
+          },
         },
-      }),
+      }) as unknown as ParticipantWithScores[],
       prisma.participant.count({ where }),
     ]);
 
     // Transform participants to include additional fields
     const transformedParticipants = participants.map(participant => {
-      const completedAssessments = participant.assessmentHistory.filter(a => a.score >= 70).length;
-      const ongoingAssessments = participant.assessmentHistory.filter(a => a.score < 70 && a.score > 0).length;
-      const notStartedAssessments = participant.assessmentHistory.filter(a => a.score === 0).length;
-      const totalAssessments = participant.assessmentHistory.length;
+      const completedAssessments = participant.assessmentScores.filter(
+        score => score.status === 'completed' && score.score >= 70
+      ).length;
+      
+      const ongoingAssessments = participant.assessmentScores.filter(
+        score => score.status === 'in_progress' || (score.status === 'completed' && score.score < 70)
+      ).length;
+      
+      const notStartedAssessments = participant.assessmentScores.filter(
+        score => score.status === 'not_started'
+      ).length;
+      
+      const totalAssessments = participant.assessmentScores.length;
 
       // Calculate average score
-      const averageScore = totalAssessments > 0
-        ? Math.round(participant.assessmentHistory.reduce((sum, a) => sum + a.score, 0) / totalAssessments)
+      const averageScore = participant.assessmentScores.length > 0
+        ? Math.round(
+            participant.assessmentScores.reduce((sum, score) => sum + score.score, 0) / 
+            participant.assessmentScores.length
+          )
         : 0;
 
       // Determine performance based on average score
@@ -63,12 +132,15 @@ export const getParticipants = async (req: Request, res: Response) => {
       if (completedAssessments > 0) status = "completed";
       else if (ongoingAssessments > 0) status = "ongoing";
 
-      // Calculate last activity
+      // Get last activity from assessment scores and activity logs
       let lastActivity: string | undefined;
       const allActivities = [
-        ...participant.assessmentHistory.map(a => new Date(a.createdAt)),
-        ...participant.activityLogs.map(l => new Date(l.createdAt))
+        ...participant.assessmentScores
+          .filter(score => score.completedAt)
+          .map(score => new Date(score.completedAt as Date)),
+        ...participant.activityLogs.map(log => new Date(log.createdAt)),
       ];
+      
       if (allActivities.length > 0) {
         lastActivity = new Date(Math.max(...allActivities.map(d => d.getTime()))).toISOString();
       }
@@ -107,114 +179,236 @@ export const getParticipants = async (req: Request, res: Response) => {
 
 export const addParticipant = async (req: Request, res: Response) => {
   try {
-    const { name, email, phone, tags, location, organization } = req.body;
+    const { 
+      name, 
+      email, 
+      phone, 
+      tags = [], 
+      location, 
+      organization,
+      assessmentIds = []
+    } = req.body as AddParticipantRequest;
 
+    // Validate required fields
     if (!name || !email || !organization) {
-      return res.status(400).json({ success: false, error: 'Name, email, and organization are required.' });
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Name, email, and organization are required' 
+      });
     }
 
-    // Check if participant with email already exists
+    // Check if participant with the same email already exists
     const existingParticipant = await prisma.participant.findUnique({
       where: { email },
     });
 
     if (existingParticipant) {
-      return res.status(400).json({ success: false, error: 'Participant with this email already exists.' });
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Participant with this email already exists' 
+      });
     }
 
-    const newParticipant = await prisma.participant.create({
+    // Start a transaction to ensure data consistency
+    const participant = await prisma.$transaction(async (tx: any) => {
+      // Create the participant
+      const createdParticipant = await tx.participant.create({
+        data: {
+          name,
+          email,
+          phone: phone || null,
+          tags,
+          location: location || null,
+          organization,
+        },
+      });
+
+      // Create assessment scores for the participant if assessmentIds are provided
+      if (assessmentIds.length > 0) {
+        await tx.participantScore.createMany({
+          data: assessmentIds.map((assessmentId: string) => ({
+            participantId: createdParticipant.id,
+            assessmentId,
+            score: 0,
+            status: 'not_started',
+          })),
+          skipDuplicates: true,
+        });
+      }
+
+      return createdParticipant;
+    });
+
+    // Log the activity
+    await prisma.activityLog.create({
       data: {
-        name,
-        email,
-        phone,
-        tags: tags || [],
-        location,
-        organization,
-      },
-      include: {
-        assessmentHistory: true,
-        activityLogs: true,
+        participantId: participant.id,
+        activity: 'participant_created',
+        details: `Participant ${name} was created`,
       },
     });
 
-    // Transform the new participant to include additional fields
-    const transformedParticipant = {
-      ...newParticipant,
-      status: "not-started" as const,
-      score: 0,
-      performance: "pending" as const,
-      completedAssessments: 0,
-      ongoingAssessments: 0,
-      notStartedAssessments: 0,
-      totalAssessments: 0,
-      avatar: getGravatarUrl(newParticipant.email),
-    };
+    // Get the created participant with all relations
+    const participantWithRelations = await prisma.participant.findUnique({
+      where: { id: participant.id },
+      include: {
+        assessmentScores: {
+          include: {
+            assessment: {
+              select: {
+                id: true,
+                title: true,
+                totalMarks: true,
+              },
+            },
+          },
+        },
+        activityLogs: {
+          select: {
+            id: true,
+            createdAt: true,
+          },
+          orderBy: {
+            createdAt: 'desc',
+          },
+          take: 1,
+        },
+      },
+    });
 
-    return res.status(201).json({ success: true, data: transformedParticipant });
+    if (!participantWithRelations) {
+      throw new Error('Failed to fetch created participant');
+    }
+
+    return res.status(201).json({
+      success: true,
+      data: {
+        ...participantWithRelations,
+        avatar: getGravatarUrl(participantWithRelations.email),
+      },
+    });
   } catch (error: any) {
     console.error('Error adding participant:', error);
     return res.status(500).json({ success: false, error: error.message });
   }
 };
 
-export const getParticipantById = async (req: Request, res: Response) => {
+export const getParticipant = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
+
     const participant = await prisma.participant.findUnique({
       where: { id },
       include: {
-        assessmentHistory: true,
-        activityLogs: true,
+        assessmentScores: {
+          include: {
+            assessment: {
+              select: {
+                id: true,
+                title: true,
+                description: true,
+                duration: true,
+                totalMarks: true,
+              },
+            },
+          },
+          orderBy: {
+            completedAt: 'desc',
+          },
+        },
+        activityLogs: {
+          orderBy: {
+            createdAt: 'desc',
+          },
+          take: 10,
+        },
       },
-    });
+    }) as unknown as ParticipantWithScores;
 
     if (!participant) {
-      return res.status(404).json({ success: false, error: 'Participant not found.' });
+      return res.status(404).json({ success: false, error: 'Participant not found' });
     }
 
-    // Transform participant to include additional fields
-    const completedAssessments = participant.assessmentHistory.filter(a => a.score >= 70).length;
-    const ongoingAssessments = participant.assessmentHistory.filter(a => a.score < 70 && a.score > 0).length;
-    const notStartedAssessments = participant.assessmentHistory.filter(a => a.score === 0).length;
-    const totalAssessments = participant.assessmentHistory.length;
+    // Calculate assessment statistics
+    const completedScores = participant.assessmentScores.filter(
+      score => score.status === 'completed'
+    );
+    
+    const totalAssessments = participant.assessmentScores.length;
+    const completedAssessments = completedScores.length;
+    const ongoingAssessments = participant.assessmentScores.filter(
+      score => score.status === 'in_progress' || (score.status === 'completed' && score.score < 70)
+    ).length;
+    const notStartedAssessments = participant.assessmentScores.filter(
+      score => score.status === 'not_started'
+    ).length;
 
-    const averageScore = totalAssessments > 0
-      ? Math.round(participant.assessmentHistory.reduce((sum, a) => sum + a.score, 0) / totalAssessments)
+    const averageScore = completedScores.length > 0
+      ? Math.round(
+          completedScores.reduce((sum: number, score) => sum + score.score, 0) / 
+          completedScores.length
+        )
       : 0;
 
-    let performance: "excellent" | "good" | "average" | "pending" = "pending";
-    if (averageScore >= 90) performance = "excellent";
-    else if (averageScore >= 70) performance = "good";
-    else if (averageScore > 0) performance = "average";
+    // Determine overall performance
+    let performance: 'excellent' | 'good' | 'needs-improvement' | 'pending' = 'pending';
+    if (averageScore >= 90) performance = 'excellent';
+    else if (averageScore >= 70) performance = 'good';
+    else if (averageScore > 0) performance = 'needs-improvement';
 
-    let status: "completed" | "ongoing" | "not-started" = "not-started";
-    if (completedAssessments > 0) status = "completed";
-    else if (ongoingAssessments > 0) status = "ongoing";
+    // Determine participant status
+    let status: 'completed' | 'ongoing' | 'not-started' = 'not-started';
+    if (completedAssessments > 0) status = 'completed';
+    else if (ongoingAssessments > 0) status = 'ongoing';
 
-    // Calculate last activity
+    // Get last activity from assessment scores and activity logs
     let lastActivity: string | undefined;
     const allActivities = [
-      ...participant.assessmentHistory.map(a => new Date(a.createdAt)),
-      ...participant.activityLogs.map(l => new Date(l.createdAt))
+      ...participant.assessmentScores
+        .filter(score => score.completedAt)
+        .map(score => new Date(score.completedAt as Date)),
+      ...participant.activityLogs.map(log => new Date(log.createdAt)),
     ];
+    
     if (allActivities.length > 0) {
       lastActivity = new Date(Math.max(...allActivities.map(d => d.getTime()))).toISOString();
     }
 
-    const transformedParticipant = {
+    // Transform assessment scores for the response
+    const assessmentHistory = participant.assessmentScores.map(score => ({
+      id: score.id,
+      score: score.score,
+      status: score.status,
+      startedAt: score.startedAt,
+      completedAt: score.completedAt,
+      assessment: score.assessment,
+      performance: score.status === 'completed' 
+        ? score.score >= 90 
+          ? 'excellent' 
+          : score.score >= 70 
+            ? 'good' 
+            : 'needs-improvement'
+        : 'in-progress',
+    }));
+
+    // Prepare the response
+    const response = {
       ...participant,
+      assessmentHistory,
+      statistics: {
+        totalAssessments,
+        completedAssessments,
+        ongoingAssessments,
+        notStartedAssessments,
+        averageScore,
+      },
       status,
-      score: averageScore,
       performance,
       lastActivity,
-      completedAssessments,
-      ongoingAssessments,
-      notStartedAssessments,
-      totalAssessments,
       avatar: getGravatarUrl(participant.email),
     };
 
-    return res.status(200).json({ success: true, data: transformedParticipant });
+    return res.status(200).json({ success: true, data: response });
   } catch (error: any) {
     console.error('Error fetching participant by ID:', error);
     return res.status(500).json({ success: false, error: error.message });
