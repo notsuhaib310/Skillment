@@ -111,6 +111,13 @@ export const SignupForm = () => {
         setError("All organization details are required")
         return false
       }
+
+      // Validate organization name format
+      const orgNameRegex = /^[a-zA-Z0-9-]+$/
+      if (!orgNameRegex.test(formData.orgName)) {
+        setError("Organization name can only contain letters, numbers, and hyphens")
+        return false
+      }
     }
 
     if (currentStep === 3) {
@@ -150,10 +157,10 @@ export const SignupForm = () => {
         const result = await registerUser(formDataToSubmit)
 
         if (result.success) {
-          // Redirect to verification page or login
-          router.push("/signup/success")
+          // Redirect to the organization's subdomain
+          window.location.href = result.redirectUrl
         } else {
-          setError(result.message || "Registration failed")
+          setError(result.error || "Registration failed")
         }
       } catch (err) {
         setError("An unexpected error occurred")
@@ -213,7 +220,7 @@ export const SignupForm = () => {
         </div>
       )}
 
-      <form onSubmit={handleSubmit}>
+      <form onSubmit={handleSubmit} className="space-y-6">
         {/* Step 1: Personal Information */}
         {currentStep === 1 && (
           <motion.div
@@ -243,6 +250,7 @@ export const SignupForm = () => {
                   />
                 </div>
               </div>
+
               <div>
                 <label htmlFor="lastName" className="block text-sm font-medium text-gray-300 mb-2">
                   Last Name
@@ -302,7 +310,6 @@ export const SignupForm = () => {
                   disabled={isLoading}
                 />
               </div>
-              <p className="mt-1 text-xs text-gray-400">Must be at least 8 characters with numbers and symbols</p>
             </div>
 
             <div>
@@ -390,6 +397,9 @@ export const SignupForm = () => {
                   disabled={isLoading}
                 />
               </div>
+              <p className="mt-2 text-sm text-gray-400">
+                This will be your subdomain: {formData.orgName ? `${formData.orgName.toLowerCase()}.skillment.in` : ""}
+              </p>
             </div>
 
             <div>
@@ -426,32 +436,20 @@ export const SignupForm = () => {
             className="space-y-6"
           >
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-4">
-                What types of assessments will you conduct? (Select all that apply)
-              </label>
+              <label className="block text-sm font-medium text-gray-300 mb-4">Select Assessment Types</label>
               <div className="grid grid-cols-2 gap-4">
                 {assessmentTypes.map((type) => (
                   <div
                     key={type.id}
                     className={cn(
-                      "bg-black/50 border rounded-lg p-3 cursor-pointer transition-all duration-300",
+                      "bg-black/50 border rounded-lg p-4 cursor-pointer transition-all duration-300",
                       formData.assessmentTypes.includes(type.id)
                         ? "border-orange-500 bg-orange-500/10"
                         : "border-white/10 hover:border-white/30",
                     )}
                     onClick={() => handleCheckboxChange(type.id)}
                   >
-                    <div className="flex items-center space-x-3">
-                      <div
-                        className={cn(
-                          "w-5 h-5 rounded border flex items-center justify-center",
-                          formData.assessmentTypes.includes(type.id)
-                            ? "bg-gradient-to-r from-orange-500 to-red-500 border-orange-500"
-                            : "border-white/30 bg-black/50",
-                        )}
-                      >
-                        {formData.assessmentTypes.includes(type.id) && <CheckCircle className="w-3 h-3 text-white" />}
-                      </div>
+                    <div className="flex items-center justify-between">
                       <span
                         className={cn(
                           "font-medium",
@@ -460,64 +458,48 @@ export const SignupForm = () => {
                       >
                         {type.label}
                       </span>
+                      {formData.assessmentTypes.includes(type.id) && (
+                        <CheckCircle className="w-5 h-5 text-orange-500" />
+                      )}
                     </div>
                   </div>
                 ))}
               </div>
             </div>
-
-            <div className="bg-orange-500/10 border border-orange-500/30 rounded-lg p-4">
-              <p className="text-sm text-gray-300">
-                By creating an account, you agree to our{" "}
-                <a href="#" className="text-orange-400 hover:text-orange-300">
-                  Terms of Service
-                </a>{" "}
-                and{" "}
-                <a href="#" className="text-orange-400 hover:text-orange-300">
-                  Privacy Policy
-                </a>
-                .
-              </p>
-            </div>
           </motion.div>
         )}
 
-        <div className="mt-8 flex justify-between">
-          {currentStep > 1 ? (
+        {/* Navigation Buttons */}
+        <div className="flex justify-between pt-6">
+          {currentStep > 1 && (
             <button
               type="button"
               onClick={goBack}
-              className="px-6 py-3 border border-white/10 rounded-lg text-white hover:bg-white/5 transition-colors"
+              className="px-6 py-3 text-gray-300 hover:text-white transition-colors"
               disabled={isLoading}
             >
               Back
             </button>
-          ) : (
-            <div></div>
           )}
-
           <AnimatedButton
             type="submit"
             colors={["#ea580c", "#dc2626", "#be185d"]}
-            className="px-8 py-3 text-lg group"
+            className="ml-auto px-6 py-3 text-lg group"
             disabled={isLoading}
           >
-            {isLoading ? "Processing..." : currentStep < totalSteps ? "Continue" : "Create Account"}
-            {!isLoading && <ArrowRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />}
+            {isLoading ? (
+              "Processing..."
+            ) : currentStep < totalSteps ? (
+              <>
+                Next Step
+                <ArrowRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />
+              </>
+            ) : (
+              "Create Account"
+            )}
           </AnimatedButton>
         </div>
       </form>
-
-      {currentStep === 1 && (
-        <div className="mt-8 text-center">
-          <p className="text-gray-400">
-            Already have an account?{" "}
-            <a href="/login" className="text-orange-400 hover:text-orange-300">
-              Sign in
-            </a>
-          </p>
-        </div>
-      )}
     </div>
   )
 }

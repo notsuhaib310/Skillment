@@ -1,0 +1,91 @@
+# Cursor Rules for Skillment Project
+
+## Project Structure
+- Monorepo using pnpm workspaces
+- Apps in /apps directory
+- Shared packages in /packages directory
+- Each app has its own package.json and configuration
+
+## Code Organization
+- Components in /components directory
+- Hooks in /hooks directory
+- Utils in /lib directory
+- API routes in /app/api directory
+- Styles in /styles directory
+
+## Naming Conventions
+- Components: PascalCase (e.g., OrgLoginModal)
+- Files: kebab-case (e.g., org-login-modal.tsx)
+- Functions: camelCase
+- Constants: UPPER_SNAKE_CASE
+- Types/Interfaces: PascalCase with 'I' prefix for interfaces
+
+## Component Patterns
+- Use functional components with TypeScript
+- Props interface defined at top of file
+- Destructure props in function parameters
+- Use React hooks for state management
+- Implement error boundaries for error handling
+
+## Styling Patterns
+- Use Tailwind CSS for styling
+- Custom components extend shadcn/ui
+- Dark theme by default
+- Responsive design using Tailwind breakpoints
+- Custom animations using Framer Motion
+
+## State Management
+- Local state with useState
+- Global state with Context API
+- Custom hooks for shared logic
+- Form state with React Hook Form
+- API state with React Query
+
+## API Patterns
+- RESTful endpoints
+- JWT authentication
+- Error handling middleware
+- Request validation
+- Rate limiting
+
+## Testing Strategy
+- Unit tests for components
+- Integration tests for features
+- E2E tests for critical flows
+- API tests for endpoints
+- Use Jest and React Testing Library
+
+## Documentation
+- JSDoc comments for functions
+- README files in each directory
+- TypeScript types for all props
+- API documentation with OpenAPI
+- Component documentation with Storybook
+
+## Git Workflow
+- Feature branches from main
+- Pull request reviews required
+- Conventional commits
+- Semantic versioning
+- Automated CI/CD
+
+## Performance Guidelines
+- Code splitting with Next.js
+- Image optimization
+- Lazy loading components
+- Memoization where needed
+- Bundle size monitoring
+
+## Security Practices
+- Environment variables for secrets
+- Input validation
+- XSS prevention
+- CSRF protection
+- Rate limiting
+
+## Accessibility
+- Semantic HTML
+- ARIA attributes
+- Keyboard navigation
+- Screen reader support
+- Color contrast compliance 

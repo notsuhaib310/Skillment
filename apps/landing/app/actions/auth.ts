@@ -16,15 +16,18 @@ export async function redirectToDashboard() {
 
 export async function loginUser(formData: FormData) {
   try {
-    const email = formData.get("email") as string
-    const password = formData.get("password") as string
+    const userData = {
+      email: formData.get("email") as string,
+      password: formData.get("password") as string,
+      orgName: formData.get("orgName") as string,
+    }
 
     const response = await fetch(`${API_URL}/auth/login`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ email, password }),
+      body: JSON.stringify(userData),
       credentials: "include",
     })
 
@@ -44,11 +47,15 @@ export async function loginUser(formData: FormData) {
         secure: process.env.NODE_ENV === "production",
         sameSite: "lax",
         path: "/",
-        domain: ".localhost", // This allows the cookie to be shared between subdomains
+        domain: ".skillment.in", // This allows the cookie to be shared between subdomains
       })
     }
 
-    return { success: true, data }
+    return { 
+      success: true, 
+      data,
+      redirectUrl: data.redirectUrl // This will be the organization's dashboard URL
+    }
   } catch (error: any) {
     console.error("Login error:", error)
     return { success: false, error: error.message }
@@ -92,11 +99,15 @@ export async function registerUser(formData: FormData) {
         secure: process.env.NODE_ENV === "production",
         sameSite: "lax",
         path: "/",
-        domain: ".localhost", // This allows the cookie to be shared between subdomains
+        domain: ".skillment.in", // This allows the cookie to be shared between subdomains
       })
     }
 
-    return { success: true, data }
+    return { 
+      success: true, 
+      data,
+      redirectUrl: data.redirectUrl // This will be the organization's subdomain URL
+    }
   } catch (error: any) {
     console.error("Registration error:", error)
     return { success: false, error: error.message }

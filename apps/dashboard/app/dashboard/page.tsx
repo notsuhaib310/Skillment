@@ -9,6 +9,7 @@ interface User {
   email: string
   firstName: string
   lastName: string
+  orgName: string
 }
 
 export default function DashboardPage() {
@@ -18,7 +19,10 @@ export default function DashboardPage() {
     // Check for token
     const token = localStorage.getItem("token")
     if (!token) {
-      window.location.href = "/login"
+      // Get the current hostname
+      const hostname = window.location.hostname
+      const subdomain = hostname.split(".")[0]
+      window.location.href = `https://${subdomain}.skillment.in/login`
       return
     }
 
@@ -28,9 +32,19 @@ export default function DashboardPage() {
       try {
         const userData = JSON.parse(userStr)
         setUser(userData)
+
+        // Verify organization access
+        const hostname = window.location.hostname
+        const subdomain = hostname.split(".")[0]
+        if (userData.orgName !== subdomain) {
+          toast.error("Unauthorized access to this organization")
+          window.location.href = `https://${userData.orgName}.skillment.in/dashboard`
+        }
       } catch (error) {
         console.error("Error parsing user data:", error)
-        window.location.href = "/login"
+        const hostname = window.location.hostname
+        const subdomain = hostname.split(".")[0]
+        window.location.href = `https://${subdomain}.skillment.in/login`
       }
     }
   }, [])
@@ -54,7 +68,9 @@ export default function DashboardPage() {
               onClick={() => {
                 localStorage.removeItem("token")
                 localStorage.removeItem("user")
-                window.location.href = "/login"
+                const hostname = window.location.hostname
+                const subdomain = hostname.split(".")[0]
+                window.location.href = `https://${subdomain}.skillment.in/login`
               }}
               className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-md text-sm font-medium"
             >

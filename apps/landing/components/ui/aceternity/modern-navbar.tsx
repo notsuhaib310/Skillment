@@ -17,6 +17,7 @@ import {
 } from "lucide-react"
 import { getCurrentUser, logoutUser } from "@/app/actions/auth"
 import { useRouter } from "next/navigation"
+import { OrgLoginModal } from "@/components/auth/org-login-modal"
 
 const productItems = [
   {
@@ -53,6 +54,7 @@ export const ModernNavbar = () => {
   const [isScrolled, setIsScrolled] = useState(false)
   const [user, setUser] = useState<any>(null)
   const [isLoading, setIsLoading] = useState(true)
+  const [isLoginModalOpen, setIsLoginModalOpen] = useState(false)
 
   useEffect(() => {
     const handleScroll = () => {
@@ -227,9 +229,12 @@ export const ModernNavbar = () => {
                 ) : (
                   /* Login/Signup Buttons */
                   <>
-                    <a href="/login" className="text-gray-300 hover:text-white transition-colors">
+                    <button 
+                      onClick={() => setIsLoginModalOpen(true)}
+                      className="text-gray-300 hover:text-white transition-colors"
+                    >
                       Log In
-                    </a>
+                    </button>
 
                     <motion.a
                       href="/signup"
@@ -247,6 +252,12 @@ export const ModernNavbar = () => {
           </div>
         </div>
       </nav>
+
+      {/* Organization Login Modal */}
+      <OrgLoginModal 
+        isOpen={isLoginModalOpen}
+        onClose={() => setIsLoginModalOpen(false)}
+      />
     </div>
   )
 }

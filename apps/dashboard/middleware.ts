@@ -1,19 +1,44 @@
 import { NextResponse } from "next/server"
 import type { NextRequest } from "next/server"
+import { getToken } from "next-auth/jwt"
 
 export async function middleware(request: NextRequest) {
-  const path = request.nextUrl.pathname
-
-  // Only protect dashboard routes
-  if (path.startsWith("/dashboard")) {
-    // Since we can't access localStorage in middleware, we'll let the client handle the redirect
+  const token = await getToken({ req: request })
+  const hostname = request.headers.get("host") || ""
+  const subdomain = hostname.split(".")[0]
+  
+  // Allow access to public routes
+  if (request.nextUrl.pathname.startsWith("/_next") || 
+      request.nextUrl.pathname.startsWith("/api") ||
+      request.nextUrl.pathname.startsWith("/static")) {
     return NextResponse.next()
+  }
+
+  // Check if user is authenticated
+  if (!token) {
+    const url = new URL("/auth/login", request.url)
+    url.searchParams.set("callbackUrl", request.url)
+    url.searchParams.set("org", subdomain)
+    return NextResponse.redirect(url)
+  }
+
+  // Verify organization access
+  if (token.orgName !== subdomain) {
+    return NextResponse.redirect(new URL("/auth/unauthorized", request.url))
   }
 
   return NextResponse.next()
 }
 
-// Only run middleware on dashboard routes
 export const config = {
-  matcher: ["/dashboard/:path*"]
+  matcher: [
+    /*
+     * Match all request paths except for the ones starting with:
+     * - _next/static (static files)
+     * - _next/image (image optimization files)
+     * - favicon.ico (favicon file)
+     * - public folder
+     */
+    "/((?!_next/static|_next/image|favicon.ico|public).*)",
+  ],
 } 
