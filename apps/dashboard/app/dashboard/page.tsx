@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react"
 import { toast } from "sonner"
 import { DashboardContent } from "@/components/dashboard-content"
+import Cookies from "js-cookie"
 
 interface User {
   id: string
@@ -16,35 +17,22 @@ export default function DashboardPage() {
   const [user, setUser] = useState<User | null>(null)
 
   useEffect(() => {
-    // Check for token
-    const token = localStorage.getItem("token")
+    // Check for token in cookie
+    const token = Cookies.get("token")
     if (!token) {
-      // Get the current hostname
-      const hostname = window.location.hostname
-      const subdomain = hostname.split(".")[0]
-      window.location.href = `https://${subdomain}.skillment.in/login`
+      window.location.href = "/auth/login"
       return
     }
 
-    // Get user info
+    // Get user info from localStorage
     const userStr = localStorage.getItem("user")
     if (userStr) {
       try {
         const userData = JSON.parse(userStr)
         setUser(userData)
-
-        // Verify organization access
-        const hostname = window.location.hostname
-        const subdomain = hostname.split(".")[0]
-        if (userData.orgName !== subdomain) {
-          toast.error("Unauthorized access to this organization")
-          window.location.href = `https://${userData.orgName}.skillment.in/dashboard`
-        }
       } catch (error) {
         console.error("Error parsing user data:", error)
-        const hostname = window.location.hostname
-        const subdomain = hostname.split(".")[0]
-        window.location.href = `https://${subdomain}.skillment.in/login`
+        window.location.href = "/auth/login"
       }
     }
   }, [])
@@ -66,11 +54,9 @@ export default function DashboardPage() {
             </div>
             <button
               onClick={() => {
-                localStorage.removeItem("token")
+                Cookies.remove("token")
                 localStorage.removeItem("user")
-                const hostname = window.location.hostname
-                const subdomain = hostname.split(".")[0]
-                window.location.href = `https://${subdomain}.skillment.in/login`
+                window.location.href = "/auth/login"
               }}
               className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-md text-sm font-medium"
             >
