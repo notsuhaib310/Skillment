@@ -14,7 +14,11 @@ export const CORS_OPTIONS = {
     process.env.FRONTEND_URL || 'http://localhost:3000',
     process.env.DASHBOARD_URL || 'http://localhost:3001',
     'https://*.vercel.app',
-    'https://*.skillment.vercel.app'
+    'https://*.skillment.vercel.app',
+    'https://skillment.in',
+    'https://www.skillment.in',
+    'https://app.skillment.in',
+    'https://api.skillment.in'
   ],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],

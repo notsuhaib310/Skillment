@@ -4,6 +4,7 @@ import cookieParser from "cookie-parser"
 import authRoutes from "./routes/auth"
 import participantsRoutes from "./routes/participants"
 import { PrismaClient } from "@prisma/client"
+import { CORS_OPTIONS } from "./config/constants"
 
 const app = express()
 const prisma = new PrismaClient()
@@ -13,15 +14,7 @@ app.use(express.json())
 app.use(cookieParser())
 
 // CORS configuration
-app.use(
-  cors({
-    origin: ["http://localhost:3000", "http://localhost:3001"],
-    credentials: true,
-    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization"],
-    exposedHeaders: ["Set-Cookie"],
-  })
-)
+app.use(cors(CORS_OPTIONS))
 
 // Routes
 app.use("/api/auth", authRoutes)
