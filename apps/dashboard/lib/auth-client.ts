@@ -22,5 +22,5 @@ export const login = async (email: string, password: string) => {
 export const logout = () => {
   localStorage.removeItem('token');
   localStorage.removeItem('user');
-  window.location.href = `${FRONTEND_URL}/login`;
+  window.location.href = `${FRONTEND_URL}/auth/login`;
 }; 

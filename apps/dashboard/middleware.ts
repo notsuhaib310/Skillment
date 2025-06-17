@@ -9,6 +9,21 @@ export async function middleware(request: NextRequest) {
   const isAuthPage = request.nextUrl.pathname.startsWith("/auth")
   const token = request.cookies.get("token")?.value
 
+  // Bypass subdomain validation for localhost for local development
+  if (hostname === "localhost:3001" || hostname === "localhost") {
+    // If on auth page and token exists, redirect to dashboard
+    if (isAuthPage && token) {
+      return NextResponse.redirect(new URL("/dashboard", request.url))
+    }
+    // If not on auth page and no token, redirect to login
+    if (!isAuthPage && !token) {
+      const loginUrl = new URL("/auth/login", request.url)
+      loginUrl.searchParams.set("callbackUrl", request.nextUrl.pathname)
+      return NextResponse.redirect(loginUrl)
+    }
+    return NextResponse.next()
+  }
+
   // Skip validation for auth pages and API routes
   if (isAuthPage || request.nextUrl.pathname.startsWith("/api")) {
     return NextResponse.next()
@@ -21,8 +36,8 @@ export async function middleware(request: NextRequest) {
 
   // Special case for app.skillment.in
   if (subdomain === "app") {
-  return NextResponse.next()
-}
+    return NextResponse.next()
+  }
 
   try {
     // Check if organization exists

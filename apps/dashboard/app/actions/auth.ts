@@ -17,5 +17,5 @@ export async function logout() {
   
   // Redirect to the frontend login page
   const frontendUrl = process.env.NEXT_PUBLIC_FRONTEND_URL || 'https://app.skillment.in'
-  redirect(`${frontendUrl}/login`)
+  redirect(`${frontendUrl}/auth/login`)
 } 

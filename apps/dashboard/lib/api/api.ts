@@ -27,11 +27,11 @@ api.interceptors.response.use(
     // Handle 401 Unauthorized errors
     if (error.response?.status === 401) {
       // Only redirect to login if we're not already on the login page
-      if (typeof window !== "undefined" && !window.location.pathname.includes("/login")) {
+      if (typeof window !== "undefined" && !window.location.pathname.includes("/auth/login")) {
         // Clear token
         localStorage.removeItem("auth_token")
         // Redirect to login
-        window.location.href = "/login"
+        window.location.href = "/auth/login"
       }
     }
     return Promise.reject(error)
