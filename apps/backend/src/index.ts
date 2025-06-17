@@ -4,6 +4,7 @@ import morgan from 'morgan';
 import { config } from 'dotenv';
 import authRouter from './routes/auth';
 import participantsRouter from './routes/participants';
+import organizationsRouter from './routes/organizations';
 import { errorHandler } from './middleware/errorHandler';
 import { PrismaClient } from '@prisma/client';
 import cookieParser from 'cookie-parser';
@@ -17,7 +18,7 @@ const port = process.env.PORT || 5000;
 
 // Middleware
 app.use(cors({
-  origin: ["http://localhost:3000", "http://localhost:3001"],
+  origin: ["http://localhost:3000", "http://localhost:3001", "https://skillment.in"],
   credentials: true,
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"],
@@ -34,6 +35,7 @@ app.get('/', (_req, res) => {
 // Routes
 app.use('/api/auth', authRouter);
 app.use('/api/participants', participantsRouter);
+app.use('/api/organizations', organizationsRouter);
 
 // Error handling
 app.use(errorHandler);
