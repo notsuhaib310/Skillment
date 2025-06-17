@@ -28,7 +28,7 @@ app.use(morgan('dev'));
 
 // Health check endpoint
 app.get('/', (_req, res) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+  res.json({ status: 'okna', timestamp: new Date().toISOString() });
 });
 
 // Routes

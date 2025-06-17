@@ -9,14 +9,14 @@ import { CORS_OPTIONS } from "./config/constants"
 const app = express()
 const prisma = new PrismaClient()
 
+// CORS configuration - must be before other middleware
+app.use(cors(CORS_OPTIONS))
+
 // Middleware
 app.use(express.json())
 app.use(cookieParser())
 
-// CORS configuration - must be before routes
-app.use(cors(CORS_OPTIONS))
-
-// Pre-flight requests
+// Handle preflight requests
 app.options('*', cors(CORS_OPTIONS))
 
 // Routes
