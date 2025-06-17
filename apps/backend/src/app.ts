@@ -13,8 +13,11 @@ const prisma = new PrismaClient()
 app.use(express.json())
 app.use(cookieParser())
 
-// CORS configuration
+// CORS configuration - must be before routes
 app.use(cors(CORS_OPTIONS))
+
+// Pre-flight requests
+app.options('*', cors(CORS_OPTIONS))
 
 // Routes
 app.use("/api/auth", authRoutes)
