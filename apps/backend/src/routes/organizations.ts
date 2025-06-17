@@ -37,6 +37,8 @@ router.get("/validate/:orgName", async (req, res) => {
       console.log(`Backend: Invalid orgName format: "${orgName}"`)
       return res.status(400).json({
         success: false,
+        exists: false,
+        available: false,
         error: "Organization name can only contain letters, numbers, and hyphens"
       })
     }
@@ -58,16 +60,21 @@ router.get("/validate/:orgName", async (req, res) => {
     })
     
     console.log('Backend: Found existing org:', existingOrg ? existingOrg.name : 'None')
-    console.log(`Backend: Found existing org: ${existingOrg ? JSON.stringify(existingOrg.name) : "None"}`)
 
     return res.json({
       success: true,
+      exists: !!existingOrg,
       available: !existingOrg,
       message: existingOrg ? "Organization name is already taken" : "Organization name is available"
     })
   } catch (error) {
     console.error("Backend: Error validating organization name:", error)
-    return res.status(500).json({ success: false, error: "Internal server error" })
+    return res.status(500).json({ 
+      success: false, 
+      exists: false,
+      available: false,
+      error: "Internal server error" 
+    })
   }
 })
 

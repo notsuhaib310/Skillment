@@ -80,7 +80,7 @@ export function OrganizationSettings() {
 
       if (!response.ok) {
         const errorData = await response.json()
-        throw new Error(errorData.message || "Failed to fetch organization details")
+        throw new Error(errorData.error || "Failed to fetch organization details")
       }
 
       const data = await response.json()

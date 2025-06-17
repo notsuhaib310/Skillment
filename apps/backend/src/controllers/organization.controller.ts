@@ -27,7 +27,6 @@ export class OrganizationController {
       const { orgName } = req.params;
 
       console.log('Get org - Request orgName:', orgName);
-      console.log('Get org - User orgName:', req.orgName);
 
       // Find organization with case-insensitive name match
       const organization = await prisma.organization.findFirst({
@@ -56,14 +55,6 @@ export class OrganizationController {
       }
 
       console.log(`Found organization: ${organization.name} (ID: ${organization.id})`);
-
-      // Ensure we return the correct case from the database
-      if (organization.name !== orgName) {
-        console.log('Organization name case mismatch:', { 
-          requested: orgName, 
-          actual: organization.name 
-        });
-      }
 
       return res.json(organization);
     } catch (error) {

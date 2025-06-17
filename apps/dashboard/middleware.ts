@@ -41,11 +41,23 @@ export async function middleware(request: NextRequest) {
 
   try {
     // Check if organization exists
-    const response = await fetch(`${API_URL}/organizations/validate/${subdomain}`)
-    const data = await response.json()
+    const response = await fetch(`${API_URL}/organizations/validate/${subdomain}`, {
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json'
+      }
+    })
 
-    if (!response.ok || !data.exists) {
-      // Instead of redirecting to main site, show a custom error page
+    if (!response.ok) {
+      console.error(`Organization validation failed: ${response.status} ${response.statusText}`)
+      return NextResponse.rewrite(new URL("/error", request.url))
+    }
+
+    const data = await response.json()
+    console.log('Organization validation response:', data)
+
+    if (!data.exists) {
+      console.error(`Organization not found: ${subdomain}`)
       return NextResponse.rewrite(new URL("/error", request.url))
     }
 
