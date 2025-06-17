@@ -18,8 +18,10 @@ model User {
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
   orgId         String?
-  sessions      Session[]
-  organization  Organization? @relation(fields: [orgId], references: [id])
+  sessions           Session[]
+  organization       Organization? @relation(fields: [orgId], references: [id])
+  createdAssessments Assessment[]
+  candidates         Candidate[]
 
   @@index([orgId])
 }
@@ -67,19 +69,7 @@ model Participant {
   createdAt         DateTime      @default(now())
   updatedAt         DateTime      @updatedAt
   activityLogs      ActivityLog[]
-  assessmentHistory Assessment[]
-}
-
-model Assessment {
-  id            String      @id @default(cuid())
-  participantId String
-  score         Int
-  type          String
-  notes         String?
-  createdAt     DateTime    @default(now())
-  participant   Participant @relation(fields: [participantId], references: [id], onDelete: Cascade)
-
-  @@index([participantId])
+  assessmentHistory Assessment[] @relation("ParticipantScores")
 }
 
 model ActivityLog {
@@ -94,26 +84,28 @@ model ActivityLog {
 }
 
 model Assessment {
-  id              String        @id @default(cuid())
-  title           String
-  description     String?
-  type            String        // mcq, coding, proctored, hybrid
-  status          String        @default("draft") // draft, live, archived
-  duration        Int           // in minutes
-  totalMarks      Int
-  totalQuestions  Int
-  attemptLimit    Int           @default(1)
-  showResults     Boolean       @default(true)
-  enableProctoring Boolean      @default(false)
-  randomizeQuestions Boolean    @default(false)
-  tags            String[]
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
-  createdById     String
-  createdBy       User          @relation(fields: [createdById], references: [id])
-  questions       Question[]
-  candidates      Candidate[]
-  analytics       AssessmentAnalytics?
+  id                String        @id @default(cuid())
+  title             String
+  description       String?
+  type              String        // mcq, coding, proctored, hybrid
+  status            String        @default("draft") // draft, live, archived
+  duration          Int           // in minutes
+  totalMarks        Int
+  totalQuestions    Int
+  attemptLimit      Int           @default(1)
+  showResults       Boolean       @default(true)
+  enableProctoring  Boolean       @default(false)
+  randomizeQuestions Boolean      @default(false)
+  tags              String[]
+  notes             String?       // Moved from the first Assessment model
+  participantScores Participant[] @relation("ParticipantScores") // Relation to track participant scores
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+  createdById       String
+  createdBy         User          @relation(fields: [createdById], references: [id])
+  questions         Question[]
+  candidates        Candidate[]
+  analytics         AssessmentAnalytics?
 }
 
 model Question {

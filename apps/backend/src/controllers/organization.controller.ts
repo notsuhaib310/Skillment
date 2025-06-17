@@ -51,9 +51,11 @@ export class OrganizationController {
       });
 
       if (!organization) {
-        console.error('Organization not found:', orgName);
+        console.log(`Organization not found (case-insensitive search): ${orgName}`);
         return res.status(404).json({ error: 'Organization not found' });
       }
+
+      console.log(`Found organization: ${organization.name} (ID: ${organization.id})`);
 
       // Ensure we return the correct case from the database
       if (organization.name !== orgName) {

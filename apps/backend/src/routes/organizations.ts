@@ -41,13 +41,23 @@ router.get("/validate/:orgName", async (req, res) => {
       })
     }
 
-    // Check if organization name is taken
+    console.log(`Backend: Checking if org exists (case-insensitive): ${orgName}`)
+    
+    // Check if organization name is taken (case-insensitive)
     const existingOrg = await prisma.organization.findFirst({
       where: {
-        name: orgName
+        name: {
+          equals: orgName,
+          mode: 'insensitive'
+        }
+      },
+      select: {
+        id: true,
+        name: true
       }
     })
-
+    
+    console.log('Backend: Found existing org:', existingOrg ? existingOrg.name : 'None')
     console.log(`Backend: Found existing org: ${existingOrg ? JSON.stringify(existingOrg.name) : "None"}`)
 
     return res.json({
