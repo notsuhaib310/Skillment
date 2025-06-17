@@ -4,7 +4,8 @@ import type React from "react"
 import { useState, Suspense } from "react"
 import { toast } from "sonner"
 import { Eye, EyeOff, Shield, BarChart3, Users, Calendar, Award, TrendingUp, Target } from "lucide-react"
-import { useSearchParams } from "next/navigation"
+import { useSearchParams, useRouter } from "next/navigation"
+import Cookies from "js-cookie"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -30,6 +31,7 @@ const rightFloatingAvatars = [
 
 function LoginPageContent() {
   const searchParams = useSearchParams()
+  const router = useRouter()
   const [formData, setFormData] = useState({
     email: "",
     password: "",
@@ -54,18 +56,20 @@ function LoginPageContent() {
       const data = await response.json()
 
       if (!response.ok) {
-        throw new Error(data.message || "Login failed")
+        throw new Error(data.error || "Login failed")
       }
 
-      localStorage.setItem("token", data.token)
+      // Store token in cookie
+      Cookies.set("token", data.token, { expires: 7 }) // 7 days expiry
+      
+      // Store user data in localStorage
       localStorage.setItem("user", JSON.stringify(data.user))
 
-      // Get the current hostname
-      const hostname = window.location.hostname
-      const subdomain = hostname.split(".")[0]
+      // Get callback URL or default to dashboard
+      const callbackUrl = searchParams.get("callbackUrl") || "/dashboard"
       
-      // Redirect to the dashboard on the same subdomain
-      window.location.href = `https://${subdomain}.skillment.in/dashboard`
+      // Use router for client-side navigation
+      router.push(callbackUrl)
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Login failed")
     } finally {
