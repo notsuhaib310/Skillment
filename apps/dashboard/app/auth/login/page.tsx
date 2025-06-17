@@ -198,78 +198,67 @@ function LoginPageContent() {
         ))}
 
         <div className="w-full max-w-md relative z-10">
-          <div className="space-y-8">
-            {/* Header */}
-            <div className="text-center space-y-2">
-              <h2 className="text-3xl font-bold text-gray-900">Log in</h2>
-            </div>
+          <div className="text-center mb-8">
+            <h2 className="text-3xl font-bold text-gray-900">Welcome Back</h2>
+            <p className="text-gray-600 mt-2">Sign in to your account</p>
+          </div>
 
-            {/* Login Type Toggle */}
-            <div className="flex bg-gray-200 rounded-full p-1">
-              <button
-                onClick={() => setLoginType("email")}
-                className={`flex-1 py-2 px-4 rounded-full text-sm font-medium transition-all ${
-                  loginType === "email" ? "bg-gray-800 text-white" : "text-gray-600 hover:text-gray-800"
-                }`}
-              >
-                From Email
-              </button>
-              <button
-                onClick={() => setLoginType("uniqueId")}
-                className={`flex-1 py-2 px-4 rounded-full text-sm font-medium transition-all ${
-                  loginType === "uniqueId" ? "bg-gray-800 text-white" : "text-gray-600 hover:text-gray-800"
-                }`}
-              >
-                From Unique ID
-              </button>
-            </div>
-
-            {/* Login Form */}
-            <form onSubmit={handleSubmit} className="space-y-6">
+          <form onSubmit={handleSubmit} className="space-y-6">
+            <div className="space-y-4">
               <div>
+                <label htmlFor="email" className="block text-sm font-medium text-gray-700">
+                  Email
+                </label>
                 <Input
-                  type={loginType === "email" ? "email" : "text"}
-                  placeholder={loginType === "email" ? "Email Address" : "Unique ID"}
-                  required
-                  className="w-full h-12 px-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                  id="email"
+                  type="email"
                   value={formData.email}
                   onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                />
-              </div>
-
-              <div className="relative">
-                <Input
-                  type={showPassword ? "text" : "password"}
-                  placeholder="Enter Your Password"
+                  className="mt-1"
+                  placeholder="Enter your email"
                   required
-                  className="w-full h-12 px-4 pr-12 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                  value={formData.password}
-                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                  disabled={loading}
                 />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                >
-                  {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
-                </button>
               </div>
 
-              <div className="text-right">
-                <a href="#" className="text-sm text-blue-600 hover:underline">
-                  Forgot password?
-                </a>
+              <div>
+                <label htmlFor="password" className="block text-sm font-medium text-gray-700">
+                  Password
+                </label>
+                <div className="relative mt-1">
+                  <Input
+                    id="password"
+                    type={showPassword ? "text" : "password"}
+                    value={formData.password}
+                    onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                    className="pr-10"
+                    placeholder="Enter your password"
+                    required
+                    disabled={loading}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-500"
+                  >
+                    {showPassword ? (
+                      <EyeOff className="h-5 w-5" />
+                    ) : (
+                      <Eye className="h-5 w-5" />
+                    )}
+                  </button>
+                </div>
               </div>
+            </div>
 
-              <Button
-                type="submit"
-                disabled={loading}
-                className="w-full h-12 bg-orange-500 hover:bg-orange-600 text-white font-medium rounded-lg transition-colors disabled:opacity-50"
-              >
-                {loading ? "Logging in..." : "Login"}
-              </Button>
-            </form>
-          </div>
+            <Button
+              type="submit"
+              className="w-full"
+              disabled={loading}
+            >
+              {loading ? "Signing in..." : "Sign in"}
+            </Button>
+          </form>
         </div>
       </div>
     </div>
@@ -282,4 +271,4 @@ export default function LoginPage() {
       <LoginPageContent />
     </Suspense>
   )
-}
+} 

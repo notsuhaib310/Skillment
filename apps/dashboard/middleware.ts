@@ -7,10 +7,11 @@ export async function middleware(request: NextRequest) {
   const hostname = request.headers.get("host") || ""
   const subdomain = hostname.split(".")[0]
   
-  // Allow access to public routes
+  // Allow access to public routes and auth routes
   if (request.nextUrl.pathname.startsWith("/_next") || 
       request.nextUrl.pathname.startsWith("/api") ||
-      request.nextUrl.pathname.startsWith("/static")) {
+      request.nextUrl.pathname.startsWith("/static") ||
+      request.nextUrl.pathname.startsWith("/auth")) {
     return NextResponse.next()
   }
 
