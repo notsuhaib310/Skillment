@@ -92,3 +92,80 @@ model ActivityLog {
 
   @@index([participantId])
 }
+
+model Assessment {
+  id              String        @id @default(cuid())
+  title           String
+  description     String?
+  type            String        // mcq, coding, proctored, hybrid
+  status          String        @default("draft") // draft, live, archived
+  duration        Int           // in minutes
+  totalMarks      Int
+  totalQuestions  Int
+  attemptLimit    Int           @default(1)
+  showResults     Boolean       @default(true)
+  enableProctoring Boolean      @default(false)
+  randomizeQuestions Boolean    @default(false)
+  tags            String[]
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  createdById     String
+  createdBy       User          @relation(fields: [createdById], references: [id])
+  questions       Question[]
+  candidates      Candidate[]
+  analytics       AssessmentAnalytics?
+}
+
+model Question {
+  id            String      @id @default(cuid())
+  assessmentId  String
+  question      String
+  type          String      // multiple_choice, coding, text
+  options       Json?       // For multiple choice
+  correctAnswer Json?       // Could be string for MCQ or test cases for coding
+  marks         Int
+  order         Int
+  hints         String[]
+  explanation   String?
+  difficulty    String?     // easy, medium, hard
+  tags          String[]
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  assessment    Assessment  @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  
+  @@index([assessmentId])
+}
+
+model Candidate {
+  id            String        @id @default(cuid())
+  assessmentId  String
+  userId        String?
+  name          String
+  email         String
+  status        String        @default("invited") // invited, started, submitted, evaluated
+  score         Int?         
+  timeSpent     Int?         // in seconds
+  startedAt     DateTime?
+  submittedAt   DateTime?
+  answers       Json?        // Store candidate's answers
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  assessment    Assessment   @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  user          User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
+  
+  @@index([assessmentId])
+  @@index([userId])
+}
+
+model AssessmentAnalytics {
+  id                   String     @id @default(cuid())
+  assessmentId         String     @unique
+  totalCandidates      Int        @default(0)
+  completedCandidates  Int        @default(0)
+  averageScore         Float?     @default(0)
+  completionRate       Float?     @default(0)
+  scoreDistribution   Json?      // Store score distribution data
+  questionStatistics   Json?      // Stats per question
+  updatedAt            DateTime   @updatedAt
+  assessment           Assessment @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+}

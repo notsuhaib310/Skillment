@@ -1,5 +1,6 @@
 "use client"
 
+import { useEffect, useState } from "react"
 import { usePathname } from "next/navigation"
 import { Bell, Settings, User } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -12,8 +13,10 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { CommandSearch } from "./command-search"
-import { useEffect, useState } from "react"
 import { logout } from "@/lib/auth-client"
+import Cookies from "js-cookie"
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://api.skillment.in/api"
 
 const pageNames: Record<string, string> = {
   "/dashboard": "Dashboard Overview",
@@ -24,7 +27,7 @@ const pageNames: Record<string, string> = {
   "/dashboard/reports": "Reports & Results",
   "/dashboard/ai-tools": "AI Tools",
   "/dashboard/settings": "Settings",
-  "/dashboard/help": "Help & Support",
+  "/dashboard/help": "Help & Support"
 }
 
 interface User {
@@ -46,16 +49,46 @@ export function DashboardHeader() {
   const [user, setUser] = useState<User | null>(null)
   const [organization, setOrganization] = useState<Organization | null>(null)
 
-  // Fetch organization data
+  // Fetch organization data with authentication
   const fetchOrganization = async (orgName: string) => {
+    if (!orgName) {
+      console.error('No organization name provided')
+      return
+    }
+
     try {
-      const response = await fetch(`/api/organizations/${orgName}`)
-      if (response.ok) {
-        const data = await response.json()
-        setOrganization(data)
+      const token = Cookies.get('token')
+      if (!token) {
+        console.error('No authentication token found')
+        return
       }
+
+      console.log('Fetching organization data for:', orgName)
+      const response = await fetch(`${API_URL}/organizations/${encodeURIComponent(orgName)}`, {
+        headers: {
+          'Accept': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        credentials: 'include'
+      })
+      
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.message || 'Failed to fetch organization details')
+      }
+
+      const data = await response.json()
+      console.log('Organization data received:', data)
+      
+      setOrganization({
+        name: data.name || orgName,
+        logo: data.logo || null
+      })
     } catch (error) {
-      console.error('Error fetching organization:', error)
+      console.error('Error in fetchOrganization:', error)
+      if (error instanceof Error) {
+        console.error(error.message)
+      }
     }
   }
 
@@ -78,42 +111,52 @@ export function DashboardHeader() {
 
   // Initial data load
   useEffect(() => {
+    const token = Cookies.get('token')
+    if (!token) {
+      console.error('No authentication token found')
+      logout()
+      return
+    }
+
     // Get user info from localStorage
     const userStr = localStorage.getItem('user')
     if (userStr) {
       try {
         const userData = JSON.parse(userStr)
+        console.log('User data from localStorage:', userData)
         setUser(userData)
         
         // Fetch organization data if orgName is available
         if (userData.orgName) {
+          console.log('Fetching organization data for:', userData.orgName)
           fetchOrganization(userData.orgName)
-          
-          // Also check if we have organization data in localStorage
-          const orgData = localStorage.getItem('organization')
-          if (orgData) {
-            try {
-              setOrganization(JSON.parse(orgData))
-            } catch (e) {
-              console.error('Error parsing stored organization data:', e)
-            }
-          }
         }
       } catch (error) {
         console.error('Error parsing user data:', error)
         logout()
       }
     } else {
+      console.error('No user data found in localStorage')
       logout()
     }
   }, [])
 
-  // Update organization data in localStorage when it changes
+  // Listen for organization updates from other tabs/windows
   useEffect(() => {
-    if (organization) {
-      localStorage.setItem('organization', JSON.stringify(organization))
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'organization') {
+        try {
+          const orgData = JSON.parse(e.newValue || '{}')
+          setOrganization(orgData)
+        } catch (error) {
+          console.error('Error parsing organization data from storage:', error)
+        }
+      }
     }
-  }, [organization])
+
+    window.addEventListener('storage', handleStorageChange)
+    return () => window.removeEventListener('storage', handleStorageChange)
+  }, [])
 
   if (!user) {
     return null
@@ -143,10 +186,10 @@ export function DashboardHeader() {
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" className="relative h-10 w-10 rounded-2xl">
                 <Avatar className="h-10 w-10 rounded-2xl">
-                  <AvatarImage src={organization?.logo || "/placeholder.svg"} />
+                  <AvatarImage src={organization?.logo} alt={organization?.name} />
                   <AvatarFallback className="rounded-2xl bg-gradient-to-br from-primary to-orange-600 text-primary-foreground">
-                    {user.firstName?.[0]}{user.lastName?.[0]}
-                  </AvatarFallback>
+                    {organization?.name?.[0]?.toUpperCase() || user.firstName?.[0]}{user.lastName?.[0]}
+                    </AvatarFallback>
                 </Avatar>
               </Button>
             </DropdownMenuTrigger>
