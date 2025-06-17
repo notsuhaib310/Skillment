@@ -186,19 +186,37 @@ export function OrganizationSettings() {
           throw new Error(errorData.error || "Failed to upload logo")
         }
         
-        // Update the logo preview with the new URL
         const logoData = await logoResponse.json()
-        if (logoData.logo) {
-          setLogoPreview(logoData.logo)
+        const currentOrg = JSON.parse(localStorage.getItem('organization') || '{}')
+        const updatedOrgData = {
+          ...currentOrg,
+          logo: logoData.logo,
+          name: currentOrg.name || orgData.name
         }
+        
+        // Update localStorage with the complete organization data
+        localStorage.setItem('organization', JSON.stringify(updatedOrgData))
+        
+        // Dispatch storage event to update the header
+        const storageEvent = new StorageEvent('storage', {
+          key: 'organization',
+          newValue: JSON.stringify(updatedOrgData)
+        })
+        window.dispatchEvent(storageEvent)
+        
+        // Update local state
+        setOrgData(prev => ({
+          ...prev,
+          ...updatedOrgData
+        }))
+        
+        setLogoPreview(logoData.logo)
+        toast.success("Logo uploaded successfully")
       }
 
       toast.success("Organization details updated successfully")
       
-      // Refresh the organization data after successful update
-      // Use the updated name if it was changed
-      const newOrgName = updatedOrg.name || currentOrgName
-      setOrgData(prev => ({ ...prev, name: newOrgName }))
+      // Refresh the organization data
       fetchOrganizationDetails()
     } catch (error) {
       console.error("Error updating organization:", error)
