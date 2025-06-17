@@ -19,16 +19,19 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL("https://skillment.in"))
   }
 
+  // Special case for app.skillment.in
+  if (subdomain === "app") {
+    return NextResponse.next()
+  }
+
   try {
     // Check if organization exists
     const response = await fetch(`${API_URL}/organizations/validate/${subdomain}`)
     const data = await response.json()
 
     if (!response.ok || !data.exists) {
-      // Organization doesn't exist, redirect to main site with error
-      const mainSiteUrl = new URL("https://skillment.in")
-      mainSiteUrl.searchParams.set("error", "Organization not found")
-      return NextResponse.redirect(mainSiteUrl)
+      // Instead of redirecting to main site, show a custom error page
+      return NextResponse.rewrite(new URL("/error", request.url))
     }
 
     // If trying to access auth pages while logged in, redirect to dashboard
@@ -46,8 +49,8 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next()
   } catch (error) {
     console.error("Error validating organization:", error)
-    // On error, redirect to main site
-    return NextResponse.redirect(new URL("https://skillment.in"))
+    // Show error page instead of redirecting
+    return NextResponse.rewrite(new URL("/error", request.url))
   }
 }
 
