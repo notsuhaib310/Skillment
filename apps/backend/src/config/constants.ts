@@ -7,13 +7,4 @@ export const COOKIE_OPTIONS = {
   sameSite: 'none' as const,
   domain: '.skillment.in',
   path: '/',
-};
-
-export const CORS_OPTIONS = {
-  origin: 'https://app.skillment.in',
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
-  exposedHeaders: ['Set-Cookie'],
-  maxAge: 86400 // 24 hours
 }; 
