@@ -3,7 +3,7 @@ import axios, { InternalAxiosRequestConfig, AxiosResponse, AxiosError } from "ax
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://api.skillment.in"
 
 export const api = axios.create({
-  baseURL: `${API_URL}/api`,
+  baseURL: API_URL,
   headers: {
     "Content-Type": "application/json",
   },

@@ -1,12 +1,13 @@
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api.skillment.in/api';
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api.skillment.in';
 const FRONTEND_URL = process.env.NEXT_PUBLIC_FRONTEND_URL || 'https://app.skillment.in';
 
 export const login = async (email: string, password: string) => {
-  const response = await fetch(`${API_URL}/auth/login`, {
+  const response = await fetch(`${API_URL}/api/auth/login`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
     },
+    credentials: 'include',
     body: JSON.stringify({ email, password }),
   });
 
