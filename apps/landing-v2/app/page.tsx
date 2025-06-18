@@ -1,9 +1,41 @@
-// app/page.tsx
-import fs from 'fs/promises';
-import path from 'path';
+'use client';
 
-export default async function HomePage() {
-  const filePath = path.join(process.cwd(), 'public', 'import', 'page.html');
-  const html = await fs.readFile(filePath, 'utf-8');
-  return <div dangerouslySetInnerHTML={{ __html: html }} />;
+import { useEffect, useState } from 'react';
+
+export default function HomePage() {
+  const [html, setHtml] = useState<string>('');
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const loadHtml = async () => {
+      try {
+        const response = await fetch('/import/page.html');
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const text = await response.text();
+        setHtml(text);
+      } catch (e) {
+        console.error('Error loading HTML:', e);
+        setError(e instanceof Error ? e.message : 'Failed to load content');
+      }
+    };
+
+    loadHtml();
+  }, []);
+
+  if (error) {
+    return <div>Error: {error}</div>;
+  }
+
+  if (!html) {
+    return <div>Loading...</div>;
+  }
+
+  return (
+    <div 
+      dangerouslySetInnerHTML={{ __html: html }} 
+      suppressHydrationWarning
+    />
+  );
 }
