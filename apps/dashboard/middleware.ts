@@ -3,6 +3,13 @@ import type { NextRequest } from "next/server"
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://api.skillment.in/api"
 
+// Pre-assigned subdomains that should bypass validation
+const PRE_ASSIGNED_SUBDOMAINS = [
+  'compiler',
+  'judge0',
+  'exam'
+]
+
 export async function middleware(request: NextRequest) {
   const hostname = request.headers.get("host") || ""
   const subdomain = hostname.split(".")[0]
@@ -34,8 +41,8 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL("https://skillment.in"))
   }
 
-  // Special case for app.skillment.in
-  if (subdomain === "app") {
+  // Special case for app.skillment.in and pre-assigned subdomains
+  if (subdomain === "app" || PRE_ASSIGNED_SUBDOMAINS.includes(subdomain)) {
     return NextResponse.next()
   }
 
