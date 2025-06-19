@@ -26,6 +26,10 @@ import {
   Sparkles,
   Zap,
   Globe,
+  Crown,
+  Star,
+  Infinity,
+  RefreshCw,
 } from "lucide-react"
 import { Card, CardContent } from "@/components/ui/card"
 import { toast } from "sonner"
@@ -37,7 +41,8 @@ const steps = [
   { id: 1, title: "Personal Info", icon: User, description: "Basic information about you" },
   { id: 2, title: "Organization", icon: Building2, description: "Your company details" },
   { id: 3, title: "Security", icon: Lock, description: "Create your account password" },
-  { id: 4, title: "Terms", icon: FileText, description: "Review and accept terms" },
+  { id: 4, title: "Plan Selection", icon: Crown, description: "Choose your subscription plan" },
+  { id: 5, title: "Terms", icon: FileText, description: "Review and accept terms" },
 ]
 
 // Floating particles component
@@ -84,6 +89,7 @@ export default function SignUpPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
+  const [paymentRetryCount, setPaymentRetryCount] = useState(0)
   const [formData, setFormData] = useState({
     firstName: "",
     lastName: "",
@@ -97,6 +103,7 @@ export default function SignUpPage() {
     orgSize: "",
     termsAccepted: false,
     newsletterOptIn: false,
+    plan: "free",
   })
   const [orgValidation, setOrgValidation] = useState<{
     isValid: boolean | null
@@ -119,6 +126,25 @@ export default function SignUpPage() {
     message: "",
     isChecking: false,
   })
+
+  const [razorpaySubscriptionId, setRazorpaySubscriptionId] = useState<string | null>(null)
+  const [razorpayPaymentId, setRazorpayPaymentId] = useState<string | null>(null)
+  const [razorpaySignature, setRazorpaySignature] = useState<string | null>(null)
+  const [phoneNumber, setPhoneNumber] = useState<string>("")
+
+  const loadRazorpayScript = () => {
+    return new Promise((resolve) => {
+      const script = document.createElement("script")
+      script.src = "https://checkout.razorpay.com/v1/checkout.js"
+      script.onload = () => {
+        resolve(true)
+      }
+      script.onerror = () => {
+        resolve(false)
+      }
+      document.body.appendChild(script)
+    })
+  }
 
   const handleCheckOrgName = async () => {
     if (!formData.orgName) {
@@ -156,26 +182,61 @@ export default function SignUpPage() {
 
   const validateStep = (step: number): boolean => {
     switch (step) {
-      case 1:
-        return !!(formData.firstName && formData.lastName && formData.email && formData.phone && formData.gender)
-      case 2:
+      case 1: // Personal info
+        return !!(
+          formData.firstName &&
+          formData.lastName &&
+          formData.email &&
+          phoneNumber &&
+          phoneNumber.length >= 8 &&
+          formData.gender
+        )
+      case 2: // Organization
         return !!(formData.orgName && formData.orgType && formData.orgSize && orgValidation.isValid === true)
-      case 3:
-        return !!(formData.password && formData.confirmPassword && formData.password === formData.confirmPassword)
-      case 4:
+      case 3: // Security
+        return !!(
+          formData.password &&
+          formData.password.length >= 8 &&
+          formData.confirmPassword &&
+          formData.password === formData.confirmPassword
+        )
+      case 4: // Plan Selection
+        return !!formData.plan
+      case 5: // Terms
         return formData.termsAccepted
       default:
         return false
     }
   }
 
-  const nextStep = () => {
+  const nextStep = async () => {
+    setError(null)
+
     if (validateStep(currentStep)) {
       setCurrentStep(Math.min(currentStep + 1, steps.length))
-      setError(null)
     } else {
-      if (currentStep === 2 && orgValidation.isValid === false) {
+      if (currentStep === 1) {
+        setError("Please fill in all personal information fields correctly")
+      } else if (currentStep === 2 && orgValidation.isValid === false) {
         setError(orgValidation.message || "Please enter a valid and available organization name.")
+      } else if (currentStep === 2) {
+        setError("Please complete all organization details and verify your organization name")
+      } else if (currentStep === 3) {
+        if (!formData.password) {
+          setError("Please enter a password")
+        } else if (formData.password.length < 8) {
+          setError("Password must be at least 8 characters long")
+        } else if (!formData.confirmPassword) {
+          setError("Please confirm your password")
+        } else if (formData.password !== formData.confirmPassword) {
+          setError("Passwords do not match")
+        } else {
+          setError("Please create a valid password")
+        }
+      } else if (currentStep === 4) {
+        setError("Please select a plan")
+      } else if (currentStep === 5) {
+        setError("Please accept the terms and conditions")
       } else {
         setError("Please fill in all required fields")
       }
@@ -187,8 +248,88 @@ export default function SignUpPage() {
     setError(null)
   }
 
+  const handleEliteSubscription = async () => {
+    setIsLoading(true)
+    setError(null)
+
+    try {
+      await loadRazorpayScript()
+
+      // Create subscription from backend
+      const subscriptionRes = await fetch(`${API_URL}/auth/razorpay/elite-subscription`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          customerEmail: formData.email,
+          customerName: `${formData.firstName} ${formData.lastName}`,
+          customerPhone: phoneNumber,
+        }),
+      })
+
+      if (!subscriptionRes.ok) {
+        throw new Error("Failed to create subscription")
+      }
+
+      const { subscription } = await subscriptionRes.json()
+
+      return new Promise((resolve, reject) => {
+        const rzp = new (window as any).Razorpay({
+          key: "rzp_test_67rfnHSNSueMW8",
+          subscription_id: subscription.id,
+          name: "Skillment Elite Subscription",
+          description: "Elite Plan - ₹999/month",
+          handler: (response: any) => {
+            setRazorpaySubscriptionId(response.razorpay_subscription_id)
+            setRazorpayPaymentId(response.razorpay_payment_id)
+            setRazorpaySignature(response.razorpay_signature)
+            toast.success("Subscription activated successfully!")
+            resolve(true)
+          },
+          prefill: {
+            email: formData.email,
+            name: `${formData.firstName} ${formData.lastName}`,
+            contact: phoneNumber,
+          },
+          theme: { color: "#ea580c" },
+          modal: {
+            ondismiss: () => {
+              setIsLoading(false)
+              reject(new Error("Payment cancelled"))
+            },
+          },
+        })
+
+        rzp.on("payment.failed", (response: any) => {
+          setPaymentRetryCount((prev) => prev + 1)
+          setError(`Payment failed: ${response.error.description}. Please try again.`)
+          setIsLoading(false)
+          reject(new Error("Payment failed"))
+        })
+
+        rzp.open()
+      })
+    } catch (error: any) {
+      setError(error.message || "Failed to initiate subscription. Please try again.")
+      setIsLoading(false)
+      throw error
+    }
+  }
+
+  const retryPayment = async () => {
+    if (paymentRetryCount >= 3) {
+      setError("Maximum retry attempts reached. Please contact support or try again later.")
+      return
+    }
+
+    try {
+      await handleEliteSubscription()
+    } catch (error) {
+      // Error handling is done in handleEliteSubscription
+    }
+  }
+
   async function handleSubmit() {
-    if (!validateStep(4)) {
+    if (!validateStep(5)) {
       setError("Please accept the terms and conditions")
       return
     }
@@ -197,23 +338,36 @@ export default function SignUpPage() {
     setIsLoading(true)
 
     try {
+      // Handle Elite plan subscription first
+      if (formData.plan === "elite" && !razorpaySubscriptionId) {
+        await handleEliteSubscription()
+      }
+
       const response = await fetch(`${API_URL}/auth/register`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(formData),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...formData,
+          phone: phoneNumber,
+          plan: formData.plan,
+          razorpaySubscriptionId: formData.plan === "elite" ? razorpaySubscriptionId : "",
+          razorpayPaymentId: formData.plan === "elite" ? razorpayPaymentId : "",
+          razorpaySignature: formData.plan === "elite" ? razorpaySignature : "",
+        }),
       })
 
       if (!response.ok) {
         const errorData = await response.json()
-        throw new Error(errorData.message || "Signup failed")
+        throw new Error(errorData.error || "Signup failed")
       }
 
-      toast.success("Account created successfully! Redirecting to your organization's dashboard.")
+      const data = await response.json()
+      toast.success("Account created successfully! Redirecting to your dashboard...")
 
-      const orgSpecificDashboardUrl = `https://${formData.orgName.toLowerCase()}.skillment.in/dashboard`
-      router.push(orgSpecificDashboardUrl)
+      // Redirect to organization-specific dashboard
+      setTimeout(() => {
+        window.location.href = data.redirectUrl
+      }, 1500)
     } catch (error: any) {
       setError(error.message || "Registration failed")
     } finally {
@@ -231,7 +385,6 @@ export default function SignUpPage() {
       return
     }
 
-    // Validate org name format
     const orgNameRegex = /^[a-zA-Z0-9-]+$/
     if (!orgNameRegex.test(loginOrgName)) {
       setLoginOrgStatus({
@@ -256,7 +409,6 @@ export default function SignUpPage() {
             isChecking: false,
           })
 
-          // Redirect after a short delay
           setTimeout(() => {
             window.location.href = `https://${loginOrgName.toLowerCase()}.skillment.in`
           }, 1500)
@@ -387,8 +539,8 @@ export default function SignUpPage() {
                     type="tel"
                     placeholder="Phone Number"
                     className="flex-1 bg-black/30 backdrop-blur-xl border-white/10 text-white placeholder:text-gray-500 focus:border-blue-400/50 focus:ring-blue-400/20 rounded-l-none border-l-0 hover:border-white/20 transition-all duration-300 h-12"
-                    value={formData.phone}
-                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                    value={phoneNumber}
+                    onChange={(e) => setPhoneNumber(e.target.value)}
                     required
                   />
                 </div>
@@ -698,6 +850,144 @@ export default function SignUpPage() {
         return (
           <div className="space-y-6">
             <div className="text-center space-y-3">
+              <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gradient-to-r from-purple-500/20 to-orange-500/20 backdrop-blur-sm border border-white/10 mb-4">
+                <Crown className="w-8 h-8 text-white" />
+              </div>
+              <h2 className="text-3xl font-bold bg-gradient-to-r from-white via-purple-200 to-orange-200 bg-clip-text text-transparent">
+                Choose Your Plan
+              </h2>
+              <p className="text-gray-400">Select the perfect plan for your organization</p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Free Plan */}
+              <div
+                className={`bg-black/20 backdrop-blur-sm rounded-xl p-6 space-y-6 border border-white/10 hover:border-white/20 transition-all duration-300 cursor-pointer relative ${formData.plan === "free" ? "border-green-500 shadow-lg shadow-green-500/20" : ""}`}
+                onClick={() => setFormData({ ...formData, plan: "free" })}
+              >
+                <div className="text-center">
+                  <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-gradient-to-r from-green-500/20 to-emerald-500/20 mb-4">
+                    <Sparkles className="w-6 h-6 text-green-400" />
+                  </div>
+                  <h3 className="text-2xl font-bold text-white mb-2">Free</h3>
+                  <div className="text-3xl font-bold text-green-400 mb-1">₹0</div>
+                  <p className="text-gray-400 text-sm">Forever free</p>
+                </div>
+
+                <div className="space-y-3">
+                  <div className="flex items-center gap-3 text-sm">
+                    <Check className="w-4 h-4 text-green-400 flex-shrink-0" />
+                    <span className="text-gray-300">Up to 50 students</span>
+                  </div>
+                  <div className="flex items-center gap-3 text-sm">
+                    <Check className="w-4 h-4 text-green-400 flex-shrink-0" />
+                    <span className="text-gray-300">Basic exam features</span>
+                  </div>
+                  <div className="flex items-center gap-3 text-sm">
+                    <Check className="w-4 h-4 text-green-400 flex-shrink-0" />
+                    <span className="text-gray-300">Email support</span>
+                  </div>
+                  <div className="flex items-center gap-3 text-sm">
+                    <Check className="w-4 h-4 text-green-400 flex-shrink-0" />
+                    <span className="text-gray-300">Basic analytics</span>
+                  </div>
+                </div>
+
+                <div className="pt-4 border-t border-white/10">
+                  <p className="text-xs text-gray-500 text-center">Perfect for small teams and getting started</p>
+                </div>
+
+                {formData.plan === "free" && (
+                  <div className="absolute top-4 right-4">
+                    <div className="w-6 h-6 rounded-full bg-green-500 flex items-center justify-center">
+                      <Check className="w-4 h-4 text-white" />
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Elite Plan */}
+              <div
+                className={`bg-black/20 backdrop-blur-sm rounded-xl p-6 space-y-6 border border-white/10 hover:border-white/20 transition-all duration-300 cursor-pointer relative ${formData.plan === "elite" ? "border-orange-500 shadow-lg shadow-orange-500/20" : ""}`}
+                onClick={() => setFormData({ ...formData, plan: "elite" })}
+              >
+                <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
+                  <div className="bg-gradient-to-r from-orange-500 to-amber-500 text-white text-xs font-bold px-3 py-1 rounded-full">
+                    MOST POPULAR
+                  </div>
+                </div>
+
+                <div className="text-center">
+                  <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-gradient-to-r from-orange-500/20 to-amber-500/20 mb-4">
+                    <Crown className="w-6 h-6 text-orange-400" />
+                  </div>
+                  <h3 className="text-2xl font-bold text-white mb-2">Elite</h3>
+                  <div className="text-3xl font-bold text-orange-400 mb-1">₹999</div>
+                  <p className="text-gray-400 text-sm">per month</p>
+                </div>
+
+                <div className="space-y-3">
+                  <div className="flex items-center gap-3 text-sm">
+                    <Check className="w-4 h-4 text-orange-400 flex-shrink-0" />
+                    <span className="text-gray-300">
+                      <Infinity className="w-4 h-4 inline mr-1" />
+                      Unlimited students
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-3 text-sm">
+                    <Check className="w-4 h-4 text-orange-400 flex-shrink-0" />
+                    <span className="text-gray-300">Advanced proctoring</span>
+                  </div>
+                  <div className="flex items-center gap-3 text-sm">
+                    <Check className="w-4 h-4 text-orange-400 flex-shrink-0" />
+                    <span className="text-gray-300">Priority support</span>
+                  </div>
+                  <div className="flex items-center gap-3 text-sm">
+                    <Check className="w-4 h-4 text-orange-400 flex-shrink-0" />
+                    <span className="text-gray-300">Advanced analytics</span>
+                  </div>
+                  <div className="flex items-center gap-3 text-sm">
+                    <Check className="w-4 h-4 text-orange-400 flex-shrink-0" />
+                    <span className="text-gray-300">Custom branding</span>
+                  </div>
+                  <div className="flex items-center gap-3 text-sm">
+                    <Check className="w-4 h-4 text-orange-400 flex-shrink-0" />
+                    <span className="text-gray-300">API access</span>
+                  </div>
+                </div>
+
+                <div className="pt-4 border-t border-white/10">
+                  <p className="text-xs text-gray-500 text-center">For growing organizations with advanced needs</p>
+                </div>
+
+                {formData.plan === "elite" && (
+                  <div className="absolute top-4 right-4">
+                    <div className="w-6 h-6 rounded-full bg-orange-500 flex items-center justify-center">
+                      <Check className="w-4 h-4 text-white" />
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {formData.plan === "elite" && (
+              <div className="bg-gradient-to-r from-orange-500/10 to-amber-500/10 backdrop-blur-sm rounded-xl p-4 border border-orange-500/20">
+                <div className="flex items-center gap-3">
+                  <Star className="w-5 h-5 text-orange-400" />
+                  <div>
+                    <p className="text-white font-medium">Elite Plan Selected</p>
+                    <p className="text-gray-400 text-sm">You'll be charged ₹999/month. Cancel anytime.</p>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        )
+
+      case 5:
+        return (
+          <div className="space-y-6">
+            <div className="text-center space-y-3">
               <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gradient-to-r from-orange-500/20 to-pink-500/20 backdrop-blur-sm border border-white/10 mb-4">
                 <FileText className="w-8 h-8 text-white" />
               </div>
@@ -727,6 +1017,12 @@ export default function SignUpPage() {
                   <div className="flex justify-between items-center p-3 bg-black/20 rounded-lg">
                     <span className="text-gray-400">Organization:</span>
                     <span className="text-white font-medium">{formData.orgName}</span>
+                  </div>
+                  <div className="flex justify-between items-center p-3 bg-black/20 rounded-lg">
+                    <span className="text-gray-400">Plan:</span>
+                    <span className={`font-medium ${formData.plan === "elite" ? "text-orange-400" : "text-green-400"}`}>
+                      {formData.plan === "elite" ? "Elite (₹999/month)" : "Free"}
+                    </span>
                   </div>
                 </div>
               </div>
@@ -963,6 +1259,15 @@ export default function SignUpPage() {
                       <XCircle className="w-4 h-4" />
                       {error}
                     </div>
+                    {paymentRetryCount > 0 && paymentRetryCount < 3 && formData.plan === "elite" && (
+                      <Button
+                        onClick={retryPayment}
+                        className="mt-3 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white border-0 px-4 py-2 text-sm"
+                      >
+                        <RefreshCw className="w-4 h-4 mr-2" />
+                        Retry Payment ({3 - paymentRetryCount} attempts left)
+                      </Button>
+                    )}
                   </div>
                 )}
 
@@ -979,7 +1284,7 @@ export default function SignUpPage() {
                     Previous
                   </Button>
 
-                  {currentStep < steps.length ? (
+                  {currentStep < 5 ? (
                     <Button
                       type="button"
                       onClick={nextStep}
@@ -992,17 +1297,17 @@ export default function SignUpPage() {
                     <Button
                       type="button"
                       onClick={handleSubmit}
-                      disabled={isLoading || !validateStep(4)}
+                      disabled={isLoading || !validateStep(5)}
                       className="bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white border-0 h-12 px-8 font-semibold shadow-lg hover:shadow-green-500/25 transition-all duration-300 transform hover:scale-105 disabled:opacity-50"
                     >
                       {isLoading ? (
                         <>
                           <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2"></div>
-                          Creating Account...
+                          {formData.plan === "elite" ? "Processing Payment..." : "Creating Account..."}
                         </>
                       ) : (
                         <>
-                          Create Account
+                          {formData.plan === "elite" ? "Subscribe & Create Account" : "Create Account"}
                           <Sparkles className="w-5 h-5 ml-2" />
                         </>
                       )}
