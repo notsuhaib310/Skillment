@@ -7,20 +7,40 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
 import { Switch } from "@/components/ui/switch"
-import { Mail, MessageSquare, Calendar, Webhook, CheckCircle, XCircle } from "lucide-react"
+import { Mail, MessageSquare, Calendar, Webhook, CheckCircle, XCircle, Clock, Zap } from "lucide-react"
 
 export function IntegrationSettings() {
   const [integrations, setIntegrations] = useState({
-    smtp: { connected: true, email: "noreply@skillment.com" },
+    smtp: { connected: false, email: "" },
     whatsapp: { connected: false, number: "" },
-    calendar: { connected: true, type: "Google Calendar" },
+    calendar: { connected: false, type: "" },
     webhooks: { enabled: false, url: "" },
   })
 
   return (
     <div className="space-y-6">
+      {/* Coming Soon Header */}
+      <Card className="rounded-3xl border-border/40 bg-card/50 backdrop-blur-xl border-2 border-dashed border-orange-500/30">
+        <CardContent className="p-8 text-center">
+          <div className="flex justify-center mb-4">
+            <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-orange-500/10">
+              <Zap className="h-8 w-8 text-orange-500" />
+            </div>
+          </div>
+          <h2 className="text-2xl font-bold mb-2">Integrations Coming Soon!</h2>
+          <p className="text-muted-foreground mb-4">
+            We're working hard to bring you powerful integrations with your favorite tools.
+            Stay tuned for updates!
+          </p>
+          <Badge variant="outline" className="rounded-full border-orange-500/30 text-orange-500">
+            <Clock className="h-3 w-3 mr-1" />
+            In Development
+          </Badge>
+        </CardContent>
+      </Card>
+
       {/* SMTP Configuration */}
-      <Card className="rounded-3xl border-border/40 bg-card/50 backdrop-blur-xl">
+      <Card className="rounded-3xl border-border/40 bg-card/50 backdrop-blur-xl opacity-60">
         <CardHeader className="pb-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -32,18 +52,9 @@ export function IntegrationSettings() {
                 <CardDescription>SMTP settings for sending emails</CardDescription>
               </div>
             </div>
-            <Badge variant={integrations.smtp.connected ? "default" : "secondary"} className="rounded-full">
-              {integrations.smtp.connected ? (
-                <>
-                  <CheckCircle className="h-3 w-3 mr-1" />
-                  Connected
-                </>
-              ) : (
-                <>
-                  <XCircle className="h-3 w-3 mr-1" />
-                  Disconnected
-                </>
-              )}
+            <Badge variant="secondary" className="rounded-full">
+              <Clock className="h-3 w-3 mr-1" />
+              Coming Soon
             </Badge>
           </div>
         </CardHeader>
@@ -51,32 +62,34 @@ export function IntegrationSettings() {
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">
               <Label>SMTP Server</Label>
-              <Input defaultValue="smtp.gmail.com" className="rounded-2xl" />
+              <Input defaultValue="smtp.gmail.com" className="rounded-2xl" disabled />
             </div>
             <div className="space-y-2">
               <Label>Port</Label>
-              <Input defaultValue="587" className="rounded-2xl" />
+              <Input defaultValue="587" className="rounded-2xl" disabled />
             </div>
             <div className="space-y-2">
               <Label>Username</Label>
-              <Input defaultValue={integrations.smtp.email} className="rounded-2xl" />
+              <Input placeholder="your-email@gmail.com" className="rounded-2xl" disabled />
             </div>
             <div className="space-y-2">
               <Label>Password</Label>
-              <Input type="password" placeholder="••••••••" className="rounded-2xl" />
+              <Input type="password" placeholder="••••••••" className="rounded-2xl" disabled />
             </div>
           </div>
           <div className="flex justify-between items-center">
-            <Button variant="outline" className="rounded-2xl">
+            <Button variant="outline" className="rounded-2xl" disabled>
               Test Connection
             </Button>
-            <Button className="rounded-2xl primary-gradient">Save SMTP Settings</Button>
+            <Button className="rounded-2xl" disabled>
+              Save SMTP Settings
+            </Button>
           </div>
         </CardContent>
       </Card>
 
       {/* WhatsApp Integration */}
-      <Card className="rounded-3xl border-border/40 bg-card/50 backdrop-blur-xl">
+      <Card className="rounded-3xl border-border/40 bg-card/50 backdrop-blur-xl opacity-60">
         <CardHeader className="pb-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -88,18 +101,9 @@ export function IntegrationSettings() {
                 <CardDescription>Send notifications via WhatsApp</CardDescription>
               </div>
             </div>
-            <Badge variant={integrations.whatsapp.connected ? "default" : "secondary"} className="rounded-full">
-              {integrations.whatsapp.connected ? (
-                <>
-                  <CheckCircle className="h-3 w-3 mr-1" />
-                  Connected
-                </>
-              ) : (
-                <>
-                  <XCircle className="h-3 w-3 mr-1" />
-                  Not Connected
-                </>
-              )}
+            <Badge variant="secondary" className="rounded-full">
+              <Clock className="h-3 w-3 mr-1" />
+              Coming Soon
             </Badge>
           </div>
         </CardHeader>
@@ -107,21 +111,20 @@ export function IntegrationSettings() {
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">
               <Label>Phone Number ID</Label>
-              <Input placeholder="Enter Phone Number ID" className="rounded-2xl" />
+              <Input placeholder="Enter Phone Number ID" className="rounded-2xl" disabled />
             </div>
             <div className="space-y-2">
               <Label>Access Token</Label>
-              <Input type="password" placeholder="Enter Access Token" className="rounded-2xl" />
+              <Input type="password" placeholder="Enter Access Token" className="rounded-2xl" disabled />
             </div>
           </div>
-          <div className="p-4 rounded-2xl bg-yellow-500/10 border border-yellow-500/20">
-            <p className="text-sm text-yellow-700 dark:text-yellow-300">
-              <strong>Note:</strong> You need to set up WhatsApp Business API and get approval from Meta to use this
-              feature.
+          <div className="p-4 rounded-2xl bg-blue-500/10 border border-blue-500/20">
+            <p className="text-sm text-blue-700 dark:text-blue-300">
+              <strong>Coming Soon:</strong> WhatsApp Business API integration for automated notifications and messaging.
             </p>
           </div>
           <div className="flex justify-end">
-            <Button className="rounded-2xl" variant="outline">
+            <Button className="rounded-2xl" variant="outline" disabled>
               Connect WhatsApp
             </Button>
           </div>
@@ -129,7 +132,7 @@ export function IntegrationSettings() {
       </Card>
 
       {/* Calendar Integration */}
-      <Card className="rounded-3xl border-border/40 bg-card/50 backdrop-blur-xl">
+      <Card className="rounded-3xl border-border/40 bg-card/50 backdrop-blur-xl opacity-60">
         <CardHeader className="pb-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -141,24 +144,15 @@ export function IntegrationSettings() {
                 <CardDescription>Sync interviews with your calendar</CardDescription>
               </div>
             </div>
-            <Badge variant={integrations.calendar.connected ? "default" : "secondary"} className="rounded-full">
-              {integrations.calendar.connected ? (
-                <>
-                  <CheckCircle className="h-3 w-3 mr-1" />
-                  {integrations.calendar.type}
-                </>
-              ) : (
-                <>
-                  <XCircle className="h-3 w-3 mr-1" />
-                  Not Connected
-                </>
-              )}
+            <Badge variant="secondary" className="rounded-full">
+              <Clock className="h-3 w-3 mr-1" />
+              Coming Soon
             </Badge>
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex gap-4">
-            <Button variant="outline" className="rounded-2xl flex-1">
+            <Button variant="outline" className="rounded-2xl flex-1" disabled>
               <svg className="h-4 w-4 mr-2" viewBox="0 0 24 24">
                 <path
                   fill="currentColor"
@@ -179,7 +173,7 @@ export function IntegrationSettings() {
               </svg>
               Connect Google Calendar
             </Button>
-            <Button variant="outline" className="rounded-2xl flex-1">
+            <Button variant="outline" className="rounded-2xl flex-1" disabled>
               <svg className="h-4 w-4 mr-2" viewBox="0 0 24 24">
                 <path
                   fill="currentColor"
@@ -189,18 +183,16 @@ export function IntegrationSettings() {
               Connect Outlook
             </Button>
           </div>
-          {integrations.calendar.connected && (
-            <div className="p-4 rounded-2xl bg-green-500/10 border border-green-500/20">
-              <p className="text-sm text-green-700 dark:text-green-300">
-                ✅ Calendar sync is active. Interview events will be automatically created.
-              </p>
-            </div>
-          )}
+          <div className="p-4 rounded-2xl bg-blue-500/10 border border-blue-500/20">
+            <p className="text-sm text-blue-700 dark:text-blue-300">
+              <strong>Coming Soon:</strong> Calendar sync will automatically create interview events and send reminders.
+            </p>
+          </div>
         </CardContent>
       </Card>
 
       {/* Webhooks */}
-      <Card className="rounded-3xl border-border/40 bg-card/50 backdrop-blur-xl">
+      <Card className="rounded-3xl border-border/40 bg-card/50 backdrop-blur-xl opacity-60">
         <CardHeader className="pb-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -213,13 +205,8 @@ export function IntegrationSettings() {
               </div>
             </div>
             <Switch
-              checked={integrations.webhooks.enabled}
-              onCheckedChange={(checked) =>
-                setIntegrations({
-                  ...integrations,
-                  webhooks: { ...integrations.webhooks, enabled: checked },
-                })
-              }
+              checked={false}
+              disabled
             />
           </div>
         </CardHeader>
@@ -229,7 +216,7 @@ export function IntegrationSettings() {
             <Input
               placeholder="https://your-app.com/webhook"
               className="rounded-2xl"
-              disabled={!integrations.webhooks.enabled}
+              disabled
             />
           </div>
           <div className="space-y-2">
@@ -237,16 +224,21 @@ export function IntegrationSettings() {
             <div className="grid grid-cols-2 gap-2">
               {["Assessment Completed", "Participant Added", "Email Sent", "Interview Scheduled"].map((event) => (
                 <div key={event} className="flex items-center space-x-2 p-2 rounded-xl bg-accent/30">
-                  <input type="checkbox" defaultChecked className="rounded" />
-                  <span className="text-sm">{event}</span>
+                  <input type="checkbox" disabled className="rounded" />
+                  <span className="text-sm text-muted-foreground">{event}</span>
                 </div>
               ))}
             </div>
           </div>
           <div className="flex justify-end">
-            <Button className="rounded-2xl primary-gradient" disabled={!integrations.webhooks.enabled}>
+            <Button className="rounded-2xl primary-gradient" disabled>
               Save Webhook Settings
             </Button>
+          </div>
+          <div className="p-4 rounded-2xl bg-blue-500/10 border border-blue-500/20">
+            <p className="text-sm text-blue-700 dark:text-blue-300">
+              <strong>Coming Soon:</strong> Webhook support for real-time data synchronization with your external systems.
+            </p>
           </div>
         </CardContent>
       </Card>

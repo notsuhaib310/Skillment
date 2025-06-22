@@ -3,6 +3,7 @@ import cors from 'cors';
 import morgan from 'morgan';
 import { config } from 'dotenv';
 import authRouter from './routes/auth';
+import userRouter from './routes/user.routes';
 import participantsRouter from './routes/participants';
 import organizationsRouter from './routes/organizations';
 import assessmentRouter from './routes/assessment.routes';
@@ -20,17 +21,15 @@ const port = process.env.PORT || 5000;
 // Middleware
 app.use(cors({
   origin: [
-    "http://localhost:3000", 
-    "http://localhost:3001", 
-    "http://kd.localhost:3001",
-    'http://kingboi.localhost:3001',
-    "http://*.localhost:3001",
-    "https://skillment.in",
-    "https://*.skillment.in"
+    'http://localhost:3000',
+    'http://localhost:3001',
+    /^http:\/\/([a-z0-9-]+\.)*localhost:3001$/, // Allow subdomains of localhost:3001
+    'https://app.skillment.in',
+    /^https:\/\/([a-z0-9-]+\.)*skillment\.in$/, // Allow subdomains of skillment.in
   ],
   credentials: true,
-  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'], // Add PATCH
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
 }));
 app.use(express.json());
 app.use(cookieParser());
@@ -43,6 +42,7 @@ app.get('/', (_req, res) => {
 
 // Routes
 app.use('/api/auth', authRouter);
+app.use('/api/users', userRouter);
 app.use('/api/participants', participantsRouter);
 app.use('/api/organizations', organizationsRouter);
 app.use('/api/assessments', assessmentRouter);

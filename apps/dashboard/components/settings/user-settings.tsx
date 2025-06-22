@@ -73,8 +73,7 @@ export function UserSettings() {
         return
       }
 
-      // First try with /users/me endpoint (API_URL already includes /api)
-      let response = await fetch(`${API_URL}/users/me`, {
+      const response = await fetch(`${API_URL}/users/me`, {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
@@ -85,22 +84,6 @@ export function UserSettings() {
           lastName: userData.lastName
         })
       })
-
-      // If the first endpoint fails, try with /api/users/profile
-      if (!response.ok) {
-        console.log('Trying fallback endpoint /users/profile')
-        response = await fetch(`${API_URL}/users/profile`, {
-          method: "PATCH",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${token}`
-          },
-          body: JSON.stringify({
-            firstName: userData.firstName,
-            lastName: userData.lastName
-          })
-        })
-      }
 
       if (!response.ok) {
         let errorMessage = 'Failed to update profile'
@@ -148,8 +131,7 @@ export function UserSettings() {
         return
       }
 
-      // First try with /users/change-password endpoint
-      let response = await fetch(`${API_URL}/users/change-password`, {
+      const response = await fetch(`${API_URL}/users/change-password`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -160,22 +142,6 @@ export function UserSettings() {
           newPassword
         })
       })
-
-      // If the first endpoint fails, try with /auth/change-password
-      if (!response.ok) {
-        console.log('Trying fallback endpoint /auth/change-password')
-        response = await fetch(`${API_URL.replace('/api', '')}/auth/change-password`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${token}`
-          },
-          body: JSON.stringify({
-            currentPassword,
-            newPassword
-          })
-        })
-      }
 
       if (!response.ok) {
         let errorMessage = 'Failed to update password'

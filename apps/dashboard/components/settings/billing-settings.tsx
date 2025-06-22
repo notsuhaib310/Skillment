@@ -1,31 +1,192 @@
 "use client"
 
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
-import { CreditCard, Download, Star, Zap } from "lucide-react"
+import { CreditCard, Download, Star, Zap, Loader2, AlertCircle } from "lucide-react"
+import { toast } from "sonner"
+import Cookies from "js-cookie"
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://api.skillment.in/api"
+
+interface BillingData {
+  plan: {
+    name: string
+    price: number
+    period: string
+    features: string[]
+    status: string
+    nextBillingDate: string
+  }
+  usage: {
+    assessments: { used: number; limit: number | string }
+    participants: { used: number; limit: number }
+    emails: { used: number; limit: number }
+    storage: { used: number; limit: number }
+  }
+  paymentMethod: {
+    type: string
+    last4: string
+    expiryMonth: string
+    expiryYear: string
+  }
+  invoices: Array<{
+    id: string
+    date: string
+    amount: number
+    status: string
+    downloadUrl?: string
+  }>
+}
 
 export function BillingSettings() {
-  const currentPlan = {
-    name: "Professional",
-    price: "$49",
-    period: "month",
-    features: ["Unlimited Assessments", "500 Participants", "Email Support", "Basic Analytics"],
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [billingData, setBillingData] = useState<BillingData | null>(null)
+
+  useEffect(() => {
+    fetchBillingData()
+  }, [])
+
+  const fetchBillingData = async () => {
+    try {
+      setLoading(true)
+      setError(null)
+
+      const token = Cookies.get("token")
+      if (!token) {
+        throw new Error("Authentication required")
+      }
+
+      const response = await fetch(`${API_URL}/billing`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+      })
+
+      if (!response.ok) {
+        if (response.status === 404) {
+          // If billing endpoint doesn't exist yet, use mock data
+          setBillingData(getMockBillingData())
+          return
+        }
+        throw new Error('Failed to fetch billing data')
+      }
+
+      const data = await response.json()
+      setBillingData(data)
+    } catch (error) {
+      console.error("Error fetching billing data:", error)
+      setError(error instanceof Error ? error.message : "Failed to load billing data")
+      // Fallback to mock data
+      setBillingData(getMockBillingData())
+    } finally {
+      setLoading(false)
+    }
   }
 
-  const usage = {
-    assessments: { used: 45, limit: "Unlimited" },
-    participants: { used: 287, limit: 500 },
-    emails: { used: 1250, limit: 2000 },
-    storage: { used: 2.3, limit: 10 },
+  const getMockBillingData = (): BillingData => ({
+    plan: {
+      name: "Free",
+      price: 0,
+      period: "month",
+      features: ["5 Assessments", "50 Participants", "Email Support", "Basic Analytics"],
+      status: "active",
+      nextBillingDate: "N/A"
+    },
+    usage: {
+      assessments: { used: 2, limit: 5 },
+      participants: { used: 15, limit: 50 },
+      emails: { used: 45, limit: 100 },
+      storage: { used: 0.5, limit: 1 }
+    },
+    paymentMethod: {
+      type: "none",
+      last4: "",
+      expiryMonth: "",
+      expiryYear: ""
+    },
+    invoices: []
+  })
+
+  const handleDownloadInvoice = async (invoiceId: string) => {
+    try {
+      const token = Cookies.get("token")
+      if (!token) {
+        toast.error("Authentication required")
+        return
+      }
+
+      const response = await fetch(`${API_URL}/billing/invoices/${invoiceId}/download`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to download invoice')
+      }
+
+      const blob = await response.blob()
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `invoice-${invoiceId}.pdf`
+      document.body.appendChild(a)
+      a.click()
+      window.URL.revokeObjectURL(url)
+      document.body.removeChild(a)
+
+      toast.success("Invoice downloaded successfully")
+    } catch (error) {
+      console.error("Error downloading invoice:", error)
+      toast.error("Failed to download invoice")
+    }
   }
 
-  const invoices = [
-    { id: "INV-2024-001", date: "2024-01-01", amount: "$49.00", status: "Paid" },
-    { id: "INV-2023-012", date: "2023-12-01", amount: "$49.00", status: "Paid" },
-    { id: "INV-2023-011", date: "2023-11-01", amount: "$49.00", status: "Paid" },
-  ]
+  const handleUpgradePlan = () => {
+    toast.info("Plan upgrade feature coming soon!")
+  }
+
+  const handleCancelSubscription = () => {
+    toast.info("Subscription cancellation feature coming soon!")
+  }
+
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <Card className="rounded-3xl border-border/40 bg-card/50 backdrop-blur-xl">
+          <CardContent className="p-8 text-center">
+            <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
+            <p className="text-muted-foreground">Loading billing information...</p>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
+
+  if (error && !billingData) {
+    return (
+      <div className="space-y-6">
+        <Card className="rounded-3xl border-border/40 bg-card/50 backdrop-blur-xl">
+          <CardContent className="p-8 text-center">
+            <AlertCircle className="h-8 w-8 text-red-500 mx-auto mb-4" />
+            <p className="text-red-500 mb-4">{error}</p>
+            <Button onClick={fetchBillingData} variant="outline">
+              Try Again
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
+
+  if (!billingData) {
+    return null
+  }
 
   return (
     <div className="space-y-6">
@@ -42,25 +203,30 @@ export function BillingSettings() {
                 <CardDescription>Your subscription details and usage</CardDescription>
               </div>
             </div>
-            <Badge className="rounded-full bg-green-500/10 text-green-500 border-green-500/20">Active</Badge>
+            <Badge className="rounded-full bg-green-500/10 text-green-500 border-green-500/20">
+              {billingData.plan.status === 'active' ? 'Active' : 'Inactive'}
+            </Badge>
           </div>
         </CardHeader>
         <CardContent className="space-y-6">
           <div className="flex items-center justify-between p-6 rounded-2xl bg-gradient-to-r from-green-500/10 to-blue-500/10 border border-green-500/20">
             <div>
-              <h3 className="text-2xl font-bold">{currentPlan.name}</h3>
+              <h3 className="text-2xl font-bold">{billingData.plan.name}</h3>
               <p className="text-muted-foreground">
-                {currentPlan.price}/{currentPlan.period} • Next billing: Jan 15, 2024
+                {billingData.plan.price === 0 ? 'Free' : `$${billingData.plan.price}`}/{billingData.plan.period}
+                {billingData.plan.nextBillingDate !== 'N/A' && ` • Next billing: ${billingData.plan.nextBillingDate}`}
               </p>
             </div>
             <div className="text-right">
-              <div className="text-3xl font-bold text-green-500">{currentPlan.price}</div>
-              <div className="text-sm text-muted-foreground">per {currentPlan.period}</div>
+              <div className="text-3xl font-bold text-green-500">
+                {billingData.plan.price === 0 ? 'Free' : `$${billingData.plan.price}`}
+              </div>
+              <div className="text-sm text-muted-foreground">per {billingData.plan.period}</div>
             </div>
           </div>
 
           <div className="grid gap-4 md:grid-cols-2">
-            {currentPlan.features.map((feature, index) => (
+            {billingData.plan.features.map((feature, index) => (
               <div key={index} className="flex items-center gap-2 p-3 rounded-xl bg-accent/30">
                 <div className="h-2 w-2 rounded-full bg-green-500" />
                 <span className="text-sm">{feature}</span>
@@ -69,12 +235,18 @@ export function BillingSettings() {
           </div>
 
           <div className="flex gap-3">
-            <Button variant="outline" className="rounded-2xl">
-              Change Plan
+            <Button variant="outline" className="rounded-2xl" onClick={handleUpgradePlan}>
+              Upgrade Plan
             </Button>
-            <Button variant="outline" className="rounded-2xl text-red-500 border-red-500/20 hover:bg-red-500/10">
-              Cancel Subscription
-            </Button>
+            {billingData.plan.price > 0 && (
+              <Button 
+                variant="outline" 
+                className="rounded-2xl text-red-500 border-red-500/20 hover:bg-red-500/10"
+                onClick={handleCancelSubscription}
+              >
+                Cancel Subscription
+              </Button>
+            )}
           </div>
         </CardContent>
       </Card>
@@ -98,11 +270,18 @@ export function BillingSettings() {
               <div className="flex justify-between text-sm">
                 <span>Assessments Created</span>
                 <span>
-                  {usage.assessments.used} / {usage.assessments.limit}
+                  {billingData.usage.assessments.used} / {billingData.usage.assessments.limit}
                 </span>
               </div>
               <div className="h-2 rounded-full bg-accent">
-                <div className="h-2 rounded-full bg-green-500 w-full" />
+                <div 
+                  className="h-2 rounded-full bg-green-500" 
+                  style={{ 
+                    width: typeof billingData.usage.assessments.limit === 'number' 
+                      ? `${(billingData.usage.assessments.used / billingData.usage.assessments.limit) * 100}%`
+                      : '100%'
+                  }} 
+                />
               </div>
             </div>
 
@@ -110,30 +289,30 @@ export function BillingSettings() {
               <div className="flex justify-between text-sm">
                 <span>Participants</span>
                 <span>
-                  {usage.participants.used} / {usage.participants.limit}
+                  {billingData.usage.participants.used} / {billingData.usage.participants.limit}
                 </span>
               </div>
-              <Progress value={(usage.participants.used / usage.participants.limit) * 100} className="h-2" />
+              <Progress value={(billingData.usage.participants.used / billingData.usage.participants.limit) * 100} className="h-2" />
             </div>
 
             <div className="space-y-3">
               <div className="flex justify-between text-sm">
                 <span>Emails Sent</span>
                 <span>
-                  {usage.emails.used} / {usage.emails.limit}
+                  {billingData.usage.emails.used} / {billingData.usage.emails.limit}
                 </span>
               </div>
-              <Progress value={(usage.emails.used / usage.emails.limit) * 100} className="h-2" />
+              <Progress value={(billingData.usage.emails.used / billingData.usage.emails.limit) * 100} className="h-2" />
             </div>
 
             <div className="space-y-3">
               <div className="flex justify-between text-sm">
                 <span>Storage Used</span>
                 <span>
-                  {usage.storage.used}GB / {usage.storage.limit}GB
+                  {billingData.usage.storage.used}GB / {billingData.usage.storage.limit}GB
                 </span>
               </div>
-              <Progress value={(usage.storage.used / usage.storage.limit) * 100} className="h-2" />
+              <Progress value={(billingData.usage.storage.used / billingData.usage.storage.limit) * 100} className="h-2" />
             </div>
           </div>
         </CardContent>
@@ -153,20 +332,32 @@ export function BillingSettings() {
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="flex items-center justify-between p-4 rounded-2xl bg-accent/30 border border-border/40">
-            <div className="flex items-center gap-3">
-              <div className="h-10 w-16 rounded-lg bg-gradient-to-r from-blue-600 to-purple-600 flex items-center justify-center">
-                <span className="text-white text-xs font-bold">VISA</span>
+          {billingData.paymentMethod.type !== 'none' ? (
+            <div className="flex items-center justify-between p-4 rounded-2xl bg-accent/30 border border-border/40">
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-16 rounded-lg bg-gradient-to-r from-blue-600 to-purple-600 flex items-center justify-center">
+                  <span className="text-white text-xs font-bold">{billingData.paymentMethod.type.toUpperCase()}</span>
+                </div>
+                <div>
+                  <p className="font-medium">•••• •••• •••• {billingData.paymentMethod.last4}</p>
+                  <p className="text-sm text-muted-foreground">
+                    Expires {billingData.paymentMethod.expiryMonth}/{billingData.paymentMethod.expiryYear}
+                  </p>
+                </div>
               </div>
-              <div>
-                <p className="font-medium">•••• •••• •••• 4242</p>
-                <p className="text-sm text-muted-foreground">Expires 12/25</p>
-              </div>
+              <Button variant="outline" size="sm" className="rounded-2xl">
+                Update
+              </Button>
             </div>
-            <Button variant="outline" size="sm" className="rounded-2xl">
-              Update
-            </Button>
-          </div>
+          ) : (
+            <div className="text-center p-8">
+              <CreditCard className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+              <p className="text-muted-foreground mb-4">No payment method added</p>
+              <Button variant="outline" className="rounded-2xl">
+                Add Payment Method
+              </Button>
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -186,30 +377,42 @@ export function BillingSettings() {
           </div>
         </CardHeader>
         <CardContent>
-          <div className="space-y-3">
-            {invoices.map((invoice) => (
-              <div
-                key={invoice.id}
-                className="flex items-center justify-between p-4 rounded-2xl bg-accent/30 border border-border/40"
-              >
-                <div className="flex items-center gap-4">
-                  <div>
-                    <p className="font-medium">{invoice.id}</p>
-                    <p className="text-sm text-muted-foreground">{invoice.date}</p>
+          {billingData.invoices.length > 0 ? (
+            <div className="space-y-3">
+              {billingData.invoices.map((invoice) => (
+                <div
+                  key={invoice.id}
+                  className="flex items-center justify-between p-4 rounded-2xl bg-accent/30 border border-border/40"
+                >
+                  <div className="flex items-center gap-4">
+                    <div>
+                      <p className="font-medium">{invoice.id}</p>
+                      <p className="text-sm text-muted-foreground">{invoice.date}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <span className="font-medium">${invoice.amount.toFixed(2)}</span>
+                    <Badge variant="outline" className="rounded-full">
+                      {invoice.status}
+                    </Badge>
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      className="rounded-2xl"
+                      onClick={() => handleDownloadInvoice(invoice.id)}
+                    >
+                      <Download className="h-4 w-4" />
+                    </Button>
                   </div>
                 </div>
-                <div className="flex items-center gap-4">
-                  <span className="font-medium">{invoice.amount}</span>
-                  <Badge variant="outline" className="rounded-full">
-                    {invoice.status}
-                  </Badge>
-                  <Button variant="ghost" size="sm" className="rounded-2xl">
-                    <Download className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center p-8">
+              <Download className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+              <p className="text-muted-foreground">No invoices found</p>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>
