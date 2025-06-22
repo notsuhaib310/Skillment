@@ -200,16 +200,83 @@ export class BillingController {
           id: customer.id,
           name: customer.name,
           email: customer.email,
+          contact: customer.contact,
         },
-        message: 'Subscription created successfully. Please complete payment.',
       });
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error creating upgrade subscription:', error);
-      return res.status(500).json({ 
-        error: 'Failed to create upgrade subscription',
-        code: 'SUBSCRIPTION_CREATION_FAILED',
-        details: error.message 
+      return res.status(500).json({ error: 'Failed to create upgrade subscription' });
+    }
+  }
+
+  // Create initial subscription for Razorpay payment
+  async createSubscription(req: Request, res: Response) {
+    try {
+      const orgId = req.user?.orgId;
+      if (!orgId) {
+        return res.status(401).json({ error: 'Organization not found' });
+      }
+
+      const { plan, customerEmail, customerName, customerPhone } = req.body;
+
+      if (!plan || !customerEmail || !customerName || !customerPhone) {
+        return res.status(400).json({ 
+          error: 'Plan and customer details are required',
+          code: 'MISSING_REQUIRED_FIELDS'
+        });
+      }
+
+      // Get organization
+      const organization = await prisma.organization.findUnique({
+        where: { id: orgId },
       });
+
+      if (!organization) {
+        return res.status(404).json({ error: 'Organization not found' });
+      }
+
+      // Check if already on Elite plan
+      if (organization.plan === 'elite') {
+        return res.status(400).json({ error: 'Organization is already on Elite plan' });
+      }
+
+      // Create customer in Razorpay
+      const customer = await this.razorpay.customers.create({
+        name: customerName,
+        email: customerEmail,
+        contact: customerPhone,
+      });
+
+      // Create subscription
+      const subscription = await this.razorpay.subscriptions.create({
+        plan_id: process.env.RAZORPAY_ELITE_PLAN_ID!,
+        total_count: 12,
+        quantity: 1,
+        notes: {
+          plan: 'elite',
+          email: customerEmail,
+          name: customerName,
+          orgId: orgId,
+        },
+        notify_info: {
+          notify_phone: customerPhone,
+          notify_email: customerEmail,
+        },
+      });
+
+      return res.status(200).json({
+        success: true,
+        subscription,
+        customer: {
+          id: customer.id,
+          name: customer.name,
+          email: customer.email,
+          contact: customer.contact,
+        },
+      });
+    } catch (error) {
+      console.error('Error creating subscription:', error);
+      return res.status(500).json({ error: 'Failed to create subscription' });
     }
   }
 

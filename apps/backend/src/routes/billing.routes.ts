@@ -11,6 +11,9 @@ router.use(authenticate);
 // Get billing data for current organization
 router.get('/', billingController.getBillingData.bind(billingController));
 
+// Create initial subscription for Razorpay payment
+router.post('/create-subscription', billingController.createSubscription.bind(billingController));
+
 // Create upgrade subscription
 router.post('/upgrade', billingController.createUpgradeSubscription.bind(billingController));
 

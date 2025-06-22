@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog"
 import { CreditCard, Download, Star, Zap, Loader2, AlertCircle, Crown, CheckCircle, RefreshCw } from "lucide-react"
 import { toast } from "sonner"
 import Cookies from "js-cookie"
@@ -48,8 +48,8 @@ export function BillingSettings() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [billingData, setBillingData] = useState<BillingData | null>(null)
-  const [upgradeLoading, setUpgradeLoading] = useState(false)
   const [showUpgradeModal, setShowUpgradeModal] = useState(false)
+  const [upgradeLoading, setUpgradeLoading] = useState(false)
   const [upgradeForm, setUpgradeForm] = useState({
     customerName: "",
     customerEmail: "",
@@ -59,10 +59,27 @@ export function BillingSettings() {
   const [razorpayPaymentId, setRazorpayPaymentId] = useState<string | null>(null)
   const [razorpaySignature, setRazorpaySignature] = useState<string | null>(null)
   const [paymentRetryCount, setPaymentRetryCount] = useState(0)
+  const [showPaymentContainer, setShowPaymentContainer] = useState(false)
 
   useEffect(() => {
+    // Proactively load the Razorpay script as soon as the settings page is opened.
+    loadRazorpayScript();
     fetchBillingData()
   }, [])
+
+  useEffect(() => {
+    const initiatePayment = async () => {
+      try {
+        await handleEliteSubscription()
+      } catch (error) {
+        console.error("Payment process failed or was cancelled.", error)
+      }
+    }
+
+    if (showPaymentContainer) {
+      initiatePayment()
+    }
+  }, [showPaymentContainer])
 
   const fetchBillingData = async () => {
     try {
@@ -162,118 +179,24 @@ export function BillingSettings() {
   }
 
   const loadRazorpayScript = () => {
-    return new Promise((resolve) => {
+    return new Promise((resolve, reject) => {
       const script = document.createElement("script")
       script.src = "https://checkout.razorpay.com/v1/checkout.js"
       script.onload = () => {
         resolve(true)
       }
       script.onerror = () => {
-        resolve(false)
+        reject(false)
       }
       document.body.appendChild(script)
     })
   }
 
-  const handleEliteSubscription = async () => {
-    setUpgradeLoading(true)
-    setError(null)
-
+  const finalizeUpgrade = async (paymentDetails: { subId: string; payId: string; sig: string }) => {
     try {
-      await loadRazorpayScript()
-
-      // Create subscription from backend
-      const subscriptionRes = await fetch(`${API_URL}/auth/razorpay/elite-subscription`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          customerEmail: upgradeForm.customerEmail,
-          customerName: upgradeForm.customerName,
-          customerPhone: upgradeForm.customerPhone,
-        }),
-      })
-
-      if (!subscriptionRes.ok) {
-        throw new Error("Failed to create subscription")
-      }
-
-      const { subscription } = await subscriptionRes.json()
-
-      return new Promise((resolve, reject) => {
-        const rzp = new (window as any).Razorpay({
-          key: "rzp_test_67rfnHSNSueMW8",
-          subscription_id: subscription.id,
-          name: "Skillment Elite Subscription",
-          description: "Elite Plan - ₹999/month",
-          handler: (response: any) => {
-            setRazorpaySubscriptionId(response.razorpay_subscription_id)
-            setRazorpayPaymentId(response.razorpay_payment_id)
-            setRazorpaySignature(response.razorpay_signature)
-            toast.success("Subscription activated successfully!")
-            resolve(true)
-          },
-          prefill: {
-            email: upgradeForm.customerEmail,
-            name: upgradeForm.customerName,
-            contact: upgradeForm.customerPhone,
-          },
-          theme: { color: "#ea580c" },
-          modal: {
-            ondismiss: () => {
-              setUpgradeLoading(false)
-              reject(new Error("Payment cancelled"))
-            },
-          },
-        })
-
-        rzp.on("payment.failed", (response: any) => {
-          setPaymentRetryCount((prev) => prev + 1)
-          setError(`Payment failed: ${response.error.description}. Please try again.`)
-          setUpgradeLoading(false)
-          reject(new Error("Payment failed"))
-        })
-
-        rzp.open()
-      })
-    } catch (error: any) {
-      setError(error.message || "Failed to initiate subscription. Please try again.")
-      setUpgradeLoading(false)
-      throw error
-    }
-  }
-
-  const retryPayment = async () => {
-    if (paymentRetryCount >= 3) {
-      setError("Maximum retry attempts reached. Please contact support or try again later.")
-      return
-    }
-
-    try {
-      await handleEliteSubscription()
-    } catch (error) {
-      // Error handling is done in handleEliteSubscription
-    }
-  }
-
-  const handleUpgradePlan = async () => {
-    try {
-      // Validate form
-      if (!upgradeForm.customerName || !upgradeForm.customerEmail || !upgradeForm.customerPhone) {
-        toast.error("Please fill in all required fields")
-        return
-      }
-
-      // Handle Elite plan subscription first
-      if (!razorpaySubscriptionId) {
-        await handleEliteSubscription()
-      }
-
-      // Now upgrade the organization
+      setUpgradeLoading(true)
       const token = Cookies.get("token")
-      if (!token) {
-        toast.error("Authentication required")
-        return
-      }
+      if (!token) throw new Error("Authentication required")
 
       const upgradeResponse = await fetch(`${API_URL}/billing/upgrade`, {
         method: 'POST',
@@ -282,41 +205,133 @@ export function BillingSettings() {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          ...upgradeForm,
-          razorpaySubscriptionId: razorpaySubscriptionId,
-          razorpayPaymentId: razorpayPaymentId,
-          razorpaySignature: razorpaySignature,
+          razorpaySubscriptionId: paymentDetails.subId,
+          razorpayPaymentId: paymentDetails.payId,
+          razorpaySignature: paymentDetails.sig,
         }),
       })
 
       const upgradeData = await upgradeResponse.json()
-
       if (!upgradeResponse.ok) {
         throw new Error(upgradeData.error || 'Failed to upgrade plan')
       }
 
       toast.success("Upgrade completed successfully!")
       setShowUpgradeModal(false)
-      
-      // Refresh billing data to show updated plan
-      await fetchBillingData()
-      
-      // Reset form and payment data
-      setUpgradeForm({
-        customerName: "",
-        customerEmail: "",
-        customerPhone: "",
-      })
-      setRazorpaySubscriptionId(null)
-      setRazorpayPaymentId(null)
-      setRazorpaySignature(null)
-      setPaymentRetryCount(0)
+      fetchBillingData()
     } catch (error) {
-      console.error("Error upgrading plan:", error)
-      toast.error(error instanceof Error ? error.message : "Failed to upgrade plan")
+      setError(error instanceof Error ? error.message : "Failed to finalize upgrade.")
+      toast.error(error instanceof Error ? error.message : "Failed to finalize upgrade.")
     } finally {
       setUpgradeLoading(false)
+      setShowPaymentContainer(false)
     }
+  }
+
+  const handleEliteSubscription = async () => {
+    setUpgradeLoading(true)
+    setError(null)
+
+    try {
+      // Check if the preloaded script is available, otherwise, try loading it again.
+      if (!(window as any).Razorpay) {
+        const scriptLoaded = await loadRazorpayScript()
+        if (!scriptLoaded) {
+            throw new Error("Could not connect to payment gateway. Please check your internet connection.");
+        }
+      }
+
+      const token = Cookies.get("token")
+      if (!token) throw new Error("Authentication required")
+
+      const container = document.getElementById('razorpay-container');
+      if (!container) {
+          throw new Error("Payment container not found. Cannot initiate Razorpay.");
+      }
+
+      const subscriptionRes = await fetch(`${API_URL}/billing/create-subscription`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          plan: 'Elite',
+          customerName: upgradeForm.customerName,
+          customerEmail: upgradeForm.customerEmail,
+          customerPhone: upgradeForm.customerPhone,
+        }),
+      })
+
+      if (!subscriptionRes.ok) {
+        const errorData = await subscriptionRes.json()
+        throw new Error(errorData.error || 'Failed to create subscription')
+      }
+
+      const { subscription } = await subscriptionRes.json()
+
+      const rzp = new (window as any).Razorpay({
+        key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || "rzp_test_67rfnHSNSueMW8",
+        subscription_id: subscription.id,
+        name: "Skillment Elite Subscription",
+        description: "Elite Plan - ₹999/month",
+        handler: (response: any) => {
+          finalizeUpgrade({
+            subId: response.razorpay_subscription_id,
+            payId: response.razorpay_payment_id,
+            sig: response.razorpay_signature,
+          })
+        },
+        prefill: {
+          email: upgradeForm.customerEmail,
+          name: upgradeForm.customerName,
+          contact: upgradeForm.customerPhone,
+        },
+        theme: { color: "#ea580c" },
+        modal: {
+          ondismiss: () => {
+            setShowPaymentContainer(false)
+            setUpgradeLoading(false)
+            toast.info("Payment was cancelled.")
+          },
+        },
+        parent: container,
+      })
+
+      rzp.on("payment.failed", (response: any) => {
+        setPaymentRetryCount((prev) => prev + 1)
+        setError(`Payment failed: ${response.error.description}.`)
+        setShowPaymentContainer(false)
+        setUpgradeLoading(false)
+      })
+
+      rzp.open()
+    } catch (error: any) {
+      setError(error.message || "Failed to initiate subscription. Please try again.")
+      setShowPaymentContainer(false)
+      setUpgradeLoading(false)
+      throw error
+    }
+  }
+
+  const retryPayment = async () => {
+    if (paymentRetryCount >= 3) {
+      setError("Maximum retry attempts reached. Please contact support.")
+      return
+    }
+    // Just show the container again, the useEffect will handle the rest.
+    setShowPaymentContainer(true)
+  }
+
+  const handleUpgradePlan = async () => {
+    if (!upgradeForm.customerName || !upgradeForm.customerEmail || !upgradeForm.customerPhone) {
+      toast.error("Please fill in all required fields")
+      return
+    }
+    // This now only reveals the payment container.
+    // The useEffect hook will then trigger the payment process.
+    setUpgradeLoading(true)
+    setShowPaymentContainer(true)
   }
 
   const handleCancelSubscription = () => {
@@ -406,126 +421,111 @@ export function BillingSettings() {
 
           <div className="flex gap-3">
             {!isElitePlan ? (
-              <Dialog open={showUpgradeModal} onOpenChange={setShowUpgradeModal}>
+              <Dialog open={showUpgradeModal} onOpenChange={(isOpen) => {
+                setShowUpgradeModal(isOpen);
+                if (!isOpen) {
+                  setShowPaymentContainer(false);
+                  setError(null);
+                }
+              }}>
                 <DialogTrigger asChild>
                   <Button className="rounded-2xl bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white">
                     <Crown className="h-4 w-4 mr-2" />
                     Upgrade to Elite
                   </Button>
                 </DialogTrigger>
-                <DialogContent className="sm:max-w-md">
+                <DialogContent className="sm:max-w-[425px]">
                   <DialogHeader>
-                    <DialogTitle className="flex items-center gap-2">
-                      <Crown className="h-5 w-5 text-purple-600" />
-                      Upgrade to Elite Plan
-                    </DialogTitle>
+                    <DialogTitle>Upgrade to Elite Plan</DialogTitle>
                     <DialogDescription>
-                      Get unlimited assessments, advanced analytics, AI-powered tools, and priority support.
+                      {showPaymentContainer
+                        ? "Complete your payment securely."
+                        : "Fill in your details to proceed with the upgrade."}
                     </DialogDescription>
                   </DialogHeader>
-                  <div className="space-y-4">
-                    <div className="p-4 rounded-lg bg-purple-50 dark:bg-purple-950/20 border border-purple-200 dark:border-purple-800">
-                      <div className="flex items-center justify-between mb-2">
-                        <h4 className="font-semibold text-purple-900 dark:text-purple-100">Elite Plan - $99/month</h4>
-                        <Badge className="bg-purple-600 text-white">Popular</Badge>
-                      </div>
-                      <ul className="space-y-1 text-sm text-purple-700 dark:text-purple-300">
-                        <li>✓ Unlimited Assessments</li>
-                        <li>✓ 1000 Participants</li>
-                        <li>✓ Priority Support</li>
-                        <li>✓ Advanced Analytics</li>
-                        <li>✓ AI-Powered Tools</li>
-                        <li>✓ Custom Branding</li>
-                        <li>✓ API Access</li>
-                        <li>✓ Dedicated Account Manager</li>
-                      </ul>
+                  
+                  {showPaymentContainer ? (
+                    <div id="razorpay-container" className="min-h-[400px] rounded-lg overflow-hidden flex flex-col items-center justify-center text-center">
+                      <Loader2 className="h-8 w-8 animate-spin text-primary mb-4" />
+                      <p className="text-sm font-medium text-muted-foreground">Preparing your secure payment...</p>
+                      <p className="text-xs text-muted-foreground/80 mt-1">This may take a few seconds.</p>
                     </div>
-                    
-                    <div className="space-y-3">
-                      <div>
-                        <Label htmlFor="customerName">Full Name *</Label>
+                  ) : (
+                    <div className="grid gap-4 py-4">
+                      <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="customerName" className="text-right">
+                          Full Name
+                        </Label>
                         <Input
                           id="customerName"
                           value={upgradeForm.customerName}
                           onChange={(e) => setUpgradeForm({ ...upgradeForm, customerName: e.target.value })}
-                          placeholder="Enter your full name"
+                          className="col-span-3"
+                          placeholder="e.g., John Doe"
+                          required
                         />
                       </div>
-                      <div>
-                        <Label htmlFor="customerEmail">Email *</Label>
+                      <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="customerEmail" className="text-right">
+                          Email
+                        </Label>
                         <Input
                           id="customerEmail"
                           type="email"
                           value={upgradeForm.customerEmail}
                           onChange={(e) => setUpgradeForm({ ...upgradeForm, customerEmail: e.target.value })}
-                          placeholder="Enter your email"
+                          className="col-span-3"
+                          placeholder="e.g., johndoe@example.com"
+                          required
                         />
                       </div>
-                      <div>
-                        <Label htmlFor="customerPhone">Phone Number *</Label>
+                      <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="customerPhone" className="text-right">
+                          Phone
+                        </Label>
                         <Input
                           id="customerPhone"
                           value={upgradeForm.customerPhone}
                           onChange={(e) => setUpgradeForm({ ...upgradeForm, customerPhone: e.target.value })}
-                          placeholder="Enter your phone number"
+                          className="col-span-3"
+                          placeholder="e.g., 9876543210"
+                          required
                         />
                       </div>
                     </div>
-                    
-                    <div className="flex gap-3">
-                      <Button
-                        onClick={handleUpgradePlan}
+                  )}
+
+                  {error && (
+                    <div className="text-red-500 text-sm p-3 bg-red-500/10 rounded-md">
+                      <p>{error}</p>
+                      {paymentRetryCount > 0 && paymentRetryCount < 3 && (
+                        <Button onClick={retryPayment} variant="link" className="p-0 h-auto mt-1">
+                          Click here to retry
+                        </Button>
+                      )}
+                    </div>
+                  )}
+
+                  <DialogFooter>
+                    {!showPaymentContainer && (
+                      <Button 
+                        onClick={handleUpgradePlan} 
                         disabled={upgradeLoading}
-                        className="flex-1 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
                       >
                         {upgradeLoading ? (
                           <>
-                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                            {razorpaySubscriptionId ? "Processing Upgrade..." : "Processing Payment..."}
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Processing...
                           </>
                         ) : (
-                          <>
-                            <Crown className="h-4 w-4 mr-2" />
-                            {razorpaySubscriptionId ? "Complete Upgrade" : "Upgrade Now"}
-                          </>
+                          "Proceed to Payment"
                         )}
                       </Button>
-                      <Button
-                        variant="outline"
-                        onClick={() => setShowUpgradeModal(false)}
-                        disabled={upgradeLoading}
-                      >
-                        Cancel
-                      </Button>
-                    </div>
-
-                    {error && (
-                      <div className="mt-4 p-4 bg-red-900/20 backdrop-blur-sm border border-red-500/30 rounded-xl text-red-400 text-sm font-medium shadow-lg">
-                        <div className="flex items-center gap-2">
-                          <AlertCircle className="w-4 h-4" />
-                          {error}
-                        </div>
-                        {paymentRetryCount > 0 && paymentRetryCount < 3 && (
-                          <Button
-                            onClick={retryPayment}
-                            className="mt-3 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white border-0 px-4 py-2 text-sm"
-                          >
-                            <RefreshCw className="w-4 h-4 mr-2" />
-                            Retry Payment ({3 - paymentRetryCount} attempts left)
-                          </Button>
-                        )}
-                      </div>
                     )}
-
-                    {razorpaySubscriptionId && (
-                      <div className="mt-4 p-4 bg-green-900/20 backdrop-blur-sm border border-green-500/30 rounded-xl text-green-400 text-sm font-medium shadow-lg">
-                        <div className="flex items-center gap-2">
-                          <CheckCircle className="w-4 h-4" />
-                          Payment successful! Click "Complete Upgrade" to finish.
-                        </div>
-                      </div>
+                    {showPaymentContainer && upgradeLoading && (
+                      <p className="text-sm text-muted-foreground text-center w-full">Waiting for payment completion...</p>
                     )}
-                  </div>
+                  </DialogFooter>
                 </DialogContent>
               </Dialog>
             ) : (
