@@ -12,8 +12,10 @@ declare global {
         id: string;
         email: string;
         role: string;
+        orgId: string;
         orgName: string;
       };
+      orgId?: string;
       orgName?: string;
     }
   }
@@ -40,6 +42,7 @@ export const authenticate = async (
       // Verify JWT token
       const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-super-secret-jwt-key-change-in-production') as {
         userId: string;
+        orgId: string;
         orgName: string;
       };
 
@@ -65,9 +68,11 @@ export const authenticate = async (
               id: true,
               email: true,
               role: true,
+              orgId: true,
               organization: {
                 select: {
-                  name: true
+                  name: true,
+                  id: true
                 }
               }
             }
@@ -83,8 +88,8 @@ export const authenticate = async (
         throw new AppError(401, 'Organization not found');
       }
 
-      // Verify that the organization name in token matches the one in database
-      if (decoded.orgName !== session.user.organization.name) {
+      // Verify that the organization id and name in token matches the one in database
+      if (decoded.orgId !== session.user.organization.id || decoded.orgName !== session.user.organization.name) {
         throw new AppError(401, 'Organization mismatch');
       }
 
@@ -92,8 +97,10 @@ export const authenticate = async (
         id: session.user.id,
         email: session.user.email,
         role: session.user.role,
+        orgId: session.user.organization.id,
         orgName: session.user.organization.name
       };
+      req.orgId = session.user.organization.id;
       req.orgName = session.user.organization.name;
       
       next();

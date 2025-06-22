@@ -17,6 +17,22 @@ export const removeAuthToken = () => {
   localStorage.removeItem("auth_token")
 }
 
+export const getOrgInfo = () => {
+  if (typeof window === "undefined") return null
+  const orgInfo = localStorage.getItem("org_info")
+  return orgInfo ? JSON.parse(orgInfo) : null
+}
+
+export const setOrgInfo = (orgInfo: any) => {
+  if (typeof window === "undefined") return
+  localStorage.setItem("org_info", JSON.stringify(orgInfo))
+}
+
+export const removeOrgInfo = () => {
+  if (typeof window === "undefined") return
+  localStorage.removeItem("org_info")
+}
+
 export const getAuthHeaders = () => {
   const token = getAuthToken()
   return token ? { Authorization: `Bearer ${token}` } : {}
@@ -26,14 +42,14 @@ export const isAuthenticated = () => {
   return !!getAuthToken()
 }
 
-export const login = async (email: string, password: string) => {
+export const login = async (email: string, password: string, organization: string) => {
   const response = await fetch(`${API_URL}/api/auth/login`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
     },
     credentials: 'include',
-    body: JSON.stringify({ email, password }),
+    body: JSON.stringify({ email, password, organization }),
   })
 
   const data = await response.json()
@@ -42,11 +58,13 @@ export const login = async (email: string, password: string) => {
     throw new Error(data.message || "Login failed")
   }
 
-  // Store token
+  // Store token and organization info
   setAuthToken(data.token)
+  setOrgInfo(data.organization)
   return data
 }
 
 export const logout = () => {
   removeAuthToken()
+  removeOrgInfo()
 } 

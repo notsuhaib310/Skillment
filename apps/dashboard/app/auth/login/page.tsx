@@ -40,17 +40,38 @@ function LoginPageContent() {
   const [showPassword, setShowPassword] = useState(false)
   const [loginType, setLoginType] = useState<"email" | "uniqueId">("email")
 
+  // Extract organization from subdomain
+  const getOrganizationFromSubdomain = () => {
+    if (typeof window !== 'undefined') {
+      const hostname = window.location.hostname
+      const subdomain = hostname.split('.')[0]
+      // Remove 'localhost' or other local development domains
+      if (subdomain && !subdomain.includes('localhost') && subdomain !== 'www') {
+        return subdomain
+      }
+    }
+    return null
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
 
     try {
+      const organization = getOrganizationFromSubdomain()
+      if (!organization) {
+        throw new Error("Unable to determine organization from subdomain")
+      }
+
       const response = await fetch(`${API_URL}/auth/login`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(formData),
+        body: JSON.stringify({
+          ...formData,
+          organization: organization
+        }),
       })
 
       const data = await response.json()

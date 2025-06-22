@@ -52,7 +52,27 @@ import { AddParticipantModal } from "./add-participant-modal"
 import { ParticipantProfile } from "./participant-profile"
 
 // Import the participants API service
-import { participantsApi, Participant } from "@/lib/api/participants"
+import { participantsApi } from "@/lib/api"
+
+interface Participant {
+  id: string
+  name: string
+  email: string
+  phone?: string
+  tags: string[]
+  location?: string
+  status: string
+  score: number
+  performance: string
+  lastActivity?: string
+  completedAssessments: number
+  ongoingAssessments: number
+  notStartedAssessments: number
+  totalAssessments: number
+  avatar: string
+  createdAt: string
+  updatedAt: string
+}
 
 const assessments = [
   { id: 1, name: "React Fundamentals", category: "Frontend" },
@@ -96,7 +116,7 @@ export function ParticipantsPage() {
   const fetchParticipants = async () => {
     try {
       setLoading(true)
-      const response = await participantsApi.getParticipants({
+      const response = await participantsApi.getAll({
         page: pagination.page,
         limit: pagination.limit,
         search: searchTerm || undefined

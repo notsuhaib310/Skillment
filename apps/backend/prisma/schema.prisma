@@ -7,17 +7,26 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum PlanType {
+  free
+  elite
+}
+
 model User {
-  id            String        @id @default(cuid())
-  email         String        @unique
-  password      String
-  firstName     String
-  lastName      String
-  role          String        @default("user")
-  emailVerified Boolean       @default(false)
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
-  orgId         String?
+  id                 String        @id @default(cuid())
+  email              String        @unique
+  password           String
+  firstName          String
+  lastName           String
+  phone              String?       // NEW - Added for subscription
+  gender             String?       // NEW - Added for registration
+  role               String        @default("user")
+  emailVerified      Boolean       @default(false)
+  termsAccepted      Boolean       @default(false) // NEW
+  newsletterOptIn    Boolean       @default(false) // NEW
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+  orgId              String?
   sessions           Session[]
   organization       Organization? @relation(fields: [orgId], references: [id])
   createdAssessments Assessment[]
@@ -27,23 +36,29 @@ model User {
 }
 
 model Organization {
-  id        String   @id @default(cuid())
-  name      String   @unique
-  type      String
-  size      String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  logo      String?
-  users     User[]
+  id                 String   @id @default(cuid())
+  name               String   @unique // URL-friendly name
+  displayName        String?  // NEW - Human readable name
+  type               String
+  size               String
+  plan               PlanType @default(free)
+  subscriptionId     String?  // NEW - Razorpay subscription ID
+  subscriptionStatus String?  // NEW - active, cancelled, halted, etc.
+  logo               String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+  users              User[]
+
+  @@index([subscriptionId])
 }
 
 model Session {
-  id        String   @id @default(cuid())
+  id        String    @id @default(cuid())
   userId    String
   token     String
-  createdAt DateTime @default(now())
+  createdAt DateTime  @default(now())
   expiresAt DateTime?
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, token])
   @@index([userId])
@@ -58,6 +73,22 @@ model VerificationToken {
   createdAt DateTime @default(now())
 }
 
+// Optional: Add payment tracking
+model Payment {
+  id               String   @id @default(cuid())
+  organizationId   String
+  subscriptionId   String
+  paymentId        String   @unique
+  amount           Int
+  currency         String   @default("INR")
+  status           String
+  razorpayData     Json?
+  createdAt        DateTime @default(now())
+
+  @@map("payments")
+}
+
+// Keep your existing models
 model Participant {
   id                String              @id @default(cuid())
   name              String
@@ -87,9 +118,9 @@ model Assessment {
   id                String              @id @default(cuid())
   title             String
   description       String?
-  type              String              // mcq, coding, proctored, hybrid
-  status            String              @default("draft") // draft, live, archived
-  duration          Int                 // in minutes
+  type              String
+  status            String              @default("draft")
+  duration          Int
   totalMarks        Int
   totalQuestions    Int
   attemptLimit      Int                 @default(1)
@@ -97,7 +128,7 @@ model Assessment {
   enableProctoring  Boolean             @default(false)
   randomizeQuestions Boolean            @default(false)
   tags              String[]
-  notes             String?             // Moved from the first Assessment model
+  notes             String?
   participantScores ParticipantScore[]
   createdAt         DateTime            @default(now())
   updatedAt         DateTime            @updatedAt
@@ -112,14 +143,14 @@ model Question {
   id            String      @id @default(cuid())
   assessmentId  String
   question      String
-  type          String      // multiple_choice, coding, text
-  options       Json?       // For multiple choice
-  correctAnswer Json?       // Could be string for MCQ or test cases for coding
+  type          String
+  options       Json?
+  correctAnswer Json?
   marks         Int
   order         Int
   hints         String[]
   explanation   String?
-  difficulty    String?     // easy, medium, hard
+  difficulty    String?
   tags          String[]
   createdAt     DateTime    @default(now())
   updatedAt     DateTime    @updatedAt
@@ -134,12 +165,12 @@ model Candidate {
   userId        String?
   name          String
   email         String
-  status        String        @default("invited") // invited, started, submitted, evaluated
+  status        String        @default("invited")
   score         Int?         
-  timeSpent     Int?         // in seconds
+  timeSpent     Int?
   startedAt     DateTime?
   submittedAt   DateTime?
-  answers       Json?        // Store candidate's answers
+  answers       Json?
   createdAt     DateTime     @default(now())
   updatedAt     DateTime     @updatedAt
   assessment    Assessment   @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
@@ -156,7 +187,7 @@ model ParticipantScore {
   assessment    Assessment  @relation(fields: [assessmentId], references: [id])
   assessmentId  String
   score         Int
-  status        String      @default("not_started") // not_started, in_progress, completed
+  status        String      @default("not_started")
   startedAt     DateTime?
   completedAt   DateTime?
   answers       Json?
@@ -173,8 +204,8 @@ model AssessmentAnalytics {
   completedCandidates  Int        @default(0)
   averageScore         Float?     @default(0)
   completionRate       Float?     @default(0)
-  scoreDistribution   Json?      // Store score distribution data
-  questionStatistics   Json?      // Stats per question
+  scoreDistribution   Json?
+  questionStatistics   Json?
   updatedAt            DateTime   @updatedAt
   assessment           Assessment @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
 }

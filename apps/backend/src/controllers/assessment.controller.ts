@@ -39,16 +39,23 @@ const buildAssessmentWhere = (filters: AssessmentListFilters) => {
 
 export const createAssessment = async (req: Request, res: Response): Promise<Response> => {
   try {
-    const data: CreateAssessmentInput = req.body;
+    const data: Omit<CreateAssessmentInput, 'createdById'> = req.body;
+    
+    // Get user ID from authenticated user
+    const userId = req.user?.id;
+    if (!userId) {
+      return res.status(401).json({ error: 'User authentication required' });
+    }
     
     // Validate input
-    if (!data.title || !data.type || !data.duration || !data.totalMarks || !data.totalQuestions || !data.createdById) {
+    if (!data.title || !data.type || !data.duration || !data.totalMarks || !data.totalQuestions) {
       return res.status(400).json({ error: 'Missing required fields' });
     }
 
     const assessment = await prisma.assessment.create({
       data: {
         ...data,
+        createdById: userId, // Use authenticated user's ID
         status: 'draft',
         attemptLimit: data.attemptLimit || 1,
         showResults: data.showResults !== false, // default to true
@@ -90,8 +97,19 @@ export const getAssessmentById = async (req: Request, res: Response): Promise<Re
   try {
     const { id } = req.params;
 
-    const assessment = await prisma.assessment.findUnique({
-      where: { id },
+    // Get organization ID from authenticated user
+    const orgId = req.orgId;
+    if (!orgId) {
+      return res.status(401).json({ error: 'Organization access required' });
+    }
+
+    const assessment = await prisma.assessment.findFirst({
+      where: { 
+        id,
+        createdBy: {
+          orgId: orgId // Filter by organization
+        }
+      },
       include: {
         createdBy: {
           select: {
@@ -124,6 +142,12 @@ export const getAssessmentById = async (req: Request, res: Response): Promise<Re
 
 export const getAssessments = async (req: Request, res: Response) => {
   try {
+    // Get organization ID from authenticated user
+    const orgId = req.orgId;
+    if (!orgId) {
+      return res.status(401).json({ error: 'Organization access required' });
+    }
+
     const filters: AssessmentListFilters = {
       search: req.query.search as string,
       status: req.query.status as AssessmentStatus,
@@ -134,6 +158,12 @@ export const getAssessments = async (req: Request, res: Response) => {
     };
 
     const where = buildAssessmentWhere(filters);
+    
+    // Add organization filter - only show assessments created by users in this organization
+    where.createdBy = {
+      orgId: orgId
+    };
+    
     const skip = (filters.page! - 1) * filters.limit!;
 
     const [assessments, total] = await Promise.all([
@@ -176,10 +206,31 @@ export const getAssessments = async (req: Request, res: Response) => {
     res.status(500).json({ error: 'Failed to fetch assessments' });
   }
 };
+
 export const updateAssessment = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const data: UpdateAssessmentInput = req.body;
+
+    // Get organization ID from authenticated user
+    const orgId = req.orgId;
+    if (!orgId) {
+      return res.status(401).json({ error: 'Organization access required' });
+    }
+
+    // First check if assessment exists and belongs to user's organization
+    const existingAssessment = await prisma.assessment.findFirst({
+      where: { 
+        id,
+        createdBy: {
+          orgId: orgId
+        }
+      }
+    });
+
+    if (!existingAssessment) {
+      return res.status(404).json({ error: 'Assessment not found' });
+    }
 
     const assessment = await prisma.assessment.update({
       where: { id },
@@ -199,10 +250,10 @@ export const updateAssessment = async (req: Request, res: Response) => {
       },
     });
 
-    res.json(assessment);
+    return res.json(assessment);
   } catch (error) {
     console.error('Error updating assessment:', error);
-    res.status(500).json({ error: 'Failed to update assessment' });
+    return res.status(500).json({ error: 'Failed to update assessment' });
   }
 };
 
@@ -210,18 +261,34 @@ export const deleteAssessment = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
 
-    // Delete related records first
-    await prisma.$transaction([
-      prisma.assessmentAnalytics.deleteMany({ where: { assessmentId: id } }),
-      prisma.question.deleteMany({ where: { assessmentId: id } }),
-      prisma.candidate.deleteMany({ where: { assessmentId: id } }),
-      prisma.assessment.delete({ where: { id } }),
-    ]);
+    // Get organization ID from authenticated user
+    const orgId = req.orgId;
+    if (!orgId) {
+      return res.status(401).json({ error: 'Organization access required' });
+    }
 
-    res.status(204).send();
+    // First check if assessment exists and belongs to user's organization
+    const existingAssessment = await prisma.assessment.findFirst({
+      where: { 
+        id,
+        createdBy: {
+          orgId: orgId
+        }
+      }
+    });
+
+    if (!existingAssessment) {
+      return res.status(404).json({ error: 'Assessment not found' });
+    }
+
+    await prisma.assessment.delete({
+      where: { id },
+    });
+
+    return res.json({ message: 'Assessment deleted successfully' });
   } catch (error) {
     console.error('Error deleting assessment:', error);
-    res.status(500).json({ error: 'Failed to delete assessment' });
+    return res.status(500).json({ error: 'Failed to delete assessment' });
   }
 };
 

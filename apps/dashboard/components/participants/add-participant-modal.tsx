@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import { toast } from "@/components/ui/use-toast"
-import { participantsApi } from "@/lib/api/participants"
+import { participantsApi } from "@/lib/api"
 import { X, Mail, Lock, Shield } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -50,7 +50,6 @@ export function AddParticipantModal({ open, onOpenChange, onParticipantAdded }: 
     fullName: "",
     email: "",
     phone: "",
-    organization: "",
     tags: [] as string[],
     assignedAssessments: [] as number[],
     scheduleDate: "",
@@ -92,8 +91,8 @@ export function AddParticipantModal({ open, onOpenChange, onParticipantAdded }: 
   const [error, setError] = useState<string | null>(null)
 
   const handleSubmit = async (action: "save-close" | "save-another") => {
-    if (!formData.fullName || !formData.email || !formData.organization) {
-      setError("Name, email, and organization are required")
+    if (!formData.fullName || !formData.email) {
+      setError("Name and email are required")
       toast({
         title: "Error",
         description: "Please fill in all required fields",
@@ -113,7 +112,6 @@ export function AddParticipantModal({ open, onOpenChange, onParticipantAdded }: 
         phone: formData.phone,
         tags: formData.tags,
         location: "", // Optional field
-        organization: formData.organization,
       })
 
       onParticipantAdded()
@@ -131,7 +129,6 @@ export function AddParticipantModal({ open, onOpenChange, onParticipantAdded }: 
           fullName: "",
           email: "",
           phone: "",
-          organization: "",
           tags: [],
           assignedAssessments: [],
           scheduleDate: "",
@@ -220,17 +217,6 @@ export function AddParticipantModal({ open, onOpenChange, onParticipantAdded }: 
                   onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                   className="rounded-2xl"
                   placeholder="Enter phone number"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="organization">Organization *</Label>
-                <Input
-                  id="organization"
-                  value={formData.organization}
-                  onChange={(e) => setFormData({ ...formData, organization: e.target.value })}
-                  className="rounded-2xl"
-                  placeholder="Enter organization name"
                 />
               </div>
             </div>

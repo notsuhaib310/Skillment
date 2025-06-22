@@ -7,10 +7,13 @@ import {
   deleteAssessment,
   getAssessmentStats,
 } from '../controllers/assessment.controller';
+import { authenticate } from '../middleware/authenticate';
 
 const router = Router();
 
-// Apply authentication middleware to all assessment routes
+// Apply authentication middleware to all routes
+router.use(authenticate);
+
 // Create a new assessment
 router.post('/', createAssessment);
 

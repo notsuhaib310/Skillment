@@ -53,7 +53,19 @@ export const getParticipants = async (req: Request, res: Response) => {
     const search = req.query.search as string || '';
     const skip = (page - 1) * limit;
 
-    const where: any = {};
+    // Get organization ID from authenticated user
+    const orgId = req.orgId;
+    if (!orgId) {
+      return res.status(401).json({ 
+        success: false, 
+        error: 'Organization access required' 
+      });
+    }
+
+    const where: any = {
+      organization: orgId // Filter by organization
+    };
+    
     if (search) {
       where.OR = [
         { name: { contains: search, mode: 'insensitive' as const } },
@@ -185,27 +197,38 @@ export const addParticipant = async (req: Request, res: Response) => {
       phone, 
       tags = [], 
       location, 
-      organization,
       assessmentIds = []
-    } = req.body as AddParticipantRequest;
+    } = req.body as Omit<AddParticipantRequest, 'organization'>;
 
-    // Validate required fields
-    if (!name || !email || !organization) {
-      return res.status(400).json({ 
+    // Get organization ID from authenticated user
+    const orgId = req.orgId;
+    if (!orgId) {
+      return res.status(401).json({ 
         success: false, 
-        error: 'Name, email, and organization are required' 
+        error: 'Organization access required' 
       });
     }
 
-    // Check if participant with the same email already exists
-    const existingParticipant = await prisma.participant.findUnique({
-      where: { email },
+    // Validate required fields
+    if (!name || !email) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Name and email are required' 
+      });
+    }
+
+    // Check if participant with the same email already exists in this organization
+    const existingParticipant = await prisma.participant.findFirst({
+      where: { 
+        email,
+        organization: orgId
+      },
     });
 
     if (existingParticipant) {
       return res.status(400).json({ 
         success: false, 
-        error: 'Participant with this email already exists' 
+        error: 'Participant with this email already exists in your organization' 
       });
     }
 
@@ -219,7 +242,7 @@ export const addParticipant = async (req: Request, res: Response) => {
           phone: phone || null,
           tags,
           location: location || null,
-          organization,
+          organization: orgId, // Use orgId from authenticated user
         },
       });
 
@@ -297,8 +320,20 @@ export const getParticipant = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
 
-    const participant = await prisma.participant.findUnique({
-      where: { id },
+    // Get organization ID from authenticated user
+    const orgId = req.orgId;
+    if (!orgId) {
+      return res.status(401).json({ 
+        success: false, 
+        error: 'Organization access required' 
+      });
+    }
+
+    const participant = await prisma.participant.findFirst({
+      where: { 
+        id,
+        organization: orgId // Filter by organization
+      },
       include: {
         assessmentScores: {
           include: {
