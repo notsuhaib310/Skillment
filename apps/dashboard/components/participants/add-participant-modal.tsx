@@ -106,7 +106,7 @@ export function AddParticipantModal({ open, onOpenChange, onParticipantAdded }: 
     
     try {
       // Call the API to create a new participant
-      await participantsApi.createParticipant({
+      await participantsApi.create({
         name: formData.fullName,
         email: formData.email,
         phone: formData.phone,

@@ -11,7 +11,7 @@ export const apiCall = async (endpoint: string, options: RequestInit = {}) => {
       'Content-Type': 'application/json',
       ...getAuthHeaders(),
       ...options.headers,
-    },
+    } as HeadersInit,
   }
 
   const response = await fetch(url, config)
@@ -48,10 +48,10 @@ export const participantsApi = {
     if (params?.search) searchParams.append('search', params.search)
     
     const query = searchParams.toString()
-    return apiGet(`/api/participants${query ? `?${query}` : ''}`)
+    return apiGet(`/participants${query ? `?${query}` : ''}`)
   },
-  getById: (id: string) => apiGet(`/api/participants/${id}`),
-  create: (data: any) => apiPost('/api/participants', data),
+  getById: (id: string) => apiGet(`/participants/${id}`),
+  create: (data: any) => apiPost('/participants', data),
 }
 
 // API endpoints for assessments
@@ -65,11 +65,11 @@ export const assessmentsApi = {
     if (params?.type) searchParams.append('type', params.type)
     
     const query = searchParams.toString()
-    return apiGet(`/api/assessments${query ? `?${query}` : ''}`)
+    return apiGet(`/assessments${query ? `?${query}` : ''}`)
   },
-  getById: (id: string) => apiGet(`/api/assessments/${id}`),
-  create: (data: any) => apiPost('/api/assessments', data),
-  update: (id: string, data: any) => apiPut(`/api/assessments/${id}`, data),
-  delete: (id: string) => apiDelete(`/api/assessments/${id}`),
-  getStats: () => apiGet('/api/assessments/stats'),
+  getById: (id: string) => apiGet(`/assessments/${id}`),
+  create: (data: any) => apiPost('/assessments', data),
+  update: (id: string, data: any) => apiPut(`/assessments/${id}`, data),
+  delete: (id: string) => apiDelete(`/assessments/${id}`),
+  getStats: () => apiGet('/assessments/stats'),
 } 
