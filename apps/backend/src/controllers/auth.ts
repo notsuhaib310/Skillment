@@ -195,6 +195,12 @@ export class AuthController {
       }
 
       // Verify that the user belongs to the specified organization
+      console.log('Login organization check:', {
+        userOrgName: user.organization.name,
+        requestedOrg: organization,
+        match: user.organization.name.toLowerCase() === organization.toLowerCase()
+      })
+      
       if (user.organization.name.toLowerCase() !== organization.toLowerCase()) {
         return res.status(403).json({ 
           error: 'Access denied. You do not have permission to access this organization.',
@@ -288,6 +294,108 @@ export class AuthController {
       console.error('Error in logout:', error);
       res.status(500).json({ 
         error: 'Server error',
+        code: 'INTERNAL_ERROR'
+      });
+    }
+  }
+
+  async verify(req: Request, res: Response) {
+    try {
+      const token = req.headers.authorization?.replace('Bearer ', '');
+      
+      if (!token) {
+        return res.status(401).json({ 
+          error: 'No token provided',
+          code: 'NO_TOKEN'
+        });
+      }
+
+      // Verify JWT token
+      const decoded = jwt.verify(token, JWT_SECRET) as {
+        userId: string;
+        email: string;
+        orgId: string;
+        orgName: string;
+        role: string;
+      };
+
+      // Verify session in database
+      const session = await prisma.session.findFirst({
+        where: {
+          userId: decoded.userId,
+          token,
+          OR: [
+            {
+              expiresAt: {
+                gt: new Date()
+              }
+            },
+            {
+              expiresAt: null
+            }
+          ]
+        },
+        include: {
+          user: {
+            select: {
+              id: true,
+              email: true,
+              firstName: true,
+              lastName: true,
+              role: true,
+              orgId: true,
+              organization: {
+                select: {
+                  id: true,
+                  name: true,
+                  plan: true
+                }
+              }
+            }
+          }
+        }
+      });
+
+      if (!session || !session.user?.organization) {
+        return res.status(401).json({ 
+          error: 'Invalid session',
+          code: 'INVALID_SESSION'
+        });
+      }
+
+      // Verify that the organization id and name in token matches the one in database
+      if (decoded.orgId !== session.user.organization.id || decoded.orgName !== session.user.organization.name) {
+        return res.status(401).json({ 
+          error: 'Organization mismatch',
+          code: 'ORG_MISMATCH'
+        });
+      }
+
+      return res.status(200).json({
+        success: true,
+        user: {
+          id: session.user.id,
+          email: session.user.email,
+          firstName: session.user.firstName,
+          lastName: session.user.lastName,
+          role: session.user.role,
+        },
+        organization: {
+          id: session.user.organization.id,
+          name: session.user.organization.name,
+          plan: session.user.organization.plan,
+        },
+      });
+    } catch (error) {
+      if (error instanceof jwt.JsonWebTokenError) {
+        return res.status(401).json({ 
+          error: 'Invalid token',
+          code: 'INVALID_TOKEN'
+        });
+      }
+      console.error('Token verification error:', error);
+      return res.status(500).json({ 
+        error: 'Internal server error',
         code: 'INTERNAL_ERROR'
       });
     }

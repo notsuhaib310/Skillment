@@ -31,6 +31,7 @@ model User {
   organization       Organization? @relation(fields: [orgId], references: [id])
   createdAssessments Assessment[]
   candidates         Candidate[]
+  teamInvitations    TeamMember[]  @relation("InvitedBy")
 
   @@index([orgId])
 }
@@ -48,6 +49,7 @@ model Organization {
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
   users              User[]
+  teamMembers        TeamMember[]
 
   @@index([subscriptionId])
 }
@@ -208,4 +210,28 @@ model AssessmentAnalytics {
   questionStatistics   Json?
   updatedAt            DateTime   @updatedAt
   assessment           Assessment @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+}
+
+// Team Member Management
+model TeamMember {
+  id                String   @id @default(cuid())
+  email             String
+  firstName         String?
+  lastName          String?
+  role              String   @default("member") // admin, member, viewer
+  permissions       Json     @default("{}") // Store permissions as JSON
+  status            String   @default("pending") // pending, active, inactive
+  invitedBy         String
+  invitedByUser     User     @relation("InvitedBy", fields: [invitedBy], references: [id])
+  organizationId    String
+  organization      Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  invitedAt         DateTime @default(now())
+  acceptedAt        DateTime?
+  lastActiveAt      DateTime?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@unique([email, organizationId])
+  @@index([organizationId])
+  @@index([email])
 }

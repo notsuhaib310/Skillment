@@ -45,8 +45,9 @@ function LoginPageContent() {
     if (typeof window !== 'undefined') {
       const hostname = window.location.hostname
       const subdomain = hostname.split('.')[0]
-      // Remove 'localhost' or other local development domains
-      if (subdomain && !subdomain.includes('localhost') && subdomain !== 'www') {
+      console.log('Subdomain extraction:', { hostname, subdomain })
+      // For development, allow localhost subdomains
+      if (subdomain && subdomain !== 'www' && subdomain !== 'localhost') {
         return subdomain
       }
     }
@@ -85,6 +86,19 @@ function LoginPageContent() {
       
       // Store user data in localStorage
       localStorage.setItem("user", JSON.stringify(data.user))
+
+      // Security check: Ensure user is redirected to their own organization's subdomain
+      const currentOrg = getOrganizationFromSubdomain()
+      const userOrg = data.organization?.name
+      
+      console.log('Security check:', { currentOrg, userOrg, match: currentOrg === userOrg })
+      
+      if (currentOrg && userOrg && currentOrg.toLowerCase() !== userOrg.toLowerCase()) {
+        // User tried to log in to a different organization, clear token and show error
+        Cookies.remove("token")
+        localStorage.removeItem("user")
+        throw new Error("Access denied. You can only log in to your own organization.")
+      }
 
       // Get callback URL or default to dashboard
       const callbackUrl = searchParams.get("callbackUrl") || "/dashboard"

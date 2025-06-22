@@ -19,10 +19,17 @@ const port = process.env.PORT || 5000;
 
 // Middleware
 app.use(cors({
-  origin: ["http://localhost:3000", "http://localhost:3001", "http://pronexus.localhost:3001", "https://skillment.in"],
+  origin: [
+    "http://localhost:3000", 
+    "http://localhost:3001", 
+    "http://kd.localhost:3001",
+    "http://*.localhost:3001",
+    "https://skillment.in",
+    "https://*.skillment.in"
+  ],
   credentials: true,
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization"],
+  allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
 }));
 app.use(express.json());
 app.use(cookieParser());
@@ -38,6 +45,7 @@ app.use('/api/auth', authRouter);
 app.use('/api/participants', participantsRouter);
 app.use('/api/organizations', organizationsRouter);
 app.use('/api/assessments', assessmentRouter);
+app.use('/api/team', require('./routes/team').default);
 
 // Error handling
 app.use(errorHandler);

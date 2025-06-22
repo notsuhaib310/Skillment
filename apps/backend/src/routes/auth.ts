@@ -10,6 +10,9 @@ router.post('/register', authController.register.bind(authController));
 // Login route
 router.post('/login', authController.login);
 
+// Verify route
+router.get('/verify', authController.verify.bind(authController));
+
 // Logout route
 router.post('/logout', authController.logout);
 

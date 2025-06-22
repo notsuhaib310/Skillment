@@ -26,6 +26,7 @@ const pageNames: Record<string, string> = {
   "/dashboard/email": "Email & Invites",
   "/dashboard/reports": "Reports & Results",
   "/dashboard/ai-tools": "AI Tools",
+  "/dashboard/team": "Team Management",
   "/dashboard/settings": "Settings",
   "/dashboard/help": "Help & Support"
 }

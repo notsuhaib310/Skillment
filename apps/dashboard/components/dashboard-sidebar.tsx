@@ -2,7 +2,7 @@
 
 import { usePathname } from "next/navigation"
 import Link from "next/link"
-import { Users, FileText, Calendar, Mail, TrendingUp, Bot, Settings, HelpCircle, LayoutDashboard } from "lucide-react"
+import { Users, FileText, Calendar, Mail, TrendingUp, Bot, Settings, HelpCircle, LayoutDashboard, UserPlus } from "lucide-react"
 import {
   Sidebar,
   SidebarContent,
@@ -51,6 +51,11 @@ const menuItems = [
     title: "AI Tools",
     icon: Bot,
     href: "/dashboard/ai-tools",
+  },
+  {
+    title: "Team Management",
+    icon: UserPlus,
+    href: "/dashboard/team",
   },
   {
     title: "Settings",

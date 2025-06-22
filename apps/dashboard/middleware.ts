@@ -68,6 +68,53 @@ export async function middleware(request: NextRequest) {
       return NextResponse.rewrite(new URL("/error", request.url))
     }
 
+    // If user is logged in, verify they belong to this organization
+    if (token) {
+      try {
+        console.log('Middleware: Verifying user token for subdomain:', subdomain)
+        const userResponse = await fetch(`${API_URL}/auth/verify`, {
+          headers: {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          }
+        })
+
+        console.log('Middleware: Verify response status:', userResponse.status)
+
+        if (userResponse.ok) {
+          const userData = await userResponse.json()
+          console.log('Middleware: User data:', {
+            userEmail: userData.user?.email,
+            userOrg: userData.organization?.name,
+            currentSubdomain: subdomain,
+            match: userData.organization?.name === subdomain
+          })
+          
+          // Check if user's organization matches the subdomain
+          if (userData.organization && userData.organization.name.toLowerCase() !== subdomain.toLowerCase()) {
+            console.error(`User ${userData.user.email} tried to access organization ${subdomain} but belongs to ${userData.organization.name}`)
+            // Clear the invalid token and redirect to login
+            const response = NextResponse.redirect(new URL("/auth/login", request.url))
+            response.cookies.delete("token")
+            return response
+          }
+        } else {
+          console.log('Middleware: Verify failed, clearing token')
+          // Invalid token, clear it and redirect to login
+          const response = NextResponse.redirect(new URL("/auth/login", request.url))
+          response.cookies.delete("token")
+          return response
+        }
+      } catch (error) {
+        console.error("Error verifying user token:", error)
+        // Clear the invalid token and redirect to login
+        const response = NextResponse.redirect(new URL("/auth/login", request.url))
+        response.cookies.delete("token")
+        return response
+      }
+    }
+
     // If trying to access auth pages while logged in, redirect to dashboard
     if (isAuthPage && token) {
       return NextResponse.redirect(new URL("/dashboard", request.url))
@@ -80,6 +127,7 @@ export async function middleware(request: NextRequest) {
       return NextResponse.redirect(loginUrl)
     }
 
+    console.log('Middleware: All checks passed, allowing access to:', request.nextUrl.pathname)
     return NextResponse.next()
   } catch (error) {
     console.error("Error validating organization:", error)

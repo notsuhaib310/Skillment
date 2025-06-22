@@ -72,4 +72,22 @@ export const assessmentsApi = {
   update: (id: string, data: any) => apiPut(`/assessments/${id}`, data),
   delete: (id: string) => apiDelete(`/assessments/${id}`),
   getStats: () => apiGet('/assessments/stats'),
+}
+
+// API endpoints for team management
+export const teamApi = {
+  getAll: (params?: { page?: number; limit?: number; search?: string; status?: string }) => {
+    const searchParams = new URLSearchParams()
+    if (params?.page) searchParams.append('page', params.page.toString())
+    if (params?.limit) searchParams.append('limit', params.limit.toString())
+    if (params?.search) searchParams.append('search', params.search)
+    if (params?.status) searchParams.append('status', params.status)
+    
+    const query = searchParams.toString()
+    return apiGet(`/team${query ? `?${query}` : ''}`)
+  },
+  getById: (id: string) => apiGet(`/team/${id}`),
+  invite: (data: any) => apiPost('/team', data),
+  update: (id: string, data: any) => apiPut(`/team/${id}`, data),
+  remove: (id: string) => apiDelete(`/team/${id}`),
 } 
