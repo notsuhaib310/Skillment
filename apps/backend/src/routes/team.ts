@@ -6,6 +6,8 @@ import {
   updateTeamMember,
   removeTeamMember,
   getTeamMemberById,
+  getInvitationDetails,
+  acceptInvitation,
 } from '../controllers/team.controller';
 
 const router = express.Router();
@@ -27,5 +29,12 @@ router.put('/:id', updateTeamMember);
 
 // Remove team member
 router.delete('/:id', removeTeamMember);
+
+// Public routes (no authentication required)
+// Get invitation details
+router.get('/invitation/:id', getInvitationDetails);
+
+// Accept invitation
+router.post('/accept-invitation', acceptInvitation);
 
 export default router; 

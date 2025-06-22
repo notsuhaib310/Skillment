@@ -1,6 +1,8 @@
 import { Request, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
 import * as crypto from 'crypto';
+import { emailService } from '../services/email.service';
+import bcrypt from 'bcryptjs';
 
 const prisma = new PrismaClient();
 
@@ -186,11 +188,39 @@ export const inviteTeamMember = async (req: Request, res: Response) => {
             email: true,
           },
         },
+        organization: {
+          select: {
+            name: true,
+          },
+        },
       },
     });
 
-    // TODO: Send invitation email here
-    // For now, just return success
+    // Send invitation email
+    const invitationUrl = `${process.env.FRONTEND_URL || 'http://localhost:3001'}/auth/accept-invitation?token=${teamMember.id}`;
+    
+    await emailService.sendTeamInvitation({
+      email,
+      firstName: firstName || undefined,
+      lastName: lastName || undefined,
+      inviterName: `${teamMember.invitedByUser.firstName} ${teamMember.invitedByUser.lastName}`,
+      organizationName: teamMember.organization.name,
+      role,
+      permissions,
+      invitationUrl,
+    });
+
+    // Send admin notification
+    await emailService.sendTeamInvitationNotification({
+      email,
+      firstName: firstName || undefined,
+      lastName: lastName || undefined,
+      inviterName: `${teamMember.invitedByUser.firstName} ${teamMember.invitedByUser.lastName}`,
+      organizationName: teamMember.organization.name,
+      role,
+      permissions,
+      invitationUrl,
+    });
 
     return res.status(201).json({
       success: true,
@@ -363,6 +393,158 @@ export const getTeamMemberById = async (req: Request, res: Response) => {
     });
   } catch (error: any) {
     console.error('Error fetching team member:', error);
+    return res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+export const getInvitationDetails = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+
+    const teamMember = await prisma.teamMember.findUnique({
+      where: { id },
+      include: {
+        invitedByUser: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+          },
+        },
+        organization: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+      },
+    });
+
+    if (!teamMember) {
+      return res.status(404).json({ 
+        success: false, 
+        error: 'Invitation not found' 
+      });
+    }
+
+    if (teamMember.status === 'accepted') {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Invitation has already been accepted' 
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        id: teamMember.id,
+        email: teamMember.email,
+        firstName: teamMember.firstName,
+        lastName: teamMember.lastName,
+        role: teamMember.role,
+        permissions: teamMember.permissions,
+        organizationName: teamMember.organization.name,
+        inviterName: `${teamMember.invitedByUser.firstName} ${teamMember.invitedByUser.lastName}`,
+        status: teamMember.status,
+      },
+    });
+  } catch (error: any) {
+    console.error('Error fetching invitation details:', error);
+    return res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+export const acceptInvitation = async (req: Request, res: Response) => {
+  try {
+    const { invitationId, firstName, lastName, password } = req.body;
+
+    if (!invitationId || !firstName || !lastName || !password) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'All fields are required' 
+      });
+    }
+
+    // Find the invitation
+    const teamMember = await prisma.teamMember.findUnique({
+      where: { id: invitationId },
+      include: {
+        organization: true,
+      },
+    });
+
+    if (!teamMember) {
+      return res.status(404).json({ 
+        success: false, 
+        error: 'Invitation not found' 
+      });
+    }
+
+    if (teamMember.status === 'accepted') {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Invitation has already been accepted' 
+      });
+    }
+
+    // Check if user already exists
+    const existingUser = await prisma.user.findUnique({
+      where: { email: teamMember.email },
+    });
+
+    if (existingUser) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'User with this email already exists' 
+      });
+    }
+
+    // Hash password
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    // Create user account
+    const user = await prisma.user.create({
+      data: {
+        email: teamMember.email,
+        firstName,
+        lastName,
+        password: hashedPassword,
+        orgId: teamMember.organizationId,
+        role: teamMember.role,
+      },
+    });
+
+    // Update team member status
+    await prisma.teamMember.update({
+      where: { id: invitationId },
+      data: {
+        firstName,
+        lastName,
+        status: 'accepted',
+        acceptedAt: new Date(),
+      },
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: 'Invitation accepted successfully',
+      data: {
+        user: {
+          id: user.id,
+          email: user.email,
+          firstName: user.firstName,
+          lastName: user.lastName,
+          role: user.role,
+        },
+        organization: {
+          id: teamMember.organization.id,
+          name: teamMember.organization.name,
+        },
+      },
+    });
+  } catch (error: any) {
+    console.error('Error accepting invitation:', error);
     return res.status(500).json({ success: false, error: error.message });
   }
 }; 

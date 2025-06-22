@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { prisma } from '../lib/prisma';
 import Razorpay from 'razorpay';
 import crypto from 'crypto';
+import { emailService } from '../services/email.service';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
 const RAZORPAY_KEY_ID = process.env.RAZORPAY_KEY_ID;
@@ -132,6 +133,26 @@ export class AuthController {
           token,
           expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
         },
+      });
+
+      // Send welcome email
+      await emailService.sendWelcomeEmail({
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        organizationName: organization.name,
+        loginUrl: `https://${organization.name}.skillment.in/dashboard`,
+        plan: organization.plan,
+      });
+
+      // Send admin notification
+      await emailService.sendUserRegistrationNotification({
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        organizationName: organization.name,
+        loginUrl: `https://${organization.name}.skillment.in/dashboard`,
+        plan: organization.plan,
       });
 
       return res.status(201).json({
