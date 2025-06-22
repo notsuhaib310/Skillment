@@ -3,7 +3,7 @@
 import type React from "react"
 import { useState, Suspense } from "react"
 import { toast } from "sonner"
-import { Eye, EyeOff, Shield, BarChart3, Users, Calendar, Award, TrendingUp, Target } from "lucide-react"
+import { Eye, EyeOff, Shield, BarChart3, Users, Calendar, Award, TrendingUp, Target, Building2 } from "lucide-react"
 import { useSearchParams, useRouter } from "next/navigation"
 import Cookies from "js-cookie"
 
@@ -111,6 +111,8 @@ function LoginPageContent() {
       setLoading(false)
     }
   }
+
+  const organization = getOrganizationFromSubdomain()
 
   return (
     <div className="min-h-screen flex">
@@ -237,6 +239,19 @@ function LoginPageContent() {
         ))}
 
         <div className="w-full max-w-md relative z-10">
+          {/* Organization Header */}
+          {organization && (
+            <div className="text-center mb-8">
+              <div className="inline-flex items-center space-x-2 bg-white rounded-lg px-4 py-3 shadow-sm border border-gray-200 mb-6">
+                <Building2 className="w-5 h-5 text-gray-600" />
+                <div>
+                  <p className="text-sm text-gray-500 font-medium">Signing into</p>
+                  <p className="text-lg font-bold text-gray-900 capitalize">{organization}</p>
+                </div>
+              </div>
+            </div>
+          )}
+
           <div className="text-center mb-8">
             <h2 className="text-3xl font-bold text-gray-900">Welcome Back</h2>
             <p className="text-gray-600 mt-2">Sign in to your account</p>

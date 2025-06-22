@@ -23,6 +23,7 @@ app.use(cors({
     "http://localhost:3000", 
     "http://localhost:3001", 
     "http://kd.localhost:3001",
+    'http://kingboi.localhost:3001',
     "http://*.localhost:3001",
     "https://skillment.in",
     "https://*.skillment.in"
