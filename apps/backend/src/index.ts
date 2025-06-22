@@ -7,6 +7,7 @@ import userRouter from './routes/user.routes';
 import participantsRouter from './routes/participants';
 import organizationsRouter from './routes/organizations';
 import assessmentRouter from './routes/assessment.routes';
+import billingRouter from './routes/billing.routes';
 import { errorHandler } from './middleware/errorHandler';
 import { PrismaClient } from '@prisma/client';
 import cookieParser from 'cookie-parser';
@@ -46,6 +47,7 @@ app.use('/api/users', userRouter);
 app.use('/api/participants', participantsRouter);
 app.use('/api/organizations', organizationsRouter);
 app.use('/api/assessments', assessmentRouter);
+app.use('/api/billing', billingRouter);
 app.use('/api/team', require('./routes/team').default);
 
 // Error handling
