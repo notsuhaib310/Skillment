@@ -27,6 +27,17 @@ export const removeAuthToken = () => {
   localStorage.removeItem("auth_token")
 }
 
+export const clearAllAuthData = () => {
+  if (typeof window === "undefined") return
+  // Clear all authentication-related data
+  document.cookie = "token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT"
+  localStorage.removeItem("auth_token")
+  localStorage.removeItem("token")
+  localStorage.removeItem("user")
+  localStorage.removeItem("organization")
+  localStorage.removeItem("org_info")
+}
+
 export const getOrgInfo = () => {
   if (typeof window === "undefined") return null
   const orgInfo = localStorage.getItem("org_info")
@@ -50,6 +61,15 @@ export const getAuthHeaders = () => {
 
 export const isAuthenticated = () => {
   return !!getAuthToken()
+}
+
+export const handleAuthError = (error: any) => {
+  console.error('Authentication error:', error)
+  clearAllAuthData()
+  // Redirect to login page
+  if (typeof window !== "undefined") {
+    window.location.href = "/auth/login"
+  }
 }
 
 export const login = async (email: string, password: string, organization: string) => {

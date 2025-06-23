@@ -1,4 +1,5 @@
 import axios, { InternalAxiosRequestConfig, AxiosResponse, AxiosError } from "axios"
+import { handleAuthError } from '../auth'
 
 // const API_BASE_URL = 'http://localhost:5000/api'
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "https://api.skillment.in/api"
@@ -149,6 +150,13 @@ async function apiRequest<T>(
     
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}))
+      
+      // Handle authentication errors
+      if (response.status === 401) {
+        handleAuthError(errorData)
+        throw new Error('Authentication failed - please log in again')
+      }
+      
       throw new Error(errorData.message || `HTTP error! status: ${response.status}`)
     }
 

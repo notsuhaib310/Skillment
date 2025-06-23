@@ -84,6 +84,12 @@ class EmailService {
   private getModernTemplate(data: any): string {
     const { subject, body, ctaText, ctaUrl } = data;
 
+    // Handle cases where data properties might be undefined
+    const safeSubject = subject || 'Notification';
+    const safeBody = body || 'No content provided';
+    const safeCtaText = ctaText || 'Learn More';
+    const safeCtaUrl = ctaUrl || '#';
+
     // A more robust, professional template with inlined CSS for maximum compatibility.
     return `
     <!DOCTYPE html>
@@ -91,7 +97,7 @@ class EmailService {
     <head>
       <meta charset="UTF-8">
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <title>${subject}</title>
+      <title>${safeSubject}</title>
     </head>
     <body style="margin: 0; padding: 0; width: 100% !important; -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%; background-color: #0d1117; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">
       <table width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color: #0d1117;">
@@ -111,14 +117,14 @@ class EmailService {
                   <table width="100%" border="0" cellspacing="0" cellpadding="0">
                     <tr>
                       <td>
-                        <h1 style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-size: 26px; font-weight: 600; color: #f0f6fc; margin: 0 0 24px;">${subject}</h1>
-                        <p style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-size: 16px; line-height: 1.6; color: #c9d1d9; margin: 0 0 24px;">${body.replace(/\n/g, '<br>')}</p>
+                        <h1 style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-size: 26px; font-weight: 600; color: #f0f6fc; margin: 0 0 24px;">${safeSubject}</h1>
+                        <p style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-size: 16px; line-height: 1.6; color: #c9d1d9; margin: 0 0 24px;">${safeBody.replace(/\n/g, '<br>')}</p>
                       </td>
                     </tr>
                     <!-- CTA Button -->
                     <tr>
                       <td align="left">
-                        <a href="${ctaUrl}" target="_blank" style="display: inline-block; background-color: #f97316; color: #ffffff !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-size: 16px; font-weight: 600; text-decoration: none; padding: 14px 28px; border-radius: 6px;">${ctaText}</a>
+                        <a href="${safeCtaUrl}" target="_blank" style="display: inline-block; background-color: #f97316; color: #ffffff !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-size: 16px; font-weight: 600; text-decoration: none; padding: 14px 28px; border-radius: 6px;">${safeCtaText}</a>
                       </td>
                     </tr>
                   </table>

@@ -81,16 +81,24 @@ export const authenticate = async (
       });
 
       if (!session) {
-        throw new AppError(401, 'Invalid session');
+        console.log('Session not found for token:', { userId: decoded.userId, tokenExists: !!token });
+        throw new AppError(401, 'Invalid session - please log in again');
       }
 
       if (!session.user?.organization) {
+        console.log('User organization not found:', { userId: decoded.userId });
         throw new AppError(401, 'Organization not found');
       }
 
       // Verify that the organization id and name in token matches the one in database
       if (decoded.orgId !== session.user.organization.id || decoded.orgName !== session.user.organization.name) {
-        throw new AppError(401, 'Organization mismatch');
+        console.log('Organization mismatch:', { 
+          tokenOrgId: decoded.orgId, 
+          dbOrgId: session.user.organization.id,
+          tokenOrgName: decoded.orgName,
+          dbOrgName: session.user.organization.name
+        });
+        throw new AppError(401, 'Organization mismatch - please log in again');
       }
 
       req.user = {
@@ -106,16 +114,22 @@ export const authenticate = async (
       next();
     } catch (jwtError) {
       if (jwtError instanceof jwt.JsonWebTokenError) {
-        throw new AppError(401, 'Invalid token');
+        console.log('JWT verification failed:', jwtError.message);
+        throw new AppError(401, 'Invalid token - please log in again');
+      }
+      if (jwtError instanceof jwt.TokenExpiredError) {
+        console.log('Token expired for user');
+        throw new AppError(401, 'Token expired - please log in again');
       }
       throw jwtError;
     }
   } catch (error) {
     if (error instanceof jwt.JsonWebTokenError) {
-      next(new AppError(401, 'Invalid token'));
+      next(new AppError(401, 'Invalid token - please log in again'));
     } else if (error instanceof AppError) {
       next(error);
     } else {
+      console.error('Authentication error:', error);
       next(new AppError(500, 'Internal server error'));
     }
   }
