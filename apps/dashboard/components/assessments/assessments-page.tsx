@@ -19,7 +19,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox"
 import { AssessmentDetailView } from "./assessment-detail-view"
 import { CreateAssessmentPage } from "./create-assessment-page"
-import { assessmentsApi } from "@/lib/api"
+import { assessmentsApi, type Assessment } from "@/lib/api/api"
+import { useToast } from "@/hooks/use-toast"
 
 const statusColors = {
   live: "bg-emerald-500/20 text-emerald-400 border-emerald-500/30",
@@ -41,31 +42,81 @@ export function AssessmentsPage() {
   const [selectedAssessments, setSelectedAssessments] = useState<string[]>([])
   const [selectedAssessment, setSelectedAssessment] = useState<string | null>(null)
   const [showCreatePage, setShowCreatePage] = useState(false)
-  const [assessments, setAssessments] = useState<any[]>([])
+  const [assessments, setAssessments] = useState<Assessment[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const { toast } = useToast()
 
+  // Load assessments on component mount
   useEffect(() => {
-    setLoading(true)
-    assessmentsApi.getAll()
-      .then((res) => setAssessments(res.data))
-      .catch((err) => setError(err.message))
-      .finally(() => setLoading(false))
+    loadAssessments()
   }, [])
 
+  const loadAssessments = async () => {
+    setLoading(true)
+    setError(null)
+    try {
+      const response = await assessmentsApi.getAll()
+      setAssessments(response.data || (response as any))
+    } catch (err: any) {
+      setError(err.message)
+      toast({
+        title: "Error Loading Assessments",
+        description: err.message,
+        variant: "destructive",
+      })
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleDeleteAssessment = async (id: string) => {
+    try {
+      await assessmentsApi.delete(id)
+      setAssessments(assessments.filter((a) => a.id !== id))
+      toast({
+        title: "Assessment Deleted",
+        description: "Assessment has been deleted successfully.",
+      })
+    } catch (err: any) {
+      toast({
+        title: "Error Deleting Assessment",
+        description: err.message,
+        variant: "destructive",
+      })
+    }
+  }
+
+  const handleArchiveAssessment = async (id: string) => {
+    try {
+      const updatedAssessment = await assessmentsApi.archive(id)
+      setAssessments(assessments.map((a) => (a.id === id ? updatedAssessment : a)))
+      toast({
+        title: "Assessment Archived",
+        description: "Assessment has been archived successfully.",
+      })
+    } catch (err: any) {
+      toast({
+        title: "Error Archiving Assessment",
+        description: err.message,
+        variant: "destructive",
+      })
+    }
+  }
+
   const filteredAssessments = assessments.filter((assessment) => {
-    const tags: string[] = Array.isArray(assessment.tags) ? assessment.tags : [];
+    const tags: string[] = Array.isArray(assessment.tags) ? assessment.tags : []
     const matchesSearch =
       assessment.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      tags.some((tag: string) => tag.toLowerCase().includes(searchTerm.toLowerCase()));
-    const matchesTab = activeTab === "all" || assessment.status === activeTab;
-    const matchesType = typeFilter === "all" || assessment.type === typeFilter;
-    return matchesSearch && matchesTab && matchesType;
+      tags.some((tag: string) => tag.toLowerCase().includes(searchTerm.toLowerCase()))
+    const matchesTab = activeTab === "all" || assessment.status === activeTab
+    const matchesType = typeFilter === "all" || assessment.type === typeFilter
+    return matchesSearch && matchesTab && matchesType
   })
 
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
-      setSelectedAssessments(filteredAssessments.map((a: { id: string }) => a.id))
+      setSelectedAssessments(filteredAssessments.map((a: Assessment) => a.id))
     } else {
       setSelectedAssessments([])
     }
@@ -79,12 +130,66 @@ export function AssessmentsPage() {
     }
   }
 
+  const handleBulkArchive = async () => {
+    try {
+      await Promise.all(selectedAssessments.map((id) => assessmentsApi.archive(id)))
+      await loadAssessments()
+      setSelectedAssessments([])
+      toast({
+        title: "Assessments Archived",
+        description: `${selectedAssessments.length} assessments have been archived.`,
+      })
+    } catch (err: any) {
+      toast({
+        title: "Error Archiving Assessments",
+        description: err.message,
+        variant: "destructive",
+      })
+    }
+  }
+
+  const handleBulkDelete = async () => {
+    try {
+      await Promise.all(selectedAssessments.map((id) => assessmentsApi.delete(id)))
+      await loadAssessments()
+      setSelectedAssessments([])
+      toast({
+        title: "Assessments Deleted",
+        description: `${selectedAssessments.length} assessments have been deleted.`,
+      })
+    } catch (err: any) {
+      toast({
+        title: "Error Deleting Assessments",
+        description: err.message,
+        variant: "destructive",
+      })
+    }
+  }
+
   if (selectedAssessment) {
     return <AssessmentDetailView assessmentId={selectedAssessment} onBack={() => setSelectedAssessment(null)} />
   }
 
   if (showCreatePage) {
-    return <CreateAssessmentPage onBack={() => setShowCreatePage(false)} />
+    return (
+      <CreateAssessmentPage
+        onBack={() => {
+          setShowCreatePage(false)
+          loadAssessments() // Reload assessments after creating
+        }}
+      />
+    )
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-center space-y-4">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+          <p className="text-muted-foreground">Loading assessments...</p>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -138,15 +243,27 @@ export function AssessmentsPage() {
 
         <Card className="card-gradient rounded-3xl border-border/40 shadow-xl">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Total Candidates</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">Total Questions</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-foreground">
-              {assessments.reduce((sum, a) => sum + (typeof a.candidates === 'number' ? a.candidates : 0), 0)}
+              {assessments.reduce((sum, a) => sum + (a.totalQuestions || 0), 0)}
             </div>
           </CardContent>
         </Card>
       </div>
+
+      {/* Error Display */}
+      {error && (
+        <Card className="border-red-500/30 bg-red-500/10">
+          <CardContent className="p-4">
+            <p className="text-red-400">Error: {error}</p>
+            <Button onClick={loadAssessments} variant="outline" size="sm" className="mt-2">
+              Retry
+            </Button>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Tabs and Filters */}
       <Card className="card-gradient rounded-3xl border-border/40 shadow-xl">
@@ -196,11 +313,16 @@ export function AssessmentsPage() {
 
               {selectedAssessments.length > 0 && (
                 <div className="flex gap-2">
-                  <Button variant="outline" size="sm" className="rounded-2xl">
+                  <Button onClick={handleBulkArchive} variant="outline" size="sm" className="rounded-2xl">
                     <Archive className="mr-2 h-4 w-4" />
                     Archive ({selectedAssessments.length})
                   </Button>
-                  <Button variant="outline" size="sm" className="rounded-2xl text-red-400 hover:text-red-300">
+                  <Button
+                    onClick={handleBulkDelete}
+                    variant="outline"
+                    size="sm"
+                    className="rounded-2xl text-red-400 hover:text-red-300"
+                  >
                     <Trash2 className="mr-2 h-4 w-4" />
                     Delete
                   </Button>
@@ -219,7 +341,9 @@ export function AssessmentsPage() {
               <TableRow className="border-border/40">
                 <TableHead className="w-12 pl-6">
                   <Checkbox
-                    checked={selectedAssessments.length === filteredAssessments.length}
+                    checked={
+                      selectedAssessments.length === filteredAssessments.length && filteredAssessments.length > 0
+                    }
                     onCheckedChange={handleSelectAll}
                     className="rounded-md"
                   />
@@ -227,125 +351,143 @@ export function AssessmentsPage() {
                 <TableHead className="text-muted-foreground font-medium">Assessment</TableHead>
                 <TableHead className="text-muted-foreground font-medium">Type</TableHead>
                 <TableHead className="text-muted-foreground font-medium">Status</TableHead>
-                <TableHead className="text-muted-foreground font-medium">Candidates</TableHead>
+                <TableHead className="text-muted-foreground font-medium">Questions</TableHead>
                 <TableHead className="text-muted-foreground font-medium">Duration</TableHead>
-                <TableHead className="text-muted-foreground font-medium">Avg Score</TableHead>
+                <TableHead className="text-muted-foreground font-medium">Created</TableHead>
                 <TableHead className="text-right text-muted-foreground font-medium pr-6">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredAssessments.map((assessment, i) => (
-                <TableRow key={assessment.id || i} className="border-border/40 hover:bg-accent/30">
-                  <TableCell className="pl-6">
-                    <Checkbox
-                      checked={selectedAssessments.includes(assessment.id)}
-                      onCheckedChange={(checked) => handleSelectAssessment(assessment.id, checked as boolean)}
-                      className="rounded-md"
-                    />
-                  </TableCell>
-                  <TableCell>
-                    <div className="space-y-1">
-                      <div className="font-medium text-foreground">{assessment.title}</div>
-                      <div className="flex flex-wrap gap-1">
-                        {assessment.tags.slice(0, 2).map((tag: string) => (
-                          <Badge
-                            key={tag}
-                            variant="secondary"
-                            className="rounded-xl bg-accent/50 text-foreground border-border/40 text-xs"
-                          >
-                            {tag}
-                          </Badge>
-                        ))}
-                        {assessment.tags.length > 2 && (
-                          <Badge
-                            variant="secondary"
-                            className="rounded-xl bg-accent/50 text-foreground border-border/40 text-xs"
-                          >
-                            +{assessment.tags.length - 2}
-                          </Badge>
-                        )}
-                      </div>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <Badge
-                      className={`rounded-xl border ${typeColors[assessment.type as keyof typeof typeColors]} capitalize`}
-                    >
-                      {assessment.type}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <Badge
-                      className={`rounded-xl border ${statusColors[assessment.status as keyof typeof statusColors]} capitalize`}
-                    >
-                      {assessment.status}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-1">
-                      <Users className="h-4 w-4 text-muted-foreground" />
-                      <span className="font-medium text-foreground">{assessment.candidates}</span>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-1">
-                      <Clock className="h-4 w-4 text-muted-foreground" />
-                      <span className="font-medium text-foreground">{assessment.duration}m</span>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <div className="font-medium text-foreground">
-                      {assessment.avgScore > 0 ? `${assessment.avgScore}%` : "-"}
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-right pr-6">
-                    <div className="flex items-center justify-end gap-2">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => setSelectedAssessment(assessment.id)}
-                        className="h-8 w-8 rounded-xl hover:bg-accent/80"
-                      >
-                        <Eye className="h-4 w-4" />
-                      </Button>
-
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon" className="h-8 w-8 rounded-xl hover:bg-accent/80">
-                            <MoreHorizontal className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent
-                          align="end"
-                          className="rounded-2xl border-border/40 bg-card/80 backdrop-blur-xl"
-                        >
-                          <DropdownMenuItem className="rounded-xl">
-                            <Eye className="mr-2 h-4 w-4" />
-                            View Details
-                          </DropdownMenuItem>
-                          <DropdownMenuItem className="rounded-xl">
-                            <Edit className="mr-2 h-4 w-4" />
-                            Edit Assessment
-                          </DropdownMenuItem>
-                          <DropdownMenuItem className="rounded-xl">
-                            <Play className="mr-2 h-4 w-4" />
-                            Start Test
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem className="rounded-xl">
-                            <Archive className="mr-2 h-4 w-4" />
-                            Archive
-                          </DropdownMenuItem>
-                          <DropdownMenuItem className="rounded-xl text-red-400 focus:text-red-300">
-                            <Trash2 className="mr-2 h-4 w-4" />
-                            Delete
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
+              {filteredAssessments.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={8} className="text-center py-8">
+                    <div className="text-muted-foreground">
+                      {searchTerm || typeFilter !== "all" || activeTab !== "all"
+                        ? "No assessments match your filters"
+                        : "No assessments found. Create your first assessment to get started."}
                     </div>
                   </TableCell>
                 </TableRow>
-              ))}
+              ) : (
+                filteredAssessments.map((assessment) => (
+                  <TableRow key={assessment.id} className="border-border/40 hover:bg-accent/30">
+                    <TableCell className="pl-6">
+                      <Checkbox
+                        checked={selectedAssessments.includes(assessment.id)}
+                        onCheckedChange={(checked) => handleSelectAssessment(assessment.id, checked as boolean)}
+                        className="rounded-md"
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <div className="space-y-1">
+                        <div className="font-medium text-foreground">{assessment.title}</div>
+                        <div className="flex flex-wrap gap-1">
+                          {assessment.tags?.slice(0, 2).map((tag: string) => (
+                            <Badge
+                              key={tag}
+                              variant="secondary"
+                              className="rounded-xl bg-accent/50 text-foreground border-border/40 text-xs"
+                            >
+                              {tag}
+                            </Badge>
+                          ))}
+                          {assessment.tags && assessment.tags.length > 2 && (
+                            <Badge
+                              variant="secondary"
+                              className="rounded-xl bg-accent/50 text-foreground border-border/40 text-xs"
+                            >
+                              +{assessment.tags.length - 2}
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <Badge
+                        className={`rounded-xl border ${typeColors[assessment.type as keyof typeof typeColors] || typeColors.mcq} capitalize`}
+                      >
+                        {assessment.type}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <Badge
+                        className={`rounded-xl border ${statusColors[assessment.status as keyof typeof statusColors] || statusColors.draft} capitalize`}
+                      >
+                        {assessment.status}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <div className="font-medium text-foreground">{assessment.totalQuestions || 0}</div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-1">
+                        <Clock className="h-4 w-4 text-muted-foreground" />
+                        <span className="font-medium text-foreground">{assessment.duration}m</span>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="font-medium text-foreground">
+                        {new Date(assessment.createdAt).toLocaleDateString()}
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-right pr-6">
+                      <div className="flex items-center justify-end gap-2">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => setSelectedAssessment(assessment.id)}
+                          className="h-8 w-8 rounded-xl hover:bg-accent/80"
+                        >
+                          <Eye className="h-4 w-4" />
+                        </Button>
+
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-xl hover:bg-accent/80">
+                              <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent
+                            align="end"
+                            className="rounded-2xl border-border/40 bg-card/80 backdrop-blur-xl"
+                          >
+                            <DropdownMenuItem
+                              className="rounded-xl"
+                              onClick={() => setSelectedAssessment(assessment.id)}
+                            >
+                              <Eye className="mr-2 h-4 w-4" />
+                              View Details
+                            </DropdownMenuItem>
+                            <DropdownMenuItem className="rounded-xl">
+                              <Edit className="mr-2 h-4 w-4" />
+                              Edit Assessment
+                            </DropdownMenuItem>
+                            <DropdownMenuItem className="rounded-xl">
+                              <Play className="mr-2 h-4 w-4" />
+                              Start Test
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                              className="rounded-xl"
+                              onClick={() => handleArchiveAssessment(assessment.id)}
+                            >
+                              <Archive className="mr-2 h-4 w-4" />
+                              Archive
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              className="rounded-xl text-red-400 focus:text-red-300"
+                              onClick={() => handleDeleteAssessment(assessment.id)}
+                            >
+                              <Trash2 className="mr-2 h-4 w-4" />
+                              Delete
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
             </TableBody>
           </Table>
         </CardContent>

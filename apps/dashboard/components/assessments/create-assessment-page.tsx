@@ -1,5 +1,7 @@
 "use client"
 
+import type React from "react"
+
 import { useState } from "react"
 import { ArrowLeft, ArrowRight, Save, Eye, Play, Plus, Copy } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -18,8 +20,9 @@ import { ProctoringConfiguration } from "./proctoring-configuration"
 import { CodingQuestionBuilder } from "./coding-question-builder"
 import { MCQQuestionBuilder } from "./mcq-question-builder"
 import { AIToolsPanel } from "./ai-tools-panel"
-import { assessmentsApi, questionsApi } from "@/lib/api"
-import { useToast, toast } from "@/hooks/use-toast"
+import { assessmentsApi } from "@/lib/api/api"
+import { useToast } from "@/hooks/use-toast"
+import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert"
 
 interface CreateAssessmentPageProps {
   onBack: () => void
@@ -60,10 +63,14 @@ export function CreateAssessmentPage({ onBack }: CreateAssessmentPageProps) {
     environmentCheck: false,
     suspiciousActivityThreshold: 3,
     warningBeforeFlagging: true,
+    videoQuality: "720p",
+    recordingFrequency: "continuous",
+    dataRetention: "30 days",
+    autoDeleteAfter: "after review",
   })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const { toast } = useToast();
+  const { toast } = useToast()
 
   const steps = [
     { id: 1, title: "Assessment Type", description: "Choose the type of assessment" },
@@ -87,9 +94,33 @@ export function CreateAssessmentPage({ onBack }: CreateAssessmentPageProps) {
     }
   }
 
-  const handleSaveDraft = () => {
-    // Save as draft logic
-    console.log("Saving as draft...")
+  const handleSaveDraft = async () => {
+    setLoading(true)
+    setError(null)
+    try {
+      const payload = {
+        ...formData,
+        type: selectedType,
+        totalQuestions: questions.length,
+        questions: questions,
+        status: "draft",
+        ...proctoringConfig,
+      }
+      await assessmentsApi.create(payload)
+      toast({
+        title: "Draft Saved",
+        description: "Your assessment has been saved as a draft.",
+      })
+    } catch (err: any) {
+      setError(err.message)
+      toast({
+        title: "Error Saving Draft",
+        description: err.message,
+        variant: "destructive",
+      })
+    } finally {
+      setLoading(false)
+    }
   }
 
   const handleTypeSelect = (type: string) => {
@@ -98,35 +129,58 @@ export function CreateAssessmentPage({ onBack }: CreateAssessmentPageProps) {
   }
 
   const handleTagsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const tags = e.target.value.split(",").map((t) => t.trim()).filter(Boolean)
+    const tags = e.target.value
+      .split(",")
+      .map((t) => t.trim())
+      .filter(Boolean)
     setFormData({ ...formData, tags })
   }
 
   const handlePublish = async () => {
     setLoading(true)
     setError(null)
-    if (!formData.title || !formData.type || !formData.duration || !formData.totalMarks || questions.length === 0) {
-      setError("Please fill all required fields and add at least one question.")
+
+    if (!formData.title || !selectedType || !formData.duration || !formData.totalMarks) {
+      setError("Please fill all required fields.")
       toast({
         title: "Validation Error",
-        description: "Please fill all required fields and add at least one question.",
+        description: "Please fill all required fields.",
         variant: "destructive",
-      });
+      })
       setLoading(false)
       return
     }
+
+    if (questions.length === 0) {
+      setError("Please add at least one question.")
+      toast({
+        title: "Validation Error",
+        description: "Please add at least one question.",
+        variant: "destructive",
+      })
+      setCurrentStep(5) // Auto-scroll to Questions step
+      setLoading(false)
+      return
+    }
+
     try {
       const payload = {
         ...formData,
+        type: selectedType,
         totalQuestions: questions.length,
         questions: questions,
-      };
+        status: "live",
+        ...proctoringConfig,
+      }
+
       await assessmentsApi.create(payload)
+
       toast({
         title: "Assessment Published",
         description: "Your assessment has been published successfully.",
-      });
-      // Reset form or redirect to assessments list
+      })
+
+      // Reset form and go back
       setFormData({
         title: "",
         description: "",
@@ -146,19 +200,18 @@ export function CreateAssessmentPage({ onBack }: CreateAssessmentPageProps) {
         autoSubmit: true,
         type: "",
         totalQuestions: 0,
-      });
-      setQuestions([]);
-      setCurrentStep(1);
-      setSelectedType("");
-      // Optionally, redirect to assessments list:
-      // onBack();
+      })
+      setQuestions([])
+      setCurrentStep(1)
+      setSelectedType("")
+      onBack()
     } catch (err: any) {
       setError(err.message)
       toast({
         title: "Error Publishing Assessment",
         description: err.message || "An error occurred while publishing.",
         variant: "destructive",
-      });
+      })
     } finally {
       setLoading(false)
     }
@@ -167,7 +220,7 @@ export function CreateAssessmentPage({ onBack }: CreateAssessmentPageProps) {
   const renderStepContent = () => {
     switch (currentStep) {
       case 1:
-        return <AssessmentTypeSelector selectedType={formData.type} onTypeSelect={handleTypeSelect} />
+        return <AssessmentTypeSelector selectedType={selectedType} onTypeSelect={handleTypeSelect} />
 
       case 2:
         return (
@@ -437,6 +490,16 @@ export function CreateAssessmentPage({ onBack }: CreateAssessmentPageProps) {
               </div>
             </div>
 
+            {/* Show warning if no questions */}
+            {questions.length === 0 && (
+              <Alert variant="destructive" className="mb-4">
+                <AlertTitle>No questions added</AlertTitle>
+                <AlertDescription>
+                  You must add at least one question to publish this assessment.
+                </AlertDescription>
+              </Alert>
+            )}
+
             <Tabs defaultValue={selectedType === "coding" ? "coding" : "mcq"} className="w-full">
               <TabsList className="grid w-full grid-cols-3 rounded-2xl bg-muted/50 p-1">
                 <TabsTrigger value="mcq" className="rounded-xl">
@@ -451,34 +514,48 @@ export function CreateAssessmentPage({ onBack }: CreateAssessmentPageProps) {
               </TabsList>
 
               <TabsContent value="mcq" className="space-y-6">
-                <MCQQuestionBuilder onAddQuestion={(q) => setQuestions((prev) => [...prev, { ...q, type: 'mcq' }])} />
-                {questions.filter(q => q.type === 'mcq').length > 0 && (
+                <MCQQuestionBuilder onAddQuestion={(q) => setQuestions((prev) => [...prev, { ...q, type: "mcq" }])} />
+                {questions.filter((q) => q.type === "mcq").length > 0 && (
                   <div className="space-y-2">
-                    <h4 className="font-semibold">Added MCQ Questions</h4>
+                    <h4 className="font-semibold">
+                      Added MCQ Questions ({questions.filter((q) => q.type === "mcq").length})
+                    </h4>
                     <ul className="space-y-2">
-                      {questions.filter(q => q.type === 'mcq').map((q, idx) => (
-                        <li key={idx} className="border-b pb-2">
-                          <div className="font-semibold">Q{idx + 1}: {q.question}</div>
-                          <div className="text-sm text-muted-foreground">Marks: {q.marks}</div>
-                        </li>
-                      ))}
+                      {questions
+                        .filter((q) => q.type === "mcq")
+                        .map((q, idx) => (
+                          <li key={idx} className="border-b pb-2">
+                            <div className="font-semibold">
+                              Q{idx + 1}: {q.question}
+                            </div>
+                            <div className="text-sm text-muted-foreground">Marks: {q.marks}</div>
+                          </li>
+                        ))}
                     </ul>
                   </div>
                 )}
               </TabsContent>
 
               <TabsContent value="coding" className="space-y-6">
-                <CodingQuestionBuilder onAddQuestion={(q) => setQuestions((prev) => [...prev, { ...q, type: 'coding' }])} />
-                {questions.filter(q => q.type === 'coding').length > 0 && (
+                <CodingQuestionBuilder
+                  onAddQuestion={(q) => setQuestions((prev) => [...prev, { ...q, type: "coding" }])}
+                />
+                {questions.filter((q) => q.type === "coding").length > 0 && (
                   <div className="space-y-2">
-                    <h4 className="font-semibold">Added Coding Questions</h4>
+                    <h4 className="font-semibold">
+                      Added Coding Questions ({questions.filter((q) => q.type === "coding").length})
+                    </h4>
                     <ul className="space-y-2">
-                      {questions.filter(q => q.type === 'coding').map((q, idx) => (
-                        <li key={idx} className="border-b pb-2">
-                          <div className="font-semibold">Q{idx + 1}: {q.title}</div>
-                          <div className="text-sm text-muted-foreground">Marks: {q.marks}</div>
-                        </li>
-                      ))}
+                      {questions
+                        .filter((q) => q.type === "coding")
+                        .map((q, idx) => (
+                          <li key={idx} className="border-b pb-2">
+                            <div className="font-semibold">
+                              Q{idx + 1}: {q.title || q.question}
+                            </div>
+                            <div className="text-sm text-muted-foreground">Marks: {q.marks}</div>
+                          </li>
+                        ))}
                     </ul>
                   </div>
                 )}
@@ -576,6 +653,12 @@ export function CreateAssessmentPage({ onBack }: CreateAssessmentPageProps) {
                         )}
                       </div>
                     </div>
+
+                    {error && (
+                      <div className="p-4 rounded-2xl bg-red-500/10 border border-red-500/30">
+                        <p className="text-red-400 text-sm">{error}</p>
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
               </div>
@@ -619,12 +702,17 @@ export function CreateAssessmentPage({ onBack }: CreateAssessmentPageProps) {
                     <div className="space-y-3">
                       <Button
                         onClick={handlePublish}
+                        disabled={loading || questions.length === 0}
                         className="w-full rounded-2xl primary-gradient glow-primary"
+                      >
+                        {loading ? "Publishing..." : "Publish Assessment"}
+                      </Button>
+                      <Button
+                        onClick={handleSaveDraft}
+                        variant="outline"
+                        className="w-full rounded-2xl"
                         disabled={loading}
                       >
-                        {loading ? "Publishing..." : (<><Play className="mr-2 h-4 w-4" /> Publish Assessment</>)}
-                      </Button>
-                      <Button onClick={handleSaveDraft} variant="outline" className="w-full rounded-2xl">
                         <Save className="mr-2 h-4 w-4" />
                         Save as Draft
                       </Button>
@@ -658,7 +746,7 @@ export function CreateAssessmentPage({ onBack }: CreateAssessmentPageProps) {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <Button variant="outline" onClick={handleSaveDraft} className="rounded-2xl">
+            <Button variant="outline" onClick={handleSaveDraft} className="rounded-2xl" disabled={loading}>
               <Save className="mr-2 h-4 w-4" />
               Save Draft
             </Button>
@@ -716,11 +804,14 @@ export function CreateAssessmentPage({ onBack }: CreateAssessmentPageProps) {
 
           {currentStep === steps.length ? (
             <div className="flex gap-2">
-              <Button variant="outline" onClick={handleSaveDraft} className="rounded-2xl">
+              <Button variant="outline" onClick={handleSaveDraft} className="rounded-2xl" disabled={loading}>
                 Save as Draft
               </Button>
-              <Button onClick={handlePublish} className="rounded-2xl primary-gradient glow-primary">
-                <Play className="mr-2 h-4 w-4" />
+              <Button
+                onClick={handlePublish}
+                disabled={loading || questions.length === 0}
+                className="rounded-2xl primary-gradient glow-primary"
+              >
                 Publish Assessment
               </Button>
             </div>

@@ -1,8 +1,6 @@
 "use client"
 
-import { Label } from "@/components/ui/label"
-
-import { Brain, Target, FileText, Settings, Sparkles, Zap, Lightbulb, BarChart3 } from "lucide-react"
+import { Brain, Sparkles, Target, FileText, Zap, Code, Users } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Switch } from "@/components/ui/switch"
@@ -16,176 +14,188 @@ interface AIToolsPanelProps {
 export function AIToolsPanel({ selectedType }: AIToolsPanelProps) {
   const aiFeatures = [
     {
-      key: "generateQuestions",
+      id: "question-generation",
       title: "AI Question Generation",
-      description: "Generate questions automatically from topics and difficulty levels",
+      description: "Generate questions automatically from topics and learning objectives",
       icon: Brain,
-      category: "Content Creation",
-      available: ["mcq", "coding", "hybrid"],
+      category: "content",
+      supportedTypes: ["mcq", "coding", "proctored", "hybrid"],
+      premium: false,
     },
     {
-      key: "generateTestCases",
+      id: "test-case-generation",
       title: "Test Case Generation",
-      description: "Auto-generate comprehensive test cases for coding problems",
+      description: "Automatically create test cases for coding problems",
+      icon: Code,
+      category: "coding",
+      supportedTypes: ["coding", "hybrid"],
+      premium: false,
+    },
+    {
+      id: "difficulty-analysis",
+      title: "Difficulty Analysis",
+      description: "AI-powered difficulty assessment and balancing",
       icon: Target,
-      category: "Coding",
-      available: ["coding", "hybrid"],
+      category: "analysis",
+      supportedTypes: ["mcq", "coding", "proctored", "hybrid"],
+      premium: true,
     },
     {
-      key: "aiSummary",
-      title: "Assessment Summary",
-      description: "Generate detailed assessment summaries and insights",
-      icon: FileText,
-      category: "Analytics",
-      available: ["mcq", "coding", "proctored", "hybrid"],
-    },
-    {
-      key: "smartTagging",
-      title: "Smart Tagging",
-      description: "Automatically tag questions based on content and difficulty",
-      icon: Settings,
-      category: "Organization",
-      available: ["mcq", "coding", "hybrid"],
-    },
-    {
-      key: "autoScoring",
-      title: "AI-Powered Scoring",
-      description: "Intelligent scoring with partial credit and detailed feedback",
-      icon: Sparkles,
-      category: "Evaluation",
-      available: ["mcq", "coding", "hybrid"],
-    },
-    {
-      key: "plagiarismDetection",
+      id: "plagiarism-detection",
       title: "Plagiarism Detection",
-      description: "Detect code similarity and potential plagiarism",
-      icon: Zap,
-      category: "Security",
-      available: ["coding", "hybrid"],
+      description: "Advanced AI-based code and text plagiarism detection",
+      icon: FileText,
+      category: "security",
+      supportedTypes: ["coding", "proctored", "hybrid"],
+      premium: true,
     },
     {
-      key: "adaptiveTesting",
-      title: "Adaptive Testing",
-      description: "Adjust question difficulty based on candidate performance",
-      icon: Lightbulb,
-      category: "Advanced",
-      available: ["mcq", "hybrid"],
+      id: "auto-grading",
+      title: "Intelligent Auto-Grading",
+      description: "AI-powered grading for subjective answers",
+      icon: Sparkles,
+      category: "grading",
+      supportedTypes: ["mcq", "coding", "proctored", "hybrid"],
+      premium: true,
     },
     {
-      key: "performanceInsights",
-      title: "Performance Insights",
-      description: "AI-driven insights into candidate performance patterns",
-      icon: BarChart3,
-      category: "Analytics",
-      available: ["mcq", "coding", "proctored", "hybrid"],
+      id: "candidate-insights",
+      title: "Candidate Insights",
+      description: "AI-generated insights about candidate performance",
+      icon: Users,
+      category: "analytics",
+      supportedTypes: ["mcq", "coding", "proctored", "hybrid"],
+      premium: true,
     },
   ]
 
-  const availableFeatures = aiFeatures.filter((feature) => feature.available.includes(selectedType))
-  const categories = [...new Set(availableFeatures.map((f) => f.category))]
+  const categories = [
+    { id: "content", title: "Content Generation", icon: Brain },
+    { id: "coding", title: "Coding Tools", icon: Code },
+    { id: "analysis", title: "Analysis & Insights", icon: Target },
+    { id: "security", title: "Security & Integrity", icon: FileText },
+    { id: "grading", title: "Grading & Scoring", icon: Sparkles },
+    { id: "analytics", title: "Analytics", icon: Users },
+  ]
+
+  const filteredFeatures = aiFeatures.filter((feature) => feature.supportedTypes.includes(selectedType))
+
+  const groupedFeatures = categories
+    .map((category) => ({
+      ...category,
+      features: filteredFeatures.filter((feature) => feature.category === category.id),
+    }))
+    .filter((category) => category.features.length > 0)
 
   return (
     <div className="space-y-8">
-      <div>
-        <h2 className="text-2xl font-bold text-foreground mb-2">AI Tools & Enhancement</h2>
-        <p className="text-muted-foreground">
-          Enhance your assessment with AI-powered features for better evaluation and insights
+      <div className="text-center space-y-4">
+        <h2 className="text-2xl font-bold text-foreground">AI Tools & Features</h2>
+        <p className="text-muted-foreground max-w-2xl mx-auto">
+          Enhance your {selectedType} assessment with powerful AI-driven features for better content creation, analysis,
+          and candidate evaluation.
         </p>
       </div>
 
       <div className="space-y-8">
-        {categories.map((category) => (
-          <div key={category} className="space-y-4">
-            <div className="flex items-center gap-2">
-              <h3 className="text-lg font-semibold text-foreground">{category}</h3>
-              <Badge variant="secondary" className="rounded-xl">
-                {availableFeatures.filter((f) => f.category === category).length} features
-              </Badge>
+        {groupedFeatures.map((category) => (
+          <div key={category.id} className="space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-2xl bg-primary/20 flex items-center justify-center">
+                <category.icon className="h-4 w-4 text-primary" />
+              </div>
+              <h3 className="text-lg font-semibold text-foreground">{category.title}</h3>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {availableFeatures
-                .filter((feature) => feature.category === category)
-                .map((feature) => (
-                  <Card
-                    key={feature.key}
-                    className="card-gradient rounded-3xl border-border/40 shadow-xl hover:shadow-2xl transition-all duration-300"
-                  >
-                    <CardContent className="p-6 space-y-4">
-                      <div className="flex items-start justify-between">
-                        <div className="flex items-center gap-3">
-                          <div className="w-12 h-12 rounded-2xl bg-primary/20 flex items-center justify-center">
-                            <feature.icon className="h-6 w-6 text-primary" />
-                          </div>
-                          <div>
-                            <h4 className="font-semibold text-foreground">{feature.title}</h4>
-                            <p className="text-sm text-muted-foreground mt-1">{feature.description}</p>
-                          </div>
+              {category.features.map((feature) => (
+                <Card key={feature.id} className="card-gradient rounded-3xl border-border/40 shadow-xl">
+                  <CardHeader className="pb-4">
+                    <div className="flex items-start justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-2xl bg-accent/50 flex items-center justify-center">
+                          <feature.icon className="h-5 w-5 text-foreground" />
                         </div>
-                        <Switch />
+                        <div>
+                          <CardTitle className="text-base">{feature.title}</CardTitle>
+                          {feature.premium && (
+                            <Badge className="mt-1 rounded-xl bg-gradient-to-r from-amber-500/20 to-orange-500/20 text-amber-400 border-amber-500/30">
+                              Premium
+                            </Badge>
+                          )}
+                        </div>
                       </div>
-
-                      <Separator />
-
-                      <div className="space-y-3">
-                        <Button variant="outline" className="w-full rounded-2xl justify-start">
-                          <Settings className="mr-2 h-4 w-4" />
-                          Configure
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
+                      <Switch />
+                    </div>
+                  </CardHeader>
+                  <CardContent className="pt-0">
+                    <p className="text-sm text-muted-foreground">{feature.description}</p>
+                  </CardContent>
+                </Card>
+              ))}
             </div>
           </div>
         ))}
       </div>
 
-      {/* AI Configuration Panel */}
+      {filteredFeatures.length === 0 && (
+        <Card className="card-gradient rounded-3xl border-border/40 shadow-xl">
+          <CardContent className="p-8 text-center space-y-4">
+            <div className="w-16 h-16 rounded-2xl bg-accent/50 mx-auto flex items-center justify-center">
+              <Zap className="h-8 w-8 text-muted-foreground" />
+            </div>
+            <div>
+              <h3 className="text-lg font-semibold text-foreground">No AI Tools Available</h3>
+              <p className="text-muted-foreground mt-2">
+                AI tools will be available once you select an assessment type.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      <Separator />
+
       <Card className="card-gradient rounded-3xl border-border/40 shadow-xl">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Brain className="h-5 w-5" />
+            <Sparkles className="h-5 w-5 text-primary" />
             AI Configuration
           </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-6">
+        <CardContent className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-4">
-              <h4 className="font-semibold text-foreground">Content Generation</h4>
+              <h4 className="font-semibold text-foreground">Content Generation Settings</h4>
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
-                  <div>
-                    <Label className="text-sm font-medium">Auto-generate questions</Label>
-                    <p className="text-xs text-muted-foreground">Generate questions from topics</p>
-                  </div>
+                  <span className="text-sm text-muted-foreground">Auto-generate explanations</span>
                   <Switch />
                 </div>
                 <div className="flex items-center justify-between">
-                  <div>
-                    <Label className="text-sm font-medium">Smart difficulty adjustment</Label>
-                    <p className="text-xs text-muted-foreground">Adjust based on performance</p>
-                  </div>
+                  <span className="text-sm text-muted-foreground">Smart difficulty balancing</span>
+                  <Switch />
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-muted-foreground">Topic-based question clustering</span>
                   <Switch />
                 </div>
               </div>
             </div>
 
             <div className="space-y-4">
-              <h4 className="font-semibold text-foreground">Evaluation & Scoring</h4>
+              <h4 className="font-semibold text-foreground">Analysis & Insights</h4>
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
-                  <div>
-                    <Label className="text-sm font-medium">AI-powered scoring</Label>
-                    <p className="text-xs text-muted-foreground">Intelligent partial credit</p>
-                  </div>
+                  <span className="text-sm text-muted-foreground">Real-time performance analytics</span>
                   <Switch />
                 </div>
                 <div className="flex items-center justify-between">
-                  <div>
-                    <Label className="text-sm font-medium">Automated feedback</Label>
-                    <p className="text-xs text-muted-foreground">Generate detailed feedback</p>
-                  </div>
+                  <span className="text-sm text-muted-foreground">Predictive scoring</span>
+                  <Switch />
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-muted-foreground">Candidate behavior analysis</span>
                   <Switch />
                 </div>
               </div>
@@ -194,10 +204,18 @@ export function AIToolsPanel({ selectedType }: AIToolsPanelProps) {
 
           <Separator />
 
-          <div className="text-center">
-            <Button className="rounded-2xl primary-gradient glow-primary">
-              <Sparkles className="mr-2 h-4 w-4" />
-              Apply AI Enhancements
+          <div className="flex items-center justify-between p-4 rounded-2xl bg-gradient-to-r from-primary/10 to-purple/10 border border-primary/20">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-2xl bg-primary/20 flex items-center justify-center">
+                <Zap className="h-4 w-4 text-primary" />
+              </div>
+              <div>
+                <h4 className="font-semibold text-foreground">AI Credits</h4>
+                <p className="text-sm text-muted-foreground">250 credits remaining this month</p>
+              </div>
+            </div>
+            <Button variant="outline" className="rounded-2xl">
+              Upgrade Plan
             </Button>
           </div>
         </CardContent>

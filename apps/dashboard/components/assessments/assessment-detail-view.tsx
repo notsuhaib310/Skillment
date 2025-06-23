@@ -8,43 +8,104 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Progress } from "@/components/ui/progress"
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts"
 import { useEffect, useState } from "react"
-import { assessmentsApi, questionsApi } from "@/lib/api"
+import { assessmentsApi, type Assessment } from "@/lib/api/api"
+import { useToast } from "@/hooks/use-toast"
 
 interface AssessmentDetailViewProps {
-  assessmentId: number
+  assessmentId: string
   onBack: () => void
 }
 
 export function AssessmentDetailView({ assessmentId, onBack }: AssessmentDetailViewProps) {
-  const [assessment, setAssessment] = useState<any>(null)
-  const [questions, setQuestions] = useState<any[]>([])
+  const [assessment, setAssessment] = useState<Assessment | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const { toast } = useToast()
 
   useEffect(() => {
-    setLoading(true)
-    Promise.all([
-      assessmentsApi.getById(String(assessmentId)),
-      questionsApi.getAll(String(assessmentId)),
-    ])
-      .then(([a, q]) => {
-        setAssessment(a)
-        setQuestions(q)
-      })
-      .catch((err) => setError(err.message))
-      .finally(() => setLoading(false))
+    loadAssessment()
   }, [assessmentId])
 
-  if (loading) return <div className="p-8 text-center">Loading...</div>;
-  if (error) return <div className="p-8 text-center text-red-500">{error}</div>;
-  if (!assessment) return <div className="p-8 text-center">Assessment not found.</div>;
+  const loadAssessment = async () => {
+    setLoading(true)
+    setError(null)
+    try {
+      const data = await assessmentsApi.getById(assessmentId)
+      setAssessment(data)
+    } catch (err: any) {
+      setError(err.message)
+      toast({
+        title: "Error Loading Assessment",
+        description: err.message,
+        variant: "destructive",
+      })
+    } finally {
+      setLoading(false)
+    }
+  }
 
-  const completedCandidates = assessment?.candidates?.filter((c: any) => c.status === "completed") || []
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-center space-y-4">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+          <p className="text-muted-foreground">Loading assessment...</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="p-8 text-center">
+        <div className="text-red-500 mb-4">Error: {error}</div>
+        <Button onClick={onBack} variant="outline">
+          Go Back
+        </Button>
+      </div>
+    )
+  }
+
+  if (!assessment) {
+    return (
+      <div className="p-8 text-center">
+        <div className="text-muted-foreground mb-4">Assessment not found.</div>
+        <Button onClick={onBack} variant="outline">
+          Go Back
+        </Button>
+      </div>
+    )
+  }
+
+  // Mock data for candidates since it's not in the API response yet
+  const mockCandidates = [
+    {
+      id: "1",
+      name: "John Doe",
+      email: "john@example.com",
+      status: "completed",
+      score: 85,
+      timeSpent: 45,
+      submittedAt: "2024-01-15 10:30",
+      avatar: null,
+    },
+    {
+      id: "2",
+      name: "Jane Smith",
+      email: "jane@example.com",
+      status: "in-progress",
+      score: 0,
+      timeSpent: 20,
+      submittedAt: null,
+      avatar: null,
+    },
+  ]
+
+  const completedCandidates = mockCandidates.filter((c) => c.status === "completed")
   const avgScore =
     completedCandidates.length > 0
-      ? Math.round(completedCandidates.reduce((sum: number, c: any) => sum + c.score, 0) / completedCandidates.length)
+      ? Math.round(completedCandidates.reduce((sum, c) => sum + c.score, 0) / completedCandidates.length)
       : 0
 
   return (
@@ -56,7 +117,7 @@ export function AssessmentDetailView({ assessmentId, onBack }: AssessmentDetailV
         </Button>
         <div className="flex-1">
           <h1 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-foreground to-primary bg-clip-text text-transparent">
-            {assessment?.title}
+            {assessment.title}
           </h1>
           <p className="text-muted-foreground">Assessment Details & Analytics</p>
         </div>
@@ -86,7 +147,7 @@ export function AssessmentDetailView({ assessmentId, onBack }: AssessmentDetailV
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-foreground">{assessment?.candidates?.length || 0}</div>
+            <div className="text-2xl font-bold text-foreground">{mockCandidates.length}</div>
           </CardContent>
         </Card>
 
@@ -110,7 +171,7 @@ export function AssessmentDetailView({ assessmentId, onBack }: AssessmentDetailV
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-foreground">{assessment?.duration}m</div>
+            <div className="text-2xl font-bold text-foreground">{assessment.duration}m</div>
           </CardContent>
         </Card>
 
@@ -123,7 +184,7 @@ export function AssessmentDetailView({ assessmentId, onBack }: AssessmentDetailV
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-foreground">
-              {Math.round((completedCandidates.length / assessment?.candidates?.length) * 100) || 0}%
+              {Math.round((completedCandidates.length / mockCandidates.length) * 100) || 0}%
             </div>
           </CardContent>
         </Card>
@@ -135,9 +196,9 @@ export function AssessmentDetailView({ assessmentId, onBack }: AssessmentDetailV
           <CardTitle>Assessment Information</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <p className="text-muted-foreground">{assessment?.description}</p>
+          <p className="text-muted-foreground">{assessment.description}</p>
           <div className="flex flex-wrap gap-2">
-            {assessment?.tags?.map((tag: string) => (
+            {assessment.tags?.map((tag: string) => (
               <Badge key={tag} variant="secondary" className="rounded-xl bg-accent/50 text-foreground border-border/40">
                 {tag}
               </Badge>
@@ -146,19 +207,23 @@ export function AssessmentDetailView({ assessmentId, onBack }: AssessmentDetailV
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-4">
             <div>
               <div className="text-sm text-muted-foreground">Created By</div>
-              <div className="font-medium text-foreground">{assessment?.createdBy}</div>
+              <div className="font-medium text-foreground">
+                {assessment.createdBy
+                  ? `${assessment.createdBy.firstName} ${assessment.createdBy.lastName}`
+                  : "Unknown"}
+              </div>
             </div>
             <div>
               <div className="text-sm text-muted-foreground">Created Date</div>
-              <div className="font-medium text-foreground">{assessment?.createdDate}</div>
+              <div className="font-medium text-foreground">{new Date(assessment.createdAt).toLocaleDateString()}</div>
             </div>
             <div>
               <div className="text-sm text-muted-foreground">Total Questions</div>
-              <div className="font-medium text-foreground">{assessment?.totalQuestions}</div>
+              <div className="font-medium text-foreground">{assessment.totalQuestions}</div>
             </div>
             <div>
               <div className="text-sm text-muted-foreground">Total Marks</div>
-              <div className="font-medium text-foreground">{assessment?.totalMarks}</div>
+              <div className="font-medium text-foreground">{assessment.totalMarks}</div>
             </div>
           </div>
         </CardContent>
@@ -167,10 +232,17 @@ export function AssessmentDetailView({ assessmentId, onBack }: AssessmentDetailV
       {/* Tabs */}
       <Tabs defaultValue="candidates" className="space-y-6">
         <TabsList className="grid w-full grid-cols-3 lg:w-[400px] rounded-2xl bg-muted/50 p-1">
-          <TabsTrigger value="candidates" className="rounded-xl">Candidates</TabsTrigger>
-          <TabsTrigger value="analytics" className="rounded-xl">Analytics</TabsTrigger>
-          <TabsTrigger value="questions" className="rounded-xl">Questions</TabsTrigger>
+          <TabsTrigger value="candidates" className="rounded-xl">
+            Candidates
+          </TabsTrigger>
+          <TabsTrigger value="analytics" className="rounded-xl">
+            Analytics
+          </TabsTrigger>
+          <TabsTrigger value="questions" className="rounded-xl">
+            Questions
+          </TabsTrigger>
         </TabsList>
+
         <TabsContent value="candidates" className="space-y-6">
           <Card className="card-gradient rounded-3xl border-border/40 shadow-xl">
             <CardHeader className="flex flex-row items-center justify-between">
@@ -192,7 +264,7 @@ export function AssessmentDetailView({ assessmentId, onBack }: AssessmentDetailV
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {assessment.candidates?.map((candidate: any) => (
+                  {mockCandidates.map((candidate) => (
                     <TableRow key={candidate.id} className="border-border/40">
                       <TableCell>
                         <div className="flex items-center gap-3">
@@ -212,9 +284,7 @@ export function AssessmentDetailView({ assessmentId, onBack }: AssessmentDetailV
                         </div>
                       </TableCell>
                       <TableCell>
-                        <Badge className={`rounded-xl border capitalize`}>
-                          {candidate.status}
-                        </Badge>
+                        <Badge className={`rounded-xl border capitalize`}>{candidate.status}</Badge>
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-2">
@@ -239,30 +309,51 @@ export function AssessmentDetailView({ assessmentId, onBack }: AssessmentDetailV
             </CardContent>
           </Card>
         </TabsContent>
+
         <TabsContent value="analytics" className="space-y-6">
           <Card className="card-gradient rounded-3xl border-border/40 shadow-xl">
             <CardHeader>
               <CardTitle>Score Distribution</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="h-80 flex items-center justify-center text-muted-foreground">Analytics coming soon...</div>
+              <div className="h-80 flex items-center justify-center text-muted-foreground">
+                Analytics coming soon...
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
+
         <TabsContent value="questions" className="space-y-6">
           <Card className="card-gradient rounded-3xl border-border/40 shadow-xl">
             <CardHeader>
               <CardTitle>Assessment Questions</CardTitle>
             </CardHeader>
             <CardContent>
-              {questions.length === 0 ? (
+              {assessment.questions && assessment.questions.length === 0 ? (
                 <div className="text-muted-foreground">No questions added yet.</div>
               ) : (
                 <ul className="space-y-4">
-                  {questions.map((q: any, idx: number) => (
+                  {assessment.questions?.map((q, idx) => (
                     <li key={q.id} className="border-b pb-2">
-                      <div className="font-semibold">Q{idx + 1}: {q.question}</div>
-                      <div className="text-sm text-muted-foreground">Type: {q.type}, Marks: {q.marks}</div>
+                      <div className="font-semibold">
+                        Q{idx + 1}: {q.question}
+                      </div>
+                      <div className="text-sm text-muted-foreground">
+                        Type: {q.type}, Marks: {q.marks}
+                        {q.options && q.options.length > 0 && <span> | Options: {q.options.length}</span>}
+                      </div>
+                      {q.options && q.options.length > 0 && (
+                        <div className="mt-2 ml-4">
+                          {q.options.map((option, optIdx) => (
+                            <div key={optIdx} className="text-sm text-muted-foreground">
+                              {String.fromCharCode(65 + optIdx)}. {option}
+                              {option === q.correctAnswer && (
+                                <Badge className="ml-2 text-xs bg-emerald-500/20 text-emerald-400">Correct</Badge>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </li>
                   ))}
                 </ul>
@@ -272,5 +363,5 @@ export function AssessmentDetailView({ assessmentId, onBack }: AssessmentDetailV
         </TabsContent>
       </Tabs>
     </div>
-  );
+  )
 }
