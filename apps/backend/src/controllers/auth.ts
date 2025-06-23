@@ -6,6 +6,7 @@ import { prisma } from '../lib/prisma';
 import Razorpay from 'razorpay';
 import crypto from 'crypto';
 import { emailService } from '../services/email.service';
+import { otpService } from '../services/otp.service';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
 const RAZORPAY_KEY_ID = process.env.RAZORPAY_KEY_ID;
@@ -670,6 +671,40 @@ export class AuthController {
         code: 'SUBSCRIPTION_CANCEL_FAILED',
         details: error.message 
       });
+    }
+  }
+
+  async sendOtp(req: Request, res: Response) {
+    const { email } = req.body;
+    if (!email) {
+      return res.status(400).json({ error: 'Email is required' });
+    }
+    try {
+      const sent = await otpService.generateAndSendOtp(email);
+      if (sent) {
+        return res.json({ success: true, message: 'OTP sent to email' });
+      } else {
+        return res.status(500).json({ error: 'Failed to send OTP' });
+      }
+    } catch (err) {
+      return res.status(500).json({ error: 'Failed to send OTP' });
+    }
+  }
+
+  async verifyOtp(req: Request, res: Response) {
+    const { email, otp } = req.body;
+    if (!email || !otp) {
+      return res.status(400).json({ error: 'Email and OTP are required' });
+    }
+    try {
+      const valid = otpService.verifyOtp(email, otp);
+      if (valid) {
+        return res.json({ success: true, message: 'OTP verified' });
+      } else {
+        return res.status(400).json({ error: 'Invalid or expired OTP' });
+      }
+    } catch (err) {
+      return res.status(500).json({ error: 'Failed to verify OTP' });
     }
   }
 }

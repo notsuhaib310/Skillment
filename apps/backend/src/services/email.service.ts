@@ -92,352 +92,282 @@ class EmailService {
 
     // A more robust, professional template with inlined CSS for maximum compatibility.
     return `
-    <!DOCTYPE html>
-    <html lang="en">
-    <head>
-      <meta charset="UTF-8">
-      <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <title>${safeSubject}</title>
-    </head>
-    <body style="margin: 0; padding: 0; width: 100% !important; -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%; background-color: #0d1117; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">
-      <table width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color: #0d1117;">
-        <tr>
-          <td align="center">
-            <table width="100%" border="0" cellspacing="0" cellpadding="0" style="max-width: 600px; margin: 0 auto;">
-              <!-- Header/Logo -->
-              <tr>
-                <td align="center" style="padding: 40px 0;">
-                  <!-- IMPORTANT: Please replace this with a real, hosted URL to your logo -->
-                  <img src="https://i.imgur.com/your-logo-url.png" alt="TalentHub Logo" style="height: 35px; border: 0;">
-                </td>
-              </tr>
-              <!-- Content -->
-              <tr>
-                <td style="background-color: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 40px;">
-                  <table width="100%" border="0" cellspacing="0" cellpadding="0">
-                    <tr>
-                      <td>
-                        <h1 style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-size: 26px; font-weight: 600; color: #f0f6fc; margin: 0 0 24px;">${safeSubject}</h1>
-                        <p style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-size: 16px; line-height: 1.6; color: #c9d1d9; margin: 0 0 24px;">${safeBody.replace(/\n/g, '<br>')}</p>
-                      </td>
-                    </tr>
-                    <!-- CTA Button -->
-                    <tr>
-                      <td align="left">
-                        <a href="${safeCtaUrl}" target="_blank" style="display: inline-block; background-color: #f97316; color: #ffffff !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-size: 16px; font-weight: 600; text-decoration: none; padding: 14px 28px; border-radius: 6px;">${safeCtaText}</a>
-                      </td>
-                    </tr>
-                  </table>
-                </td>
-              </tr>
-              <!-- Footer -->
-              <tr>
-                <td align="center" style="padding: 40px 20px;">
-                  <p style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-size: 12px; color: #8b949e; margin: 0 0 8px;">&copy; ${new Date().getFullYear()} TalentHub. All rights reserved.</p>
-                  <p style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-size: 12px; color: #8b949e; margin: 0;">If you did not request this email, please ignore it.</p>
-                </td>
-              </tr>
-            </table>
-          </td>
-        </tr>
-      </table>
-    </body>
-    </html>
+  <!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>${safeSubject}</title>
+</head>
+<body style="margin: 0; padding: 0; background-color: #f9fafb; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; color: #111827;">
+
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f9fafb;">
+    <tr>
+      <td align="center">
+        <table width="100%" cellpadding="0" cellspacing="0" style="max-width: 600px; margin: 40px auto; background-color: #ffffff; border-radius: 8px; padding: 40px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+
+          <!-- Header / Skillment Text -->
+          <tr>
+            <td align="center" style="padding-bottom: 20px;">
+              <h1 style="font-size: 24px; font-weight: 700; margin: 0; color: #3b82f6;">Skillment</h1>
+            </td>
+          </tr>
+
+          <!-- Main Title -->
+          <tr>
+            <td style="padding-bottom: 16px;">
+              <h2 style="font-size: 20px; font-weight: 600; color: #111827; margin: 0;">${safeSubject}</h2>
+            </td>
+          </tr>
+
+          <!-- Body Text -->
+          <tr>
+            <td style="padding-bottom: 24px;">
+              <p style="font-size: 16px; line-height: 1.6; color: #374151; margin: 0;">
+                ${safeBody.replace(/\n/g, '<br>')}
+              </p>
+            </td>
+          </tr>
+
+          <!-- CTA Button -->
+          ${safeCtaUrl && safeCtaText ? `
+          <tr>
+            <td align="left" style="padding-bottom: 32px;">
+              <a href="${safeCtaUrl}" target="_blank" style="
+                background-color: #3b82f6;
+                color: #ffffff !important;
+                padding: 12px 24px;
+                font-size: 16px;
+                font-weight: 500;
+                text-decoration: none;
+                border-radius: 6px;
+                display: inline-block;
+              ">
+                ${safeCtaText}
+              </a>
+            </td>
+          </tr>` : ''}
+
+          <!-- Footer -->
+          <tr>
+            <td align="center" style="font-size: 12px; color: #9ca3af; padding-top: 30px;">
+              <p style="margin: 0 0 8px;">&copy; ${new Date().getFullYear()} Skillment. All rights reserved.</p>
+              <p style="margin: 0;">If you didn't request this email, you can safely ignore it.</p>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+
+</body>
+</html>
+
     `;
   }
 
   private getWelcomeTemplate(data: UserRegistrationData): string {
     return `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <meta charset="utf-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Welcome to Skillment</title>
-        <style>
-          * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-          }
-          
-          body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-            line-height: 1.6;
-            color: #0f0f23;
-            background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
-            min-height: 100vh;
-            padding: 20px;
-          }
-          
-          .container {
-            max-width: 600px;
-            margin: 0 auto;
-            background: #ffffff;
-            border-radius: 16px;
-            overflow: hidden;
-            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
-            border: 1px solid #e2e8f0;
-          }
-          
-          .header {
-            background: linear-gradient(135deg, #0f0f23 0%, #1e293b 100%);
-            color: #ffffff;
-            padding: 40px 30px;
-            text-align: center;
-            position: relative;
-            overflow: hidden;
-          }
-          
-          .header::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><pattern id="grain" width="100" height="100" patternUnits="userSpaceOnUse"><circle cx="25" cy="25" r="1" fill="rgba(255,255,255,0.1)"/><circle cx="75" cy="75" r="1" fill="rgba(255,255,255,0.1)"/><circle cx="50" cy="10" r="0.5" fill="rgba(255,255,255,0.1)"/><circle cx="10" cy="60" r="0.5" fill="rgba(255,255,255,0.1)"/><circle cx="90" cy="40" r="0.5" fill="rgba(255,255,255,0.1)"/></pattern></defs><rect width="100" height="100" fill="url(%23grain)"/></svg>');
-            opacity: 0.3;
-          }
-          
-          .header h1 {
-            font-size: 32px;
-            font-weight: 700;
-            margin-bottom: 8px;
-            position: relative;
-            z-index: 1;
-          }
-          
-          .header p {
-            font-size: 16px;
-            opacity: 0.9;
-            position: relative;
-            z-index: 1;
-          }
-          
-          .content {
-            padding: 40px 30px;
-            background: #ffffff;
-          }
-          
-          .welcome-message {
-            margin-bottom: 30px;
-          }
-          
-          .welcome-message h2 {
-            font-size: 24px;
-            font-weight: 600;
-            color: #0f0f23;
-            margin-bottom: 16px;
-          }
-          
-          .welcome-message p {
-            font-size: 16px;
-            color: #475569;
-            margin-bottom: 16px;
-          }
-          
-          .account-details {
-            background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
-            padding: 24px;
-            border-radius: 12px;
-            margin: 24px 0;
-            border: 1px solid #e2e8f0;
-          }
-          
-          .account-details h3 {
-            font-size: 18px;
-            font-weight: 600;
-            color: #0f0f23;
-            margin-bottom: 16px;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-          }
-          
-          .detail-row {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 12px 0;
-            border-bottom: 1px solid #e2e8f0;
-          }
-          
-          .detail-row:last-child {
-            border-bottom: none;
-          }
-          
-          .detail-label {
-            font-weight: 500;
-            color: #64748b;
-          }
-          
-          .detail-value {
-            font-weight: 600;
-            color: #0f0f23;
-          }
-          
-          .features-list {
-            margin: 24px 0;
-          }
-          
-          .features-list h3 {
-            font-size: 18px;
-            font-weight: 600;
-            color: #0f0f23;
-            margin-bottom: 16px;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-          }
-          
-          .features-list ul {
-            list-style: none;
-            padding: 0;
-          }
-          
-          .features-list li {
-            padding: 12px 0;
-            border-bottom: 1px solid #f1f5f9;
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            color: #475569;
-          }
-          
-          .features-list li:last-child {
-            border-bottom: none;
-          }
-          
-          .features-list li::before {
-            content: '✓';
-            color: #10b981;
-            font-weight: bold;
-            font-size: 16px;
-          }
-          
-          .cta-button {
-            display: inline-block;
-            background: linear-gradient(135deg, #0f0f23 0%, #1e293b 100%);
-            color: #ffffff;
-            padding: 16px 32px;
-            text-decoration: none;
-            border-radius: 12px;
-            font-weight: 600;
-            font-size: 16px;
-            margin: 24px 0;
-            transition: all 0.3s ease;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-          }
-          
-          .cta-button:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
-          }
-          
-          .footer {
-            background: #f8fafc;
-            padding: 30px;
-            text-align: center;
-            border-top: 1px solid #e2e8f0;
-          }
-          
-          .footer p {
-            color: #64748b;
-            font-size: 14px;
-            margin-bottom: 8px;
-          }
-          
-          .footer p:last-child {
-            margin-bottom: 0;
-          }
-          
-          @media (max-width: 640px) {
-            body {
-              padding: 10px;
-            }
-            
-            .container {
-              border-radius: 12px;
-            }
-            
-            .header {
-              padding: 30px 20px;
-            }
-            
-            .header h1 {
-              font-size: 28px;
-            }
-            
-            .content {
-              padding: 30px 20px;
-            }
-            
-            .account-details {
-              padding: 20px;
-            }
-            
-            .detail-row {
-              flex-direction: column;
-              align-items: flex-start;
-              gap: 4px;
-            }
-          }
-        </style>
-      </head>
-      <body>
-        <div class="container">
-          <div class="header">
-            <h1>🎉 Welcome to Skillment</h1>
-            <p>Your ${data.organizationName} account is ready!</p>
-          </div>
-          
-          <div class="content">
-            <div class="welcome-message">
-              <h2>Hello ${data.firstName} ${data.lastName},</h2>
-              <p>Welcome to Skillment! Your account has been successfully created and you're now ready to start managing your assessments and team.</p>
-            </div>
-            
-            <div class="account-details">
-              <h3>📋 Account Details</h3>
-              <div class="detail-row">
-                <span class="detail-label">Organization:</span>
-                <span class="detail-value">${data.organizationName}</span>
-              </div>
-              <div class="detail-row">
-                <span class="detail-label">Email:</span>
-                <span class="detail-value">${data.email}</span>
-              </div>
-              <div class="detail-row">
-                <span class="detail-label">Plan:</span>
-                <span class="detail-value">${data.plan}</span>
-              </div>
-            </div>
-            
-            <div class="features-list">
-              <h3>🚀 What you can do now:</h3>
-              <ul>
-                <li>Create and manage assessments</li>
-                <li>Invite participants and team members</li>
-                <li>Track results and analytics</li>
-                <li>Access AI-powered tools</li>
-              </ul>
-            </div>
-            
-            <a href="${data.loginUrl}" class="cta-button">Login to Dashboard</a>
-            
-            <p style="color: #64748b; font-size: 14px; margin-top: 24px;">
-              If you have any questions, feel free to reach out to our support team.
-            </p>
-          </div>
-          
-          <div class="footer">
-            <p>© 2024 Skillment. All rights reserved.</p>
-            <p>This email was sent to ${data.email}</p>
-          </div>
+  <!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Welcome to Skillment</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 20px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      background: #f1f5f9;
+      color: #0f172a;
+    }
+
+    .container {
+      max-width: 600px;
+      margin: auto;
+      background: #ffffff;
+      border-radius: 16px;
+      overflow: hidden;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05);
+      border: 1px solid #e2e8f0;
+    }
+
+    .header {
+      background: linear-gradient(135deg, #0f0f23 0%, #1e293b 100%);
+      color: #ffffff;
+      padding: 40px 30px;
+      text-align: center;
+      position: relative;
+    }
+
+    .header h1 {
+      margin: 0;
+      font-size: 28px;
+    }
+
+    .header p {
+      margin: 10px 0 0;
+      font-size: 16px;
+      opacity: 0.85;
+    }
+
+    .content {
+      padding: 40px 30px;
+    }
+
+    .content h2 {
+      font-size: 22px;
+      margin-bottom: 12px;
+      color: #0f172a;
+    }
+
+    .content p {
+      font-size: 16px;
+      color: #475569;
+      margin-bottom: 20px;
+    }
+
+    .account-details,
+    .features-list {
+      background: #f9fafb;
+      padding: 20px;
+      border-radius: 12px;
+      margin: 24px 0;
+      border: 1px solid #e2e8f0;
+    }
+
+    .account-details h3,
+    .features-list h3 {
+      font-size: 18px;
+      margin-bottom: 16px;
+      color: #0f172a;
+    }
+
+    .detail-row {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 12px;
+      font-size: 15px;
+    }
+
+    .detail-label {
+      color: #64748b;
+      font-weight: 500;
+    }
+
+    .detail-value {
+      font-weight: 600;
+      color: #0f172a;
+    }
+
+    .features-list ul {
+      padding-left: 20px;
+    }
+
+    .features-list li {
+      margin-bottom: 12px;
+      color: #475569;
+      list-style-type: '✓ ';
+      list-style-position: inside;
+    }
+
+    .cta-button {
+      display: inline-block;
+      background: #0f172a;
+      color: #ffffff;
+      padding: 14px 28px;
+      border-radius: 10px;
+      text-decoration: none;
+      font-size: 16px;
+      font-weight: 600;
+      margin-top: 16px;
+      transition: all 0.2s ease;
+    }
+
+    .cta-button:hover {
+      background: #1e293b;
+    }
+
+    .footer {
+      text-align: center;
+      font-size: 14px;
+      color: #94a3b8;
+      padding: 24px;
+      border-top: 1px solid #e2e8f0;
+      background: #f8fafc;
+    }
+
+    @media (max-width: 600px) {
+      .content, .header {
+        padding: 20px;
+      }
+
+      .detail-row {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 4px;
+      }
+
+      .cta-button {
+        width: 100%;
+        text-align: center;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header class="header">
+      <h1>🎉 Welcome to Skillment</h1>
+      <p>Your ${data.organizationName} account is ready!</p>
+    </header>
+
+    <section class="content">
+      <article class="welcome-message">
+        <h2>Hello ${data.firstName} ${data.lastName},</h2>
+        <p>Welcome to <strong>Skillment</strong>! Your account has been successfully created. You're now ready to start managing assessments and collaborating with your team.</p>
+      </article>
+
+      <section class="account-details">
+        <h3>👤 Your Account</h3>
+        <div class="detail-row">
+          <span class="detail-label">Organization:</span>
+          <span class="detail-value">${data.organizationName}</span>
         </div>
-      </body>
-      </html>
+        <div class="detail-row">
+          <span class="detail-label">Email:</span>
+          <span class="detail-value">${data.email}</span>
+        </div>
+        <div class="detail-row">
+          <span class="detail-label">Plan:</span>
+          <span class="detail-value">${data.plan}</span>
+        </div>
+      </section>
+
+      <section class="features-list">
+        <h3>🚀 What you can do now:</h3>
+        <ul>
+          <li>Create and manage assessments</li>
+          <li>Invite participants and team members</li>
+          <li>Track results and analytics</li>
+          <li>Access AI-powered tools</li>
+        </ul>
+      </section>
+
+      <a href="${data.loginUrl}" class="cta-button" target="_blank">Login to Dashboard</a>
+
+      <p style="font-size: 14px; color: #64748b; margin-top: 24px;">If you need help, our support team is here for you anytime.</p>
+    </section>
+
+    <footer class="footer">
+      <p>© ${new Date().getFullYear()} Skillment. All rights reserved.</p>
+      <p>This email was sent to ${data.email}</p>
+    </footer>
+  </div>
+</body>
+</html>
     `;
   }
 
@@ -450,300 +380,290 @@ class EmailService {
       .join(', ');
 
     return `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <meta charset="utf-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Team Invitation - Skillment</title>
-        <style>
-          * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-          }
-          
-          body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-            line-height: 1.6;
-            color: #0f0f23;
-            background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
-            min-height: 100vh;
-            padding: 20px;
-          }
-          
-          .container {
-            max-width: 600px;
-            margin: 0 auto;
-            background: #ffffff;
-            border-radius: 16px;
-            overflow: hidden;
-            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
-            border: 1px solid #e2e8f0;
-          }
-          
-          .header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: #ffffff;
-            padding: 40px 30px;
-            text-align: center;
-            position: relative;
-            overflow: hidden;
-          }
-          
-          .header::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><pattern id="grain" width="100" height="100" patternUnits="userSpaceOnUse"><circle cx="25" cy="25" r="1" fill="rgba(255,255,255,0.1)"/><circle cx="75" cy="75" r="1" fill="rgba(255,255,255,0.1)"/><circle cx="50" cy="10" r="0.5" fill="rgba(255,255,255,0.1)"/><circle cx="10" cy="60" r="0.5" fill="rgba(255,255,255,0.1)"/><circle cx="90" cy="40" r="0.5" fill="rgba(255,255,255,0.1)"/></pattern></defs><rect width="100" height="100" fill="url(%23grain)"/></svg>');
-            opacity: 0.3;
-          }
-          
-          .header h1 {
-            font-size: 32px;
-            font-weight: 700;
-            margin-bottom: 8px;
-            position: relative;
-            z-index: 1;
-          }
-          
-          .header p {
-            font-size: 16px;
-            opacity: 0.9;
-            position: relative;
-            z-index: 1;
-          }
-          
-          .content {
-            padding: 40px 30px;
-            background: #ffffff;
-          }
-          
-          .invitation-message {
-            margin-bottom: 30px;
-          }
-          
-          .invitation-message h2 {
-            font-size: 24px;
-            font-weight: 600;
-            color: #0f0f23;
-            margin-bottom: 16px;
-          }
-          
-          .invitation-message p {
-            font-size: 16px;
-            color: #475569;
-            margin-bottom: 16px;
-          }
-          
-          .invitation-details {
-            background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
-            padding: 24px;
-            border-radius: 12px;
-            margin: 24px 0;
-            border: 1px solid #93c5fd;
-          }
-          
-          .invitation-details h3 {
-            font-size: 18px;
-            font-weight: 600;
-            color: #1e40af;
-            margin-bottom: 16px;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-          }
-          
-          .detail-row {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 12px 0;
-            border-bottom: 1px solid #bfdbfe;
-          }
-          
-          .detail-row:last-child {
-            border-bottom: none;
-          }
-          
-          .detail-label {
-            font-weight: 500;
-            color: #1e40af;
-          }
-          
-          .detail-value {
-            font-weight: 600;
-            color: #0f0f23;
-          }
-          
-          .permissions-list {
-            margin: 24px 0;
-          }
-          
-          .permissions-list h3 {
-            font-size: 18px;
-            font-weight: 600;
-            color: #0f0f23;
-            margin-bottom: 16px;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-          }
-          
-          .permissions-list ul {
-            list-style: none;
-            padding: 0;
-          }
-          
-          .permissions-list li {
-            padding: 12px 0;
-            border-bottom: 1px solid #f1f5f9;
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            color: #475569;
-          }
-          
-          .permissions-list li:last-child {
-            border-bottom: none;
-          }
-          
-          .permissions-list li::before {
-            content: '✓';
-            color: #10b981;
-            font-weight: bold;
-            font-size: 16px;
-          }
-          
-          .cta-button {
-            display: inline-block;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: #ffffff;
-            padding: 16px 32px;
-            text-decoration: none;
-            border-radius: 12px;
-            font-weight: 600;
-            font-size: 16px;
-            margin: 24px 0;
-            transition: all 0.3s ease;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-          }
-          
-          .cta-button:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
-          }
-          
-          .footer {
-            background: #f8fafc;
-            padding: 30px;
-            text-align: center;
-            border-top: 1px solid #e2e8f0;
-          }
-          
-          .footer p {
-            color: #64748b;
-            font-size: 14px;
-            margin-bottom: 8px;
-          }
-          
-          .footer p:last-child {
-            margin-bottom: 0;
-          }
-          
-          @media (max-width: 640px) {
-            body {
-              padding: 10px;
-            }
-            
-            .container {
-              border-radius: 12px;
-            }
-            
-            .header {
-              padding: 30px 20px;
-            }
-            
-            .header h1 {
-              font-size: 28px;
-            }
-            
-            .content {
-              padding: 30px 20px;
-            }
-            
-            .invitation-details {
-              padding: 20px;
-            }
-            
-            .detail-row {
-              flex-direction: column;
-              align-items: flex-start;
-              gap: 4px;
-            }
-          }
-        </style>
-      </head>
-      <body>
-        <div class="container">
-          <div class="header">
-            <h1>👥 Team Invitation</h1>
-            <p>You've been invited to join a team on Skillment</p>
-          </div>
-          
-          <div class="content">
-            <div class="invitation-message">
-              <h2>Hello ${data.firstName || 'there'},</h2>
-              <p><strong>${data.inviterName}</strong> has invited you to join the team at <strong>${data.organizationName}</strong> on Skillment.</p>
-            </div>
-            
-            <div class="invitation-details">
-              <h3>📋 Invitation Details</h3>
-              <div class="detail-row">
-                <span class="detail-label">Organization:</span>
-                <span class="detail-value">${data.organizationName}</span>
-              </div>
-              <div class="detail-row">
-                <span class="detail-label">Role:</span>
-                <span class="detail-value">${data.role}</span>
-              </div>
-              <div class="detail-row">
-                <span class="detail-label">Permissions:</span>
-                <span class="detail-value">${permissionsList || 'Basic access'}</span>
-              </div>
-              <div class="detail-row">
-                <span class="detail-label">Invited by:</span>
-                <span class="detail-value">${data.inviterName}</span>
-              </div>
-            </div>
-            
-            <div class="permissions-list">
-              <h3>🎯 What you'll be able to do:</h3>
-              <ul>
-                ${permissions.manageAssessments ? '<li>Create and manage assessments</li>' : ''}
-                ${permissions.viewCandidates ? '<li>View candidate information</li>' : ''}
-                ${permissions.manageCandidates ? '<li>Add and manage candidates</li>' : ''}
-                ${permissions.viewReports ? '<li>Access reports and analytics</li>' : ''}
-              </ul>
-            </div>
-            
-            <a href="${data.invitationUrl}" class="cta-button">Accept Invitation</a>
-            
-            <p style="color: #64748b; font-size: 14px; margin-top: 24px;">
-              If you have any questions, please contact ${data.inviterName} or our support team.
-            </p>
-          </div>
-          
-          <div class="footer">
-            <p>© 2024 Skillment. All rights reserved.</p>
-            <p>This invitation was sent to ${data.email}</p>
-          </div>
+   <!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Team Invitation - Skillment</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      line-height: 1.6;
+      color: #0f172a;
+      background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
+      min-height: 100vh;
+      padding: 20px;
+    }
+
+    .container {
+      max-width: 600px;
+      margin: 0 auto;
+      background: #ffffff;
+      border-radius: 18px;
+      overflow: hidden;
+      box-shadow: 0 25px 30px -10px rgba(0, 0, 0, 0.1);
+      border: 1px solid #e0e7ff;
+    }
+
+    .header {
+      background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+      color: #ffffff;
+      padding: 40px 30px;
+      text-align: center;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .header::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><pattern id="grain" width="100" height="100" patternUnits="userSpaceOnUse"><circle cx="25" cy="25" r="1" fill="rgba(255,255,255,0.08)"/><circle cx="75" cy="75" r="1" fill="rgba(255,255,255,0.08)"/><circle cx="50" cy="10" r="0.5" fill="rgba(255,255,255,0.08)"/><circle cx="10" cy="60" r="0.5" fill="rgba(255,255,255,0.08)"/><circle cx="90" cy="40" r="0.5" fill="rgba(255,255,255,0.08)"/></pattern></defs><rect width="100" height="100" fill="url(%23grain)"/></svg>');
+      opacity: 0.3;
+    }
+
+    .header h1 {
+      font-size: 32px;
+      font-weight: 700;
+      margin-bottom: 8px;
+      position: relative;
+      z-index: 1;
+    }
+
+    .header p {
+      font-size: 16px;
+      opacity: 0.95;
+      position: relative;
+      z-index: 1;
+    }
+
+    .content {
+      padding: 40px 30px;
+      background: #ffffff;
+    }
+
+    .invitation-message h2 {
+      font-size: 24px;
+      font-weight: 600;
+      margin-bottom: 16px;
+      color: #0f172a;
+    }
+
+    .invitation-message p {
+      font-size: 16px;
+      color: #475569;
+      margin-bottom: 16px;
+    }
+
+    .invitation-details {
+      background: linear-gradient(135deg, #dbeafe 0%, #c7d2fe 100%);
+      padding: 24px;
+      border-radius: 12px;
+      border: 1px solid #a5b4fc;
+      margin: 24px 0;
+    }
+
+    .invitation-details h3 {
+      font-size: 18px;
+      font-weight: 600;
+      color: #4338ca;
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .detail-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px 0;
+      border-bottom: 1px solid #c7d2fe;
+    }
+
+    .detail-row:last-child {
+      border-bottom: none;
+    }
+
+    .detail-label {
+      font-weight: 500;
+      color: #4f46e5;
+    }
+
+    .detail-value {
+      font-weight: 600;
+      color: #0f172a;
+    }
+
+    .permissions-list h3 {
+      font-size: 18px;
+      font-weight: 600;
+      color: #0f172a;
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .permissions-list ul {
+      list-style: none;
+      padding: 0;
+    }
+
+    .permissions-list li {
+      padding: 12px 0;
+      border-bottom: 1px solid #e2e8f0;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      color: #475569;
+    }
+
+    .permissions-list li:last-child {
+      border-bottom: none;
+    }
+
+    .permissions-list li::before {
+      content: '✓';
+      color: #10b981;
+      font-weight: bold;
+      font-size: 16px;
+    }
+
+    .cta-button {
+      display: inline-block;
+      background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+      color: #ffffff;
+      padding: 16px 32px;
+      text-decoration: none;
+      border-radius: 12px;
+      font-weight: 600;
+      font-size: 16px;
+      margin: 24px 0;
+      transition: all 0.3s ease;
+      box-shadow: 0 4px 6px rgba(99, 102, 241, 0.4);
+    }
+
+    .cta-button:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 12px 20px rgba(99, 102, 241, 0.25);
+    }
+
+    .footer {
+      background: #f1f5f9;
+      padding: 30px;
+      text-align: center;
+      border-top: 1px solid #e2e8f0;
+    }
+
+    .footer p {
+      color: #64748b;
+      font-size: 14px;
+      margin-bottom: 8px;
+    }
+
+    .footer p:last-child {
+      margin-bottom: 0;
+    }
+
+    @media (max-width: 640px) {
+      body {
+        padding: 10px;
+      }
+
+      .container {
+        border-radius: 12px;
+      }
+
+      .header {
+        padding: 30px 20px;
+      }
+
+      .header h1 {
+        font-size: 28px;
+      }
+
+      .content {
+        padding: 30px 20px;
+      }
+
+      .invitation-details {
+        padding: 20px;
+      }
+
+      .detail-row {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 4px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>👥 Team Invitation</h1>
+      <p>You've been invited to join a team on Skillment</p>
+    </div>
+
+    <div class="content">
+      <div class="invitation-message">
+        <h2>Hello ${data.firstName || 'there'},</h2>
+        <p><strong>${data.inviterName}</strong> has invited you to join the team at <strong>${data.organizationName}</strong> on Skillment.</p>
+      </div>
+
+      <div class="invitation-details">
+        <h3>📋 Invitation Details</h3>
+        <div class="detail-row">
+          <span class="detail-label">Organization:</span>
+          <span class="detail-value">${data.organizationName}</span>
         </div>
-      </body>
-      </html>
+        <div class="detail-row">
+          <span class="detail-label">Role:</span>
+          <span class="detail-value">${data.role}</span>
+        </div>
+        <div class="detail-row">
+          <span class="detail-label">Permissions:</span>
+          <span class="detail-value">${permissionsList || 'Basic access'}</span>
+        </div>
+        <div class="detail-row">
+          <span class="detail-label">Invited by:</span>
+          <span class="detail-value">${data.inviterName}</span>
+        </div>
+      </div>
+
+      <div class="permissions-list">
+        <h3>🎯 What you'll be able to do:</h3>
+        <ul>
+          ${permissions.manageAssessments ? '<li>Create and manage assessments</li>' : ''}
+          ${permissions.viewCandidates ? '<li>View candidate information</li>' : ''}
+          ${permissions.manageCandidates ? '<li>Add and manage candidates</li>' : ''}
+          ${permissions.viewReports ? '<li>Access reports and analytics</li>' : ''}
+        </ul>
+      </div>
+
+      <a href="${data.invitationUrl}" class="cta-button">Accept Invitation</a>
+
+      <p style="color: #64748b; font-size: 14px; margin-top: 24px;">
+        If you have any questions, please contact ${data.inviterName} or our support team.
+      </p>
+    </div>
+
+    <div class="footer">
+      <p>© 2024 Skillment. All rights reserved.</p>
+      <p>This invitation was sent to ${data.email}</p>
+    </div>
+  </div>
+</body>
+</html>
+
     `;
   }
 
@@ -1068,6 +988,43 @@ class EmailService {
     };
 
     return this.sendAdminNotification(adminData);
+  }
+
+  /**
+   * Sends welcome email to user, then notifies admin. Returns result of both.
+   */
+  async notifyUserAndAdminOnRegistration(userData: UserRegistrationData): Promise<{ user: boolean; admin: boolean; }> {
+    const userResult = await this.sendWelcomeEmail(userData);
+    const adminResult = await this.sendUserRegistrationNotification(userData);
+    return { user: userResult, admin: adminResult };
+  }
+
+  /**
+   * Sends team invitation email to user, then notifies admin. Returns result of both.
+   */
+  async notifyUserAndAdminOnTeamInvitation(invitationData: TeamInvitationData): Promise<{ user: boolean; admin: boolean; }> {
+    const userResult = await this.sendTeamInvitation(invitationData);
+    const adminResult = await this.sendTeamInvitationNotification(invitationData);
+    return { user: userResult, admin: adminResult };
+  }
+
+  /**
+   * Sends an OTP email to the user.
+   */
+  async sendOtpEmail(email: string, otp: string): Promise<boolean> {
+    const subject = 'Your Skillment Verification Code';
+    const html = `
+      <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; background: #f9fafb; padding: 32px;">
+        <div style="max-width: 480px; margin: auto; background: #fff; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.04); padding: 32px;">
+          <h2 style="color: #3b82f6; margin-bottom: 16px;">Skillment Email Verification</h2>
+          <p style="font-size: 16px; color: #374151;">Your verification code is:</p>
+          <div style="font-size: 32px; font-weight: bold; letter-spacing: 8px; color: #0f172a; margin: 24px 0;">${otp}</div>
+          <p style="font-size: 14px; color: #64748b;">This code will expire in 10 minutes. If you did not request this, you can ignore this email.</p>
+        </div>
+        <p style="text-align: center; color: #9ca3af; font-size: 12px; margin-top: 32px;">&copy; ${new Date().getFullYear()} Skillment</p>
+      </div>
+    `;
+    return this.sendEmail({ to: email, subject, html });
   }
 }
 

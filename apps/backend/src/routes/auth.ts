@@ -22,4 +22,8 @@ router.post('/razorpay/elite-subscription', authController.createEliteSubscripti
 // Razorpay webhook route
 router.post('/webhooks/razorpay', authController.handleSubscriptionWebhook.bind(authController));
 
+// OTP routes
+router.post('/send-otp', authController.sendOtp.bind(authController));
+router.post('/verify-otp', authController.verifyOtp.bind(authController));
+
 export default router; 
