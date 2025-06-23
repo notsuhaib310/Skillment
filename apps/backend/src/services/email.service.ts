@@ -92,79 +92,207 @@ class EmailService {
 
     // A more robust, professional template with inlined CSS for maximum compatibility.
     return `
-  <!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>${safeSubject}</title>
-</head>
-<body style="margin: 0; padding: 0; background-color: #f9fafb; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; color: #111827;">
-
-  <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f9fafb;">
-    <tr>
-      <td align="center">
-        <table width="100%" cellpadding="0" cellspacing="0" style="max-width: 600px; margin: 40px auto; background-color: #ffffff; border-radius: 8px; padding: 40px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
-
-          <!-- Header / Skillment Text -->
-          <tr>
-            <td align="center" style="padding-bottom: 20px;">
-              <h1 style="font-size: 24px; font-weight: 700; margin: 0; color: #3b82f6;">Skillment</h1>
-            </td>
-          </tr>
-
-          <!-- Main Title -->
-          <tr>
-            <td style="padding-bottom: 16px;">
-              <h2 style="font-size: 20px; font-weight: 600; color: #111827; margin: 0;">${safeSubject}</h2>
-            </td>
-          </tr>
-
-          <!-- Body Text -->
-          <tr>
-            <td style="padding-bottom: 24px;">
-              <p style="font-size: 16px; line-height: 1.6; color: #374151; margin: 0;">
-                ${safeBody.replace(/\n/g, '<br>')}
-              </p>
-            </td>
-          </tr>
-
-          <!-- CTA Button -->
-          ${safeCtaUrl && safeCtaText ? `
-          <tr>
-            <td align="left" style="padding-bottom: 32px;">
-              <a href="${safeCtaUrl}" target="_blank" style="
-                background-color: #3b82f6;
-                color: #ffffff !important;
-                padding: 12px 24px;
-                font-size: 16px;
-                font-weight: 500;
-                text-decoration: none;
-                border-radius: 6px;
-                display: inline-block;
-              ">
-                ${safeCtaText}
-              </a>
-            </td>
-          </tr>` : ''}
-
-          <!-- Footer -->
-          <tr>
-            <td align="center" style="font-size: 12px; color: #9ca3af; padding-top: 30px;">
-              <p style="margin: 0 0 8px;">&copy; ${new Date().getFullYear()} Skillment. All rights reserved.</p>
-              <p style="margin: 0;">If you didn't request this email, you can safely ignore it.</p>
-            </td>
-          </tr>
-
-        </table>
-      </td>
-    </tr>
-  </table>
-
-</body>
-</html>
-
-    `;
+    <!DOCTYPE html>
+  <html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Welcome to Skillment</title>
+    <style>
+      body {
+        margin: 0;
+        padding: 20px;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+        background: #f1f5f9;
+        color: #0f172a;
+      }
+  
+      .container {
+        max-width: 600px;
+        margin: auto;
+        background: #ffffff;
+        border-radius: 16px;
+        overflow: hidden;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05);
+        border: 1px solid #e2e8f0;
+      }
+  
+      .header {
+        background: linear-gradient(135deg, #0f0f23 0%, #1e293b 100%);
+        color: #ffffff;
+        padding: 40px 30px;
+        text-align: center;
+        position: relative;
+      }
+  
+      .header h1 {
+        margin: 0;
+        font-size: 28px;
+      }
+  
+      .header p {
+        margin: 10px 0 0;
+        font-size: 16px;
+        opacity: 0.85;
+      }
+  
+      .content {
+        padding: 40px 30px;
+      }
+  
+      .content h2 {
+        font-size: 22px;
+        margin-bottom: 12px;
+        color: #0f172a;
+      }
+  
+      .content p {
+        font-size: 16px;
+        color: #475569;
+        margin-bottom: 20px;
+      }
+  
+      .account-details,
+      .features-list {
+        background: #f9fafb;
+        padding: 20px;
+        border-radius: 12px;
+        margin: 24px 0;
+        border: 1px solid #e2e8f0;
+      }
+  
+      .account-details h3,
+      .features-list h3 {
+        font-size: 18px;
+        margin-bottom: 16px;
+        color: #0f172a;
+      }
+  
+      .detail-row {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 12px;
+        font-size: 15px;
+      }
+  
+      .detail-label {
+        color: #64748b;
+        font-weight: 500;
+      }
+  
+      .detail-value {
+        font-weight: 600;
+        color: #0f172a;
+      }
+  
+      .features-list ul {
+        padding-left: 20px;
+      }
+  
+      .features-list li {
+        margin-bottom: 12px;
+        color: #475569;
+        list-style-type: '✓ ';
+        list-style-position: inside;
+      }
+  
+      .cta-button {
+        display: inline-block;
+        background: #0f172a;
+        color: #ffffff;
+        padding: 14px 28px;
+        border-radius: 10px;
+        text-decoration: none;
+        font-size: 16px;
+        font-weight: 600;
+        margin-top: 16px;
+        transition: all 0.2s ease;
+      }
+  
+      .cta-button:hover {
+        background: #1e293b;
+      }
+  
+      .footer {
+        text-align: center;
+        font-size: 14px;
+        color: #94a3b8;
+        padding: 24px;
+        border-top: 1px solid #e2e8f0;
+        background: #f8fafc;
+      }
+  
+      @media (max-width: 600px) {
+        .content, .header {
+          padding: 20px;
+        }
+  
+        .detail-row {
+          flex-direction: column;
+          align-items: flex-start;
+          gap: 4px;
+        }
+  
+        .cta-button {
+          width: 100%;
+          text-align: center;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <header class="header">
+        <h1>🎉 Welcome to Skillment</h1>
+        <p>Your ${data.organizationName} account is ready!</p>
+      </header>
+  
+      <section class="content">
+        <article class="welcome-message">
+          <h2>Hello ${data.firstName} ${data.lastName},</h2>
+          <p>Welcome to <strong>Skillment</strong>! Your account has been successfully created. You're now ready to start managing assessments and collaborating with your team.</p>
+        </article>
+  
+        <section class="account-details">
+          <h3>👤 Your Account</h3>
+          <div class="detail-row">
+            <span class="detail-label">Organization:</span>
+            <span class="detail-value">${data.organizationName}</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">Email:</span>
+            <span class="detail-value">${data.email}</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">Plan:</span>
+            <span class="detail-value">${data.plan}</span>
+          </div>
+        </section>
+  
+        <section class="features-list">
+          <h3>🚀 What you can do now:</h3>
+          <ul>
+            <li>Create and manage assessments</li>
+            <li>Invite participants and team members</li>
+            <li>Track results and analytics</li>
+            <li>Access AI-powered tools</li>
+          </ul>
+        </section>
+  
+        <a href="${data.loginUrl}" class="cta-button" target="_blank">Login to Dashboard</a>
+  
+        <p style="font-size: 14px; color: #64748b; margin-top: 24px;">If you need help, our support team is here for you anytime.</p>
+      </section>
+  
+      <footer class="footer">
+        <p>© ${new Date().getFullYear()} Skillment. All rights reserved.</p>
+        <p>This email was sent to ${data.email}</p>
+      </footer>
+    </div>
+  </body>
+  </html>
+      `;
+    
   }
 
   private getWelcomeTemplate(data: UserRegistrationData): string {
@@ -916,17 +1044,7 @@ class EmailService {
   // Public methods
   async sendWelcomeEmail(data: UserRegistrationData): Promise<boolean> {
     const subject = `Welcome to Skillment, ${data.firstName}!`;
-    const emailBody = `Thanks for signing up for Skillment. We're excited to have you on board.\nYour account for the organization "${data.organizationName}" has been created.\nYou are currently on the ${data.plan} plan.`;
-    
-    const emailData = {
-      subject,
-      body: emailBody,
-      ctaText: 'Login to Your Account',
-      ctaUrl: data.loginUrl,
-    };
-
-    const html = this.getEmailTemplate('modern', emailData);
-    
+    const html = this.getEmailTemplate('welcome', data);
     return this.sendEmail({
       to: data.email,
       subject,
@@ -1014,16 +1132,46 @@ class EmailService {
   async sendOtpEmail(email: string, otp: string): Promise<boolean> {
     const subject = 'Your Skillment Verification Code';
     const html = `
-      <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; background: #f9fafb; padding: 32px;">
-        <div style="max-width: 480px; margin: auto; background: #fff; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.04); padding: 32px;">
-          <h2 style="color: #3b82f6; margin-bottom: 16px;">Skillment Email Verification</h2>
-          <p style="font-size: 16px; color: #374151;">Your verification code is:</p>
-          <div style="font-size: 32px; font-weight: bold; letter-spacing: 8px; color: #0f172a; margin: 24px 0;">${otp}</div>
-          <p style="font-size: 14px; color: #64748b;">This code will expire in 10 minutes. If you did not request this, you can ignore this email.</p>
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+      <meta charset="UTF-8" />
+      <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+      <title>Skillment Email Verification</title>
+    </head>
+    <body style="margin:0; padding: 32px; background-color: #f8fafc; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; color: #0f172a;">
+    
+      <div style="max-width: 480px; margin: auto; background: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.05); border: 1px solid #e2e8f0;">
+    
+        <!-- Header -->
+        <div style="background: linear-gradient(135deg, #0f0f23 0%, #1e293b 100%); color: #ffffff; padding: 32px; text-align: center;">
+          <h1 style="margin: 0; font-size: 22px;">🔐 Verify Your Email</h1>
+          <p style="margin-top: 8px; font-size: 14px; opacity: 0.85;">Welcome to Skillment</p>
         </div>
-        <p style="text-align: center; color: #9ca3af; font-size: 12px; margin-top: 32px;">&copy; ${new Date().getFullYear()} Skillment</p>
+    
+        <!-- Body -->
+        <div style="padding: 32px;">
+          <p style="font-size: 16px; margin: 0 0 12px;">Hi there,</p>
+          <p style="font-size: 16px; color: #475569; margin: 0 0 24px;">Use the code below to verify your email address. This helps keep your account secure.</p>
+    
+          <div style="font-size: 32px; font-weight: 700; letter-spacing: 10px; color: #0f172a; background: #f1f5f9; padding: 16px; text-align: center; border-radius: 12px; border: 1px solid #e2e8f0; margin-bottom: 24px;">
+            ${otp}
+          </div>
+    
+          <p style="font-size: 14px; color: #64748b; margin-bottom: 0;">This code will expire in 10 minutes. If you did not request this email, you can safely ignore it.</p>
+        </div>
+    
+        <!-- Footer -->
+        <div style="text-align: center; padding: 24px; font-size: 12px; color: #9ca3af; background: #f9fafb; border-top: 1px solid #e2e8f0;">
+          &copy; ${new Date().getFullYear()} Skillment. All rights reserved.
+        </div>
+    
       </div>
+    
+    </body>
+    </html>
     `;
+    
     return this.sendEmail({ to: email, subject, html });
   }
 }
