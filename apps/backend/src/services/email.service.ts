@@ -75,9 +75,69 @@ class EmailService {
       welcome: this.getWelcomeTemplate(data),
       teamInvitation: this.getTeamInvitationTemplate(data),
       adminNotification: this.getAdminNotificationTemplate(data),
+      modern: this.getModernTemplate(data),
     };
 
     return templates[templateName] || '';
+  }
+
+  private getModernTemplate(data: any): string {
+    const { subject, body, ctaText, ctaUrl } = data;
+
+    // A more robust, professional template with inlined CSS for maximum compatibility.
+    return `
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>${subject}</title>
+    </head>
+    <body style="margin: 0; padding: 0; width: 100% !important; -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%; background-color: #0d1117; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">
+      <table width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color: #0d1117;">
+        <tr>
+          <td align="center">
+            <table width="100%" border="0" cellspacing="0" cellpadding="0" style="max-width: 600px; margin: 0 auto;">
+              <!-- Header/Logo -->
+              <tr>
+                <td align="center" style="padding: 40px 0;">
+                  <!-- IMPORTANT: Please replace this with a real, hosted URL to your logo -->
+                  <img src="https://i.imgur.com/your-logo-url.png" alt="TalentHub Logo" style="height: 35px; border: 0;">
+                </td>
+              </tr>
+              <!-- Content -->
+              <tr>
+                <td style="background-color: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 40px;">
+                  <table width="100%" border="0" cellspacing="0" cellpadding="0">
+                    <tr>
+                      <td>
+                        <h1 style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-size: 26px; font-weight: 600; color: #f0f6fc; margin: 0 0 24px;">${subject}</h1>
+                        <p style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-size: 16px; line-height: 1.6; color: #c9d1d9; margin: 0 0 24px;">${body.replace(/\n/g, '<br>')}</p>
+                      </td>
+                    </tr>
+                    <!-- CTA Button -->
+                    <tr>
+                      <td align="left">
+                        <a href="${ctaUrl}" target="_blank" style="display: inline-block; background-color: #f97316; color: #ffffff !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-size: 16px; font-weight: 600; text-decoration: none; padding: 14px 28px; border-radius: 6px;">${ctaText}</a>
+                      </td>
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+              <!-- Footer -->
+              <tr>
+                <td align="center" style="padding: 40px 20px;">
+                  <p style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-size: 12px; color: #8b949e; margin: 0 0 8px;">&copy; ${new Date().getFullYear()} TalentHub. All rights reserved.</p>
+                  <p style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-size: 12px; color: #8b949e; margin: 0;">If you did not request this email, please ignore it.</p>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+      </table>
+    </body>
+    </html>
+    `;
   }
 
   private getWelcomeTemplate(data: UserRegistrationData): string {
@@ -929,10 +989,21 @@ class EmailService {
 
   // Public methods
   async sendWelcomeEmail(data: UserRegistrationData): Promise<boolean> {
-    const html = this.getEmailTemplate('welcome', data);
+    const subject = `Welcome to Skillment, ${data.firstName}!`;
+    const emailBody = `Thanks for signing up for Skillment. We're excited to have you on board.\nYour account for the organization "${data.organizationName}" has been created.\nYou are currently on the ${data.plan} plan.`;
+    
+    const emailData = {
+      subject,
+      body: emailBody,
+      ctaText: 'Login to Your Account',
+      ctaUrl: data.loginUrl,
+    };
+
+    const html = this.getEmailTemplate('modern', emailData);
+    
     return this.sendEmail({
       to: data.email,
-      subject: `Welcome to Skillment - Your ${data.organizationName} account is ready!`,
+      subject,
       html,
     });
   }

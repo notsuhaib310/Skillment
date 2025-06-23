@@ -11,6 +11,9 @@ import billingRouter from './routes/billing.routes';
 import { errorHandler } from './middleware/errorHandler';
 import { PrismaClient } from '@prisma/client';
 import cookieParser from 'cookie-parser';
+import questionRouter from './routes/question.routes';
+import attemptRouter from './routes/attempt.routes';
+import candidateAssessmentRouter from './routes/candidate-assessment.routes';
 
 // Load environment variables
 config();
@@ -49,6 +52,9 @@ app.use('/api/organizations', organizationsRouter);
 app.use('/api/assessments', assessmentRouter);
 app.use('/api/billing', billingRouter);
 app.use('/api/team', require('./routes/team').default);
+app.use('/api', questionRouter);
+app.use('/api', attemptRouter);
+app.use('/api', candidateAssessmentRouter);
 
 // Error handling
 app.use(errorHandler);

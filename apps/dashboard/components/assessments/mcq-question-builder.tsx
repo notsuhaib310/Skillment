@@ -28,7 +28,11 @@ interface MCQQuestion {
   multipleCorrect: boolean
 }
 
-export function MCQQuestionBuilder() {
+interface MCQQuestionBuilderProps {
+  onAddQuestion: (question: MCQQuestion) => void;
+}
+
+export function MCQQuestionBuilder({ onAddQuestion }: MCQQuestionBuilderProps) {
   const [currentQuestion, setCurrentQuestion] = useState<MCQQuestion>({
     id: "",
     question: "",
@@ -84,6 +88,25 @@ export function MCQQuestionBuilder() {
     }
   }
 
+  const handleAddQuestion = () => {
+    onAddQuestion(currentQuestion);
+    setCurrentQuestion({
+      id: "",
+      question: "",
+      options: [
+        { id: "1", text: "", isCorrect: false },
+        { id: "2", text: "", isCorrect: false },
+        { id: "3", text: "", isCorrect: false },
+        { id: "4", text: "", isCorrect: false },
+      ],
+      explanation: "",
+      difficulty: "medium",
+      marks: 1,
+      tags: [],
+      multipleCorrect: false,
+    });
+  };
+
   return (
     <div className="space-y-8">
       <div className="flex items-center justify-between">
@@ -91,7 +114,7 @@ export function MCQQuestionBuilder() {
           <h3 className="text-xl font-semibold text-foreground">MCQ Questions</h3>
           <p className="text-sm text-muted-foreground">Create multiple choice questions with detailed explanations</p>
         </div>
-        <Button className="rounded-2xl primary-gradient glow-primary">
+        <Button className="rounded-2xl primary-gradient glow-primary" onClick={handleAddQuestion}>
           <Sparkles className="mr-2 h-4 w-4" />
           AI Generate
         </Button>

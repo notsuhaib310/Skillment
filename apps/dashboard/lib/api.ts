@@ -90,4 +90,24 @@ export const teamApi = {
   invite: (data: any) => apiPost('/team', data),
   update: (id: string, data: any) => apiPut(`/team/${id}`, data),
   remove: (id: string) => apiDelete(`/team/${id}`),
-} 
+}
+
+// API endpoints for questions
+export const questionsApi = {
+  getAll: (assessmentId: string) => apiGet(`/assessments/${assessmentId}/questions`),
+  create: (assessmentId: string, data: any) => apiPost(`/assessments/${assessmentId}/questions`, data),
+  update: (id: string, data: any) => apiPut(`/questions/${id}`, data),
+  delete: (id: string) => apiDelete(`/questions/${id}`),
+};
+
+// API endpoints for candidate assignment
+export const assignmentApi = {
+  assign: (assessmentId: string, candidates: any[]) => apiPost(`/assessments/${assessmentId}/assign`, { candidates }),
+};
+
+// API endpoints for attempt flows
+export const attemptApi = {
+  start: (assessmentId: string, candidateId: string) => apiPost(`/assessments/${assessmentId}/attempt`, { candidateId }),
+  submit: (attemptId: string, data: any) => apiPost(`/attempts/${attemptId}/submit`, data),
+  get: (attemptId: string) => apiGet(`/attempts/${attemptId}`),
+}; 

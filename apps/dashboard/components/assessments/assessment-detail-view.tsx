@@ -9,67 +9,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Progress } from "@/components/ui/progress"
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts"
-
-const mockAssessment = {
-  id: 1,
-  title: "Frontend Developer Assessment",
-  type: "coding",
-  status: "live",
-  createdDate: "2024-01-15",
-  createdBy: "Sarah Chen",
-  duration: 120,
-  totalMarks: 100,
-  totalQuestions: 15,
-  description: "Comprehensive assessment for frontend developers covering React, JavaScript, and CSS fundamentals.",
-  tags: ["React", "JavaScript", "CSS", "HTML", "Frontend"],
-}
-
-const mockCandidates = [
-  {
-    id: 1,
-    name: "Alex Johnson",
-    email: "alex.johnson@email.com",
-    avatar: "/placeholder.svg?height=32&width=32",
-    status: "completed",
-    score: 92,
-    timeSpent: 105,
-    submittedAt: "2024-01-20 14:30",
-  },
-  {
-    id: 2,
-    name: "Maria Garcia",
-    email: "maria.garcia@email.com",
-    avatar: "/placeholder.svg?height=32&width=32",
-    status: "in-progress",
-    score: 0,
-    timeSpent: 45,
-    submittedAt: null,
-  },
-  {
-    id: 3,
-    name: "David Chen",
-    email: "david.chen@email.com",
-    avatar: "/placeholder.svg?height=32&width=32",
-    status: "completed",
-    score: 78,
-    timeSpent: 118,
-    submittedAt: "2024-01-19 16:45",
-  },
-]
-
-const scoreDistribution = [
-  { range: "0-20", count: 1 },
-  { range: "21-40", count: 2 },
-  { range: "41-60", count: 3 },
-  { range: "61-80", count: 8 },
-  { range: "81-100", count: 10 },
-]
-
-const statusColors = {
-  completed: "bg-emerald-500/20 text-emerald-400 border-emerald-500/30",
-  "in-progress": "bg-amber-500/20 text-amber-400 border-amber-500/30",
-  pending: "bg-slate-500/20 text-slate-400 border-slate-500/30",
-}
+import { useEffect, useState } from "react"
+import { assessmentsApi, questionsApi } from "@/lib/api"
 
 interface AssessmentDetailViewProps {
   assessmentId: number
@@ -77,10 +18,33 @@ interface AssessmentDetailViewProps {
 }
 
 export function AssessmentDetailView({ assessmentId, onBack }: AssessmentDetailViewProps) {
-  const completedCandidates = mockCandidates.filter((c) => c.status === "completed")
+  const [assessment, setAssessment] = useState<any>(null)
+  const [questions, setQuestions] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    setLoading(true)
+    Promise.all([
+      assessmentsApi.getById(String(assessmentId)),
+      questionsApi.getAll(String(assessmentId)),
+    ])
+      .then(([a, q]) => {
+        setAssessment(a)
+        setQuestions(q)
+      })
+      .catch((err) => setError(err.message))
+      .finally(() => setLoading(false))
+  }, [assessmentId])
+
+  if (loading) return <div className="p-8 text-center">Loading...</div>;
+  if (error) return <div className="p-8 text-center text-red-500">{error}</div>;
+  if (!assessment) return <div className="p-8 text-center">Assessment not found.</div>;
+
+  const completedCandidates = assessment?.candidates?.filter((c: any) => c.status === "completed") || []
   const avgScore =
     completedCandidates.length > 0
-      ? Math.round(completedCandidates.reduce((sum, c) => sum + c.score, 0) / completedCandidates.length)
+      ? Math.round(completedCandidates.reduce((sum: number, c: any) => sum + c.score, 0) / completedCandidates.length)
       : 0
 
   return (
@@ -92,7 +56,7 @@ export function AssessmentDetailView({ assessmentId, onBack }: AssessmentDetailV
         </Button>
         <div className="flex-1">
           <h1 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-foreground to-primary bg-clip-text text-transparent">
-            {mockAssessment.title}
+            {assessment?.title}
           </h1>
           <p className="text-muted-foreground">Assessment Details & Analytics</p>
         </div>
@@ -122,7 +86,7 @@ export function AssessmentDetailView({ assessmentId, onBack }: AssessmentDetailV
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-foreground">{mockCandidates.length}</div>
+            <div className="text-2xl font-bold text-foreground">{assessment?.candidates?.length || 0}</div>
           </CardContent>
         </Card>
 
@@ -146,7 +110,7 @@ export function AssessmentDetailView({ assessmentId, onBack }: AssessmentDetailV
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-foreground">{mockAssessment.duration}m</div>
+            <div className="text-2xl font-bold text-foreground">{assessment?.duration}m</div>
           </CardContent>
         </Card>
 
@@ -159,7 +123,7 @@ export function AssessmentDetailView({ assessmentId, onBack }: AssessmentDetailV
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-foreground">
-              {Math.round((completedCandidates.length / mockCandidates.length) * 100)}%
+              {Math.round((completedCandidates.length / assessment?.candidates?.length) * 100) || 0}%
             </div>
           </CardContent>
         </Card>
@@ -171,9 +135,9 @@ export function AssessmentDetailView({ assessmentId, onBack }: AssessmentDetailV
           <CardTitle>Assessment Information</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <p className="text-muted-foreground">{mockAssessment.description}</p>
+          <p className="text-muted-foreground">{assessment?.description}</p>
           <div className="flex flex-wrap gap-2">
-            {mockAssessment.tags.map((tag) => (
+            {assessment?.tags?.map((tag: string) => (
               <Badge key={tag} variant="secondary" className="rounded-xl bg-accent/50 text-foreground border-border/40">
                 {tag}
               </Badge>
@@ -182,19 +146,19 @@ export function AssessmentDetailView({ assessmentId, onBack }: AssessmentDetailV
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-4">
             <div>
               <div className="text-sm text-muted-foreground">Created By</div>
-              <div className="font-medium text-foreground">{mockAssessment.createdBy}</div>
+              <div className="font-medium text-foreground">{assessment?.createdBy}</div>
             </div>
             <div>
               <div className="text-sm text-muted-foreground">Created Date</div>
-              <div className="font-medium text-foreground">{mockAssessment.createdDate}</div>
+              <div className="font-medium text-foreground">{assessment?.createdDate}</div>
             </div>
             <div>
               <div className="text-sm text-muted-foreground">Total Questions</div>
-              <div className="font-medium text-foreground">{mockAssessment.totalQuestions}</div>
+              <div className="font-medium text-foreground">{assessment?.totalQuestions}</div>
             </div>
             <div>
               <div className="text-sm text-muted-foreground">Total Marks</div>
-              <div className="font-medium text-foreground">{mockAssessment.totalMarks}</div>
+              <div className="font-medium text-foreground">{assessment?.totalMarks}</div>
             </div>
           </div>
         </CardContent>
@@ -203,17 +167,10 @@ export function AssessmentDetailView({ assessmentId, onBack }: AssessmentDetailV
       {/* Tabs */}
       <Tabs defaultValue="candidates" className="space-y-6">
         <TabsList className="grid w-full grid-cols-3 lg:w-[400px] rounded-2xl bg-muted/50 p-1">
-          <TabsTrigger value="candidates" className="rounded-xl">
-            Candidates
-          </TabsTrigger>
-          <TabsTrigger value="analytics" className="rounded-xl">
-            Analytics
-          </TabsTrigger>
-          <TabsTrigger value="questions" className="rounded-xl">
-            Questions
-          </TabsTrigger>
+          <TabsTrigger value="candidates" className="rounded-xl">Candidates</TabsTrigger>
+          <TabsTrigger value="analytics" className="rounded-xl">Analytics</TabsTrigger>
+          <TabsTrigger value="questions" className="rounded-xl">Questions</TabsTrigger>
         </TabsList>
-
         <TabsContent value="candidates" className="space-y-6">
           <Card className="card-gradient rounded-3xl border-border/40 shadow-xl">
             <CardHeader className="flex flex-row items-center justify-between">
@@ -235,7 +192,7 @@ export function AssessmentDetailView({ assessmentId, onBack }: AssessmentDetailV
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {mockCandidates.map((candidate) => (
+                  {assessment.candidates?.map((candidate: any) => (
                     <TableRow key={candidate.id} className="border-border/40">
                       <TableCell>
                         <div className="flex items-center gap-3">
@@ -244,7 +201,7 @@ export function AssessmentDetailView({ assessmentId, onBack }: AssessmentDetailV
                             <AvatarFallback className="rounded-2xl bg-gradient-to-br from-primary to-orange-600 text-primary-foreground font-semibold">
                               {candidate.name
                                 .split(" ")
-                                .map((n) => n[0])
+                                .map((n: string) => n[0])
                                 .join("")}
                             </AvatarFallback>
                           </Avatar>
@@ -255,9 +212,7 @@ export function AssessmentDetailView({ assessmentId, onBack }: AssessmentDetailV
                         </div>
                       </TableCell>
                       <TableCell>
-                        <Badge
-                          className={`rounded-xl border ${statusColors[candidate.status as keyof typeof statusColors]} capitalize`}
-                        >
+                        <Badge className={`rounded-xl border capitalize`}>
                           {candidate.status}
                         </Badge>
                       </TableCell>
@@ -284,46 +239,38 @@ export function AssessmentDetailView({ assessmentId, onBack }: AssessmentDetailV
             </CardContent>
           </Card>
         </TabsContent>
-
         <TabsContent value="analytics" className="space-y-6">
           <Card className="card-gradient rounded-3xl border-border/40 shadow-xl">
             <CardHeader>
               <CardTitle>Score Distribution</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="h-80">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={scoreDistribution}>
-                    <CartesianGrid strokeDasharray="3 3" className="stroke-muted/20" />
-                    <XAxis dataKey="range" className="text-muted-foreground" />
-                    <YAxis className="text-muted-foreground" />
-                    <Tooltip
-                      contentStyle={{
-                        backgroundColor: "hsl(var(--card))",
-                        border: "1px solid hsl(var(--border))",
-                        borderRadius: "1rem",
-                        backdropFilter: "blur(12px)",
-                      }}
-                    />
-                    <Bar dataKey="count" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
+              <div className="h-80 flex items-center justify-center text-muted-foreground">Analytics coming soon...</div>
             </CardContent>
           </Card>
         </TabsContent>
-
         <TabsContent value="questions" className="space-y-6">
           <Card className="card-gradient rounded-3xl border-border/40 shadow-xl">
             <CardHeader>
               <CardTitle>Assessment Questions</CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-muted-foreground">Question details and preview will be displayed here.</p>
+              {questions.length === 0 ? (
+                <div className="text-muted-foreground">No questions added yet.</div>
+              ) : (
+                <ul className="space-y-4">
+                  {questions.map((q: any, idx: number) => (
+                    <li key={q.id} className="border-b pb-2">
+                      <div className="font-semibold">Q{idx + 1}: {q.question}</div>
+                      <div className="text-sm text-muted-foreground">Type: {q.type}, Marks: {q.marks}</div>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
       </Tabs>
     </div>
-  )
+  );
 }

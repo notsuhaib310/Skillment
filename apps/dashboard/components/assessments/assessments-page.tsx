@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Search, Plus, MoreHorizontal, Eye, Edit, Archive, Trash2, Play, Users, Clock } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -19,74 +19,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox"
 import { AssessmentDetailView } from "./assessment-detail-view"
 import { CreateAssessmentPage } from "./create-assessment-page"
-
-const assessments = [
-  {
-    id: 1,
-    title: "Frontend Developer Assessment",
-    type: "coding",
-    status: "live",
-    createdDate: "2024-01-15",
-    createdBy: "Sarah Chen",
-    candidates: 24,
-    duration: 120,
-    totalMarks: 100,
-    avgScore: 78,
-    tags: ["React", "JavaScript", "CSS"],
-  },
-  {
-    id: 2,
-    title: "Product Manager Case Study",
-    type: "mcq",
-    status: "draft",
-    createdDate: "2024-01-20",
-    createdBy: "Mike Johnson",
-    candidates: 0,
-    duration: 90,
-    totalMarks: 80,
-    avgScore: 0,
-    tags: ["Strategy", "Analytics", "Leadership"],
-  },
-  {
-    id: 3,
-    title: "Data Science Proctored Exam",
-    type: "proctored",
-    status: "live",
-    createdDate: "2024-01-18",
-    createdBy: "Sarah Chen",
-    candidates: 15,
-    duration: 180,
-    totalMarks: 150,
-    avgScore: 82,
-    tags: ["Python", "ML", "Statistics"],
-  },
-  {
-    id: 4,
-    title: "UX Design Portfolio Review",
-    type: "hybrid",
-    status: "archived",
-    createdDate: "2024-01-10",
-    createdBy: "Alex Wilson",
-    candidates: 32,
-    duration: 60,
-    totalMarks: 100,
-    avgScore: 85,
-    tags: ["Design", "Figma", "User Research"],
-  },
-  {
-    id: 5,
-    title: "Backend Developer Challenge",
-    type: "coding",
-    status: "live",
-    createdDate: "2024-01-22",
-    createdBy: "David Chen",
-    candidates: 18,
-    duration: 150,
-    totalMarks: 120,
-    avgScore: 74,
-    tags: ["Node.js", "Database", "API"],
-  },
-]
+import { assessmentsApi } from "@/lib/api"
 
 const statusColors = {
   live: "bg-emerald-500/20 text-emerald-400 border-emerald-500/30",
@@ -105,9 +38,20 @@ export function AssessmentsPage() {
   const [searchTerm, setSearchTerm] = useState("")
   const [activeTab, setActiveTab] = useState("all")
   const [typeFilter, setTypeFilter] = useState("all")
-  const [selectedAssessments, setSelectedAssessments] = useState<number[]>([])
-  const [selectedAssessment, setSelectedAssessment] = useState<number | null>(null)
+  const [selectedAssessments, setSelectedAssessments] = useState<string[]>([])
+  const [selectedAssessment, setSelectedAssessment] = useState<string | null>(null)
   const [showCreatePage, setShowCreatePage] = useState(false)
+  const [assessments, setAssessments] = useState<any[]>([])
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    setLoading(true)
+    assessmentsApi.getAll()
+      .then((res) => setAssessments(res.data))
+      .catch((err) => setError(err.message))
+      .finally(() => setLoading(false))
+  }, [])
 
   const filteredAssessments = assessments.filter((assessment) => {
     const matchesSearch =
@@ -126,7 +70,7 @@ export function AssessmentsPage() {
     }
   }
 
-  const handleSelectAssessment = (id: number, checked: boolean) => {
+  const handleSelectAssessment = (id: string, checked: boolean) => {
     if (checked) {
       setSelectedAssessments([...selectedAssessments, id])
     } else {

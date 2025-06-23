@@ -39,29 +39,17 @@ const buildAssessmentWhere = (filters: AssessmentListFilters) => {
 
 export const createAssessment = async (req: Request, res: Response): Promise<Response> => {
   try {
-    const data: Omit<CreateAssessmentInput, 'createdById'> = req.body;
-    
-    // Get user ID from authenticated user
-    const userId = req.user?.id;
-    if (!userId) {
-      return res.status(401).json({ error: 'User authentication required' });
-    }
-    
-    // Validate input
-    if (!data.title || !data.type || !data.duration || !data.totalMarks || !data.totalQuestions) {
-      return res.status(400).json({ error: 'Missing required fields' });
-    }
-
+    const { questions, ...assessmentData } = req.body;
     const assessment = await prisma.assessment.create({
       data: {
-        ...data,
-        createdById: userId, // Use authenticated user's ID
+        ...assessmentData,
         status: 'draft',
-        attemptLimit: data.attemptLimit || 1,
-        showResults: data.showResults !== false, // default to true
-        enableProctoring: data.enableProctoring || false,
-        randomizeQuestions: data.randomizeQuestions || false,
-        tags: data.tags || [],
+        attemptLimit: req.body.attemptLimit || 1,
+        showResults: req.body.showResults !== false,
+        enableProctoring: req.body.enableProctoring || false,
+        randomizeQuestions: req.body.randomizeQuestions || false,
+        tags: req.body.tags || [],
+        createdBy: { connect: { id: req.user?.id } },
       },
       include: {
         createdBy: {
@@ -74,7 +62,21 @@ export const createAssessment = async (req: Request, res: Response): Promise<Res
         },
       },
     });
-
+    // Bulk create questions if provided
+    let createdQuestions = [];
+    if (questions.length > 0) {
+      createdQuestions = await Promise.all(
+        questions.map((q, idx) =>
+          prisma.question.create({
+            data: {
+              ...q,
+              assessmentId: assessment.id,
+              order: q.order ?? idx + 1,
+            },
+          })
+        )
+      );
+    }
     // Create analytics entry
     await prisma.assessmentAnalytics.create({
       data: {
@@ -85,8 +87,7 @@ export const createAssessment = async (req: Request, res: Response): Promise<Res
         completionRate: 0,
       },
     });
-
-    return res.status(201).json(assessment);
+    return res.status(201).json({ ...assessment, questions: createdQuestions });
   } catch (error) {
     console.error('Error creating assessment:', error);
     return res.status(500).json({ error: 'Failed to create assessment' });

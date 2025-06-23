@@ -34,7 +34,11 @@ interface CodingQuestion {
   marks: number
 }
 
-export function CodingQuestionBuilder() {
+interface CodingQuestionBuilderProps {
+  onAddQuestion: (question: CodingQuestion) => void;
+}
+
+export function CodingQuestionBuilder({ onAddQuestion }: CodingQuestionBuilderProps) {
   const [questions, setQuestions] = useState<CodingQuestion[]>([])
   const [currentQuestion, setCurrentQuestion] = useState<CodingQuestion>({
     id: "",
@@ -98,6 +102,23 @@ export function CodingQuestionBuilder() {
   const publicTestCases = currentQuestion.testCases.filter((tc) => tc.isPublic)
   const privateTestCases = currentQuestion.testCases.filter((tc) => !tc.isPublic)
 
+  const handleAddQuestion = () => {
+    onAddQuestion(currentQuestion);
+    setCurrentQuestion({
+      id: "",
+      title: "",
+      description: "",
+      difficulty: "medium",
+      tags: [],
+      timeLimit: 30,
+      memoryLimit: 256,
+      languages: ["javascript"],
+      starterCode: { javascript: "" },
+      testCases: [],
+      marks: 10,
+    });
+  };
+
   return (
     <div className="space-y-8">
       <div className="flex items-center justify-between">
@@ -105,7 +126,7 @@ export function CodingQuestionBuilder() {
           <h3 className="text-xl font-semibold text-foreground">Coding Questions</h3>
           <p className="text-sm text-muted-foreground">Create programming challenges with auto-evaluation</p>
         </div>
-        <Button className="rounded-2xl primary-gradient glow-primary">
+        <Button className="rounded-2xl primary-gradient glow-primary" onClick={handleAddQuestion}>
           <Plus className="mr-2 h-4 w-4" />
           Add Question
         </Button>

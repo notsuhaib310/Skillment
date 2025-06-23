@@ -18,6 +18,8 @@ import { ProctoringConfiguration } from "./proctoring-configuration"
 import { CodingQuestionBuilder } from "./coding-question-builder"
 import { MCQQuestionBuilder } from "./mcq-question-builder"
 import { AIToolsPanel } from "./ai-tools-panel"
+import { assessmentsApi, questionsApi } from "@/lib/api"
+import { useToast, toast } from "@/hooks/use-toast"
 
 interface CreateAssessmentPageProps {
   onBack: () => void
@@ -43,6 +45,8 @@ export function CreateAssessmentPage({ onBack }: CreateAssessmentPageProps) {
     allowBackNavigation: true,
     timeWarnings: true,
     autoSubmit: true,
+    type: "",
+    totalQuestions: 0,
   })
   const [questions, setQuestions] = useState<any[]>([])
   const [proctoringConfig, setProctoringConfig] = useState({
@@ -57,6 +61,9 @@ export function CreateAssessmentPage({ onBack }: CreateAssessmentPageProps) {
     suspiciousActivityThreshold: 3,
     warningBeforeFlagging: true,
   })
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const { toast } = useToast();
 
   const steps = [
     { id: 1, title: "Assessment Type", description: "Choose the type of assessment" },
@@ -85,15 +92,82 @@ export function CreateAssessmentPage({ onBack }: CreateAssessmentPageProps) {
     console.log("Saving as draft...")
   }
 
-  const handlePublish = () => {
-    // Publish logic
-    console.log("Publishing assessment...")
+  const handleTypeSelect = (type: string) => {
+    setFormData((prev) => ({ ...prev, type }))
+    setSelectedType(type)
+  }
+
+  const handleTagsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const tags = e.target.value.split(",").map((t) => t.trim()).filter(Boolean)
+    setFormData({ ...formData, tags })
+  }
+
+  const handlePublish = async () => {
+    setLoading(true)
+    setError(null)
+    if (!formData.title || !formData.type || !formData.duration || !formData.totalMarks || questions.length === 0) {
+      setError("Please fill all required fields and add at least one question.")
+      toast({
+        title: "Validation Error",
+        description: "Please fill all required fields and add at least one question.",
+        variant: "destructive",
+      });
+      setLoading(false)
+      return
+    }
+    try {
+      const payload = {
+        ...formData,
+        totalQuestions: questions.length,
+        questions: questions,
+      };
+      await assessmentsApi.create(payload)
+      toast({
+        title: "Assessment Published",
+        description: "Your assessment has been published successfully.",
+      });
+      // Reset form or redirect to assessments list
+      setFormData({
+        title: "",
+        description: "",
+        instructions: "",
+        duration: 60,
+        tags: [],
+        totalMarks: 100,
+        passingMarks: 60,
+        attemptLimit: 1,
+        showResults: true,
+        showCorrectAnswers: false,
+        enableProctoring: false,
+        randomizeQuestions: false,
+        randomizeOptions: false,
+        allowBackNavigation: true,
+        timeWarnings: true,
+        autoSubmit: true,
+        type: "",
+        totalQuestions: 0,
+      });
+      setQuestions([]);
+      setCurrentStep(1);
+      setSelectedType("");
+      // Optionally, redirect to assessments list:
+      // onBack();
+    } catch (err: any) {
+      setError(err.message)
+      toast({
+        title: "Error Publishing Assessment",
+        description: err.message || "An error occurred while publishing.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false)
+    }
   }
 
   const renderStepContent = () => {
     switch (currentStep) {
       case 1:
-        return <AssessmentTypeSelector selectedType={selectedType} onTypeSelect={setSelectedType} />
+        return <AssessmentTypeSelector selectedType={formData.type} onTypeSelect={handleTypeSelect} />
 
       case 2:
         return (
@@ -148,6 +222,8 @@ export function CreateAssessmentPage({ onBack }: CreateAssessmentPageProps) {
                     <Label htmlFor="tags">Tags</Label>
                     <Input
                       id="tags"
+                      value={formData.tags.join(", ")}
+                      onChange={handleTagsChange}
                       placeholder="React, JavaScript, Frontend (comma separated)"
                       className="rounded-2xl"
                     />
@@ -375,11 +451,37 @@ export function CreateAssessmentPage({ onBack }: CreateAssessmentPageProps) {
               </TabsList>
 
               <TabsContent value="mcq" className="space-y-6">
-                <MCQQuestionBuilder />
+                <MCQQuestionBuilder onAddQuestion={(q) => setQuestions((prev) => [...prev, { ...q, type: 'mcq' }])} />
+                {questions.filter(q => q.type === 'mcq').length > 0 && (
+                  <div className="space-y-2">
+                    <h4 className="font-semibold">Added MCQ Questions</h4>
+                    <ul className="space-y-2">
+                      {questions.filter(q => q.type === 'mcq').map((q, idx) => (
+                        <li key={idx} className="border-b pb-2">
+                          <div className="font-semibold">Q{idx + 1}: {q.question}</div>
+                          <div className="text-sm text-muted-foreground">Marks: {q.marks}</div>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
               </TabsContent>
 
               <TabsContent value="coding" className="space-y-6">
-                <CodingQuestionBuilder />
+                <CodingQuestionBuilder onAddQuestion={(q) => setQuestions((prev) => [...prev, { ...q, type: 'coding' }])} />
+                {questions.filter(q => q.type === 'coding').length > 0 && (
+                  <div className="space-y-2">
+                    <h4 className="font-semibold">Added Coding Questions</h4>
+                    <ul className="space-y-2">
+                      {questions.filter(q => q.type === 'coding').map((q, idx) => (
+                        <li key={idx} className="border-b pb-2">
+                          <div className="font-semibold">Q{idx + 1}: {q.title}</div>
+                          <div className="text-sm text-muted-foreground">Marks: {q.marks}</div>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
               </TabsContent>
 
               <TabsContent value="upload" className="space-y-6">
@@ -515,9 +617,12 @@ export function CreateAssessmentPage({ onBack }: CreateAssessmentPageProps) {
                     <Separator />
 
                     <div className="space-y-3">
-                      <Button onClick={handlePublish} className="w-full rounded-2xl primary-gradient glow-primary">
-                        <Play className="mr-2 h-4 w-4" />
-                        Publish Assessment
+                      <Button
+                        onClick={handlePublish}
+                        className="w-full rounded-2xl primary-gradient glow-primary"
+                        disabled={loading}
+                      >
+                        {loading ? "Publishing..." : (<><Play className="mr-2 h-4 w-4" /> Publish Assessment</>)}
                       </Button>
                       <Button onClick={handleSaveDraft} variant="outline" className="w-full rounded-2xl">
                         <Save className="mr-2 h-4 w-4" />

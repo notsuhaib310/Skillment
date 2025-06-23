@@ -14,6 +14,8 @@ import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Separator } from "@/components/ui/separator"
+import { useToast, toast } from "@/hooks/use-toast"
+import { assessmentsApi } from "@/lib/api"
 
 const assessmentTypes = [
   {
@@ -73,6 +75,8 @@ export function CreateAssessmentWizard({ open, onOpenChange }: CreateAssessmentW
     smartTagging: false,
     autoScoring: false,
   })
+  const [loading, setLoading] = useState(false);
+  const { toast } = useToast();
 
   const handleNext = () => {
     if (currentStep < 5) {
@@ -103,6 +107,64 @@ export function CreateAssessmentWizard({ open, onOpenChange }: CreateAssessmentW
     setQuestions([])
     onOpenChange(false)
   }
+
+  const handlePublish = async () => {
+    setLoading(true);
+    if (!formData.title || !selectedType || !formData.duration || !formData.totalMarks) {
+      toast({
+        title: "Validation Error",
+        description: "Please fill all required fields.",
+        variant: "destructive",
+      });
+      setLoading(false);
+      return;
+    }
+    try {
+      const payload = {
+        ...formData,
+        type: selectedType,
+        totalQuestions: questions.length,
+        questions: questions,
+        aiFeatures,
+      };
+      await assessmentsApi.create(payload);
+      toast({
+        title: "Assessment Published",
+        description: "Your assessment has been published successfully.",
+      });
+      // Reset wizard and close
+      setCurrentStep(1);
+      setSelectedType("");
+      setFormData({
+        title: "",
+        description: "",
+        duration: 60,
+        tags: [],
+        totalMarks: 100,
+        attemptLimit: 1,
+        showResults: true,
+        enableProctoring: false,
+        randomizeQuestions: false,
+      });
+      setQuestions([]);
+      setAiFeatures({
+        generateQuestions: false,
+        generateTestCases: false,
+        aiSummary: false,
+        smartTagging: false,
+        autoScoring: false,
+      });
+      onOpenChange(false);
+    } catch (err: any) {
+      toast({
+        title: "Error Publishing Assessment",
+        description: err.message || "An error occurred while publishing.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const renderStepContent = () => {
     switch (currentStep) {
@@ -554,8 +616,8 @@ export function CreateAssessmentWizard({ open, onOpenChange }: CreateAssessmentW
                 <Button variant="outline" onClick={handleClose} className="rounded-2xl">
                   Save as Draft
                 </Button>
-                <Button onClick={handleClose} className="rounded-2xl primary-gradient glow-primary">
-                  Publish Assessment
+                <Button onClick={handlePublish} className="rounded-2xl primary-gradient glow-primary" disabled={loading}>
+                  {loading ? "Publishing..." : (<><Sparkles className="mr-2 h-4 w-4" /> Publish Assessment</>)}
                 </Button>
               </>
             ) : (
