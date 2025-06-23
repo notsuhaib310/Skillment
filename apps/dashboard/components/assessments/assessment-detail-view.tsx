@@ -9,8 +9,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Progress } from "@/components/ui/progress"
 import { useEffect, useState } from "react"
-import { assessmentsApi, type Assessment } from "@/lib/api/api"
+import { assessmentsApi, type Assessment, getAllParticipants, assignCandidateToAssessment } from "@/lib/api/api"
 import { useToast } from "@/hooks/use-toast"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
+import { Checkbox } from "@/components/ui/checkbox"
 
 interface AssessmentDetailViewProps {
   assessmentId: string
@@ -22,9 +24,14 @@ export function AssessmentDetailView({ assessmentId, onBack }: AssessmentDetailV
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const { toast } = useToast()
+  const [candidates, setCandidates] = useState<any[]>([])
+  const [allParticipants, setAllParticipants] = useState<any[]>([])
+  const [addDialogOpen, setAddDialogOpen] = useState(false)
+  const [selectedToAdd, setSelectedToAdd] = useState<string[]>([])
 
   useEffect(() => {
     loadAssessment()
+    loadCandidates()
   }, [assessmentId])
 
   const loadAssessment = async () => {
@@ -33,6 +40,7 @@ export function AssessmentDetailView({ assessmentId, onBack }: AssessmentDetailV
     try {
       const data = await assessmentsApi.getById(assessmentId)
       setAssessment(data)
+      setCandidates(data.candidates || [])
     } catch (err: any) {
       setError(err.message)
       toast({
@@ -43,6 +51,30 @@ export function AssessmentDetailView({ assessmentId, onBack }: AssessmentDetailV
     } finally {
       setLoading(false)
     }
+  }
+
+  const loadCandidates = async () => {
+    try {
+      const res = await getAllParticipants()
+      setAllParticipants(res.participants || [])
+    } catch (err) {
+      // ignore for now
+    }
+  }
+
+  const unassignedCandidates = allParticipants.filter(
+    (p) => !candidates.some((c) => c.email === p.email)
+  )
+
+  const handleAddCandidates = async () => {
+    for (const id of selectedToAdd) {
+      await assignCandidateToAssessment(id, assessmentId)
+    }
+    setAddDialogOpen(false)
+    setSelectedToAdd([])
+    await loadAssessment()
+    await loadCandidates()
+    toast({ title: "Candidates added" })
   }
 
   if (loading) {
@@ -78,31 +110,7 @@ export function AssessmentDetailView({ assessmentId, onBack }: AssessmentDetailV
     )
   }
 
-  // Mock data for candidates since it's not in the API response yet
-  const mockCandidates = [
-    {
-      id: "1",
-      name: "John Doe",
-      email: "john@example.com",
-      status: "completed",
-      score: 85,
-      timeSpent: 45,
-      submittedAt: "2024-01-15 10:30",
-      avatar: null,
-    },
-    {
-      id: "2",
-      name: "Jane Smith",
-      email: "jane@example.com",
-      status: "in-progress",
-      score: 0,
-      timeSpent: 20,
-      submittedAt: null,
-      avatar: null,
-    },
-  ]
-
-  const completedCandidates = mockCandidates.filter((c) => c.status === "completed")
+  const completedCandidates = candidates.filter((c) => c.status === "completed")
   const avgScore =
     completedCandidates.length > 0
       ? Math.round(completedCandidates.reduce((sum, c) => sum + c.score, 0) / completedCandidates.length)
@@ -152,7 +160,7 @@ export function AssessmentDetailView({ assessmentId, onBack }: AssessmentDetailV
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-foreground">{mockCandidates.length}</div>
+            <div className="text-2xl font-bold text-foreground">{candidates.length}</div>
           </CardContent>
         </Card>
         <Card className="card-gradient rounded-3xl border-border/40 shadow-xl">
@@ -186,7 +194,7 @@ export function AssessmentDetailView({ assessmentId, onBack }: AssessmentDetailV
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-foreground">
-              {Math.round((completedCandidates.length / mockCandidates.length) * 100) || 0}%
+              {Math.round((completedCandidates.length / candidates.length) * 100) || 0}%
             </div>
           </CardContent>
         </Card>
@@ -251,9 +259,8 @@ export function AssessmentDetailView({ assessmentId, onBack }: AssessmentDetailV
           <Card className="card-gradient rounded-3xl border-border/40 shadow-xl">
             <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle>Candidate Results</CardTitle>
-              <Button variant="outline" className="rounded-2xl">
-                <Download className="mr-2 h-4 w-4" />
-                Export CSV
+              <Button variant="outline" className="rounded-2xl" onClick={() => setAddDialogOpen(true)}>
+                + Add Candidates
               </Button>
             </CardHeader>
             <CardContent className="p-0">
@@ -268,50 +275,106 @@ export function AssessmentDetailView({ assessmentId, onBack }: AssessmentDetailV
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {mockCandidates.map((candidate) => (
-                    <TableRow key={candidate.id} className="border-border/40">
-                      <TableCell>
-                        <div className="flex items-center gap-3">
-                          <Avatar className="h-8 w-8 rounded-2xl">
-                            <AvatarImage src={candidate.avatar || "/placeholder.svg"} />
-                            <AvatarFallback className="rounded-2xl bg-gradient-to-br from-primary to-orange-600 text-primary-foreground font-semibold">
-                              {candidate.name
-                                .split(" ")
-                                .map((n: string) => n[0])
-                                .join("")}
-                            </AvatarFallback>
-                          </Avatar>
-                          <div>
-                            <div className="font-medium text-foreground">{candidate.name}</div>
-                            <div className="text-sm text-muted-foreground">{candidate.email}</div>
-                          </div>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <Badge className={`rounded-xl border capitalize`}>{candidate.status}</Badge>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <div className="font-medium text-foreground">
-                            {candidate.status === "completed" ? `${candidate.score}%` : "-"}
-                          </div>
-                          {candidate.status === "completed" && (
-                            <Progress value={candidate.score} className="w-16 h-2" />
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="font-medium text-foreground">{candidate.timeSpent}m</div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="font-medium text-foreground">{candidate.submittedAt || "-"}</div>
+                  {candidates.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
+                        No candidates assigned yet.
                       </TableCell>
                     </TableRow>
-                  ))}
+                  ) : (
+                    candidates.map((candidate: any) => (
+                      <TableRow key={candidate.id} className="border-border/40">
+                        <TableCell>
+                          <div className="flex items-center gap-3">
+                            <Avatar className="h-8 w-8 rounded-2xl">
+                              <AvatarImage src={candidate.avatar || "/placeholder.svg"} />
+                              <AvatarFallback className="rounded-2xl bg-gradient-to-br from-primary to-orange-600 text-primary-foreground font-semibold">
+                                {candidate.name
+                                  .split(" ")
+                                  .map((n: string) => n[0])
+                                  .join("")}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div>
+                              <div className="font-medium text-foreground">{candidate.name}</div>
+                              <div className="text-sm text-muted-foreground">{candidate.email}</div>
+                            </div>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Badge className={`rounded-xl border capitalize`}>{candidate.status}</Badge>
+                        </TableCell>
+                        <TableCell>
+                          <div className="font-medium text-foreground">
+                            {candidate.score ? `${candidate.score}%` : "-"}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="font-medium text-foreground">{candidate.timeSpent || "-"}m</div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="font-medium text-foreground">{candidate.submittedAt || "-"}</div>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
                 </TableBody>
               </Table>
             </CardContent>
           </Card>
+
+          {/* Add Candidates Dialog */}
+          <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>
+            <DialogContent className="max-w-lg">
+              <DialogHeader>
+                <DialogTitle>Add Candidates to Assessment</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4 max-h-80 overflow-y-auto">
+                {unassignedCandidates.length === 0 ? (
+                  <div className="text-muted-foreground text-center">All candidates are already assigned.</div>
+                ) : (
+                  unassignedCandidates.map((p) => (
+                    <div key={p.id} className="flex items-center gap-3">
+                      <Checkbox
+                        checked={selectedToAdd.includes(p.id)}
+                        onCheckedChange={(checked) => {
+                          setSelectedToAdd((prev) =>
+                            checked ? [...prev, p.id] : prev.filter((id) => id !== p.id)
+                          )
+                        }}
+                        className="mr-2"
+                      />
+                      <Avatar className="h-7 w-7 rounded-2xl">
+                        <AvatarImage src={p.avatar || "/placeholder.svg"} />
+                        <AvatarFallback className="rounded-2xl bg-gradient-to-br from-primary to-orange-600 text-primary-foreground font-semibold">
+                          {p.name
+                            .split(" ")
+                            .map((n: string) => n[0])
+                            .join("")}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div>
+                        <div className="font-medium text-foreground">{p.name}</div>
+                        <div className="text-sm text-muted-foreground">{p.email}</div>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setAddDialogOpen(false)}>
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleAddCandidates}
+                  disabled={selectedToAdd.length === 0}
+                  className="primary-gradient"
+                >
+                  Add Selected
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </TabsContent>
 
         <TabsContent value="analytics" className="space-y-6">

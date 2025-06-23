@@ -313,4 +313,17 @@ api.interceptors.response.use(
     }
     return Promise.reject(error)
   }
-) 
+)
+
+// Fetch all org participants (candidates)
+export async function getAllParticipants() {
+  return apiRequest<any>(`/participants`)
+}
+
+// Assign a candidate to an assessment
+export async function assignCandidateToAssessment(participantId: string, assessmentId: string) {
+  return apiRequest<any>(`/participants/${participantId}/assessments`, {
+    method: 'POST',
+    body: JSON.stringify({ assessmentId }),
+  })
+} 

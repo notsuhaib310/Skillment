@@ -24,6 +24,7 @@ router.put("/:id", participantController.updateParticipant.bind(participantContr
 // Delete a participant
 router.delete("/:id", participantController.deleteParticipant.bind(participantController))
 
-// Add assessment fora participant
+// Add assessment for a participant
+router.post('/:id/assessments', participantController.addAssessment.bind(participantController))
 
 export default router 
