@@ -115,8 +115,8 @@ export function MCQQuestionBuilder({ onAddQuestion }: MCQQuestionBuilderProps) {
           <p className="text-sm text-muted-foreground">Create multiple choice questions with detailed explanations</p>
         </div>
         <Button className="rounded-2xl primary-gradient glow-primary" onClick={handleAddQuestion}>
-          <Sparkles className="mr-2 h-4 w-4" />
-          AI Generate
+          <Plus className="mr-2 h-4 w-4" />
+          Add Question
         </Button>
       </div>
 
@@ -304,6 +304,13 @@ export function MCQQuestionBuilder({ onAddQuestion }: MCQQuestionBuilderProps) {
             </CardContent>
           </Card>
         </div>
+      </div>
+
+      <div className="flex justify-end pt-4">
+        <Button className="rounded-2xl primary-gradient" onClick={handleAddQuestion}>
+          <Plus className="mr-2 h-4 w-4" />
+          Add Question
+        </Button>
       </div>
     </div>
   )

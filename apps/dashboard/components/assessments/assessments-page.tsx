@@ -54,17 +54,18 @@ export function AssessmentsPage() {
   }, [])
 
   const filteredAssessments = assessments.filter((assessment) => {
+    const tags: string[] = Array.isArray(assessment.tags) ? assessment.tags : [];
     const matchesSearch =
       assessment.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      assessment.tags.some((tag) => tag.toLowerCase().includes(searchTerm.toLowerCase()))
-    const matchesTab = activeTab === "all" || assessment.status === activeTab
-    const matchesType = typeFilter === "all" || assessment.type === typeFilter
-    return matchesSearch && matchesTab && matchesType
+      tags.some((tag: string) => tag.toLowerCase().includes(searchTerm.toLowerCase()));
+    const matchesTab = activeTab === "all" || assessment.status === activeTab;
+    const matchesType = typeFilter === "all" || assessment.type === typeFilter;
+    return matchesSearch && matchesTab && matchesType;
   })
 
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
-      setSelectedAssessments(filteredAssessments.map((a) => a.id))
+      setSelectedAssessments(filteredAssessments.map((a: { id: string }) => a.id))
     } else {
       setSelectedAssessments([])
     }
@@ -74,7 +75,7 @@ export function AssessmentsPage() {
     if (checked) {
       setSelectedAssessments([...selectedAssessments, id])
     } else {
-      setSelectedAssessments(selectedAssessments.filter((aid) => aid !== id))
+      setSelectedAssessments(selectedAssessments.filter((aid: string) => aid !== id))
     }
   }
 
@@ -141,7 +142,7 @@ export function AssessmentsPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-foreground">
-              {assessments.reduce((sum, a) => sum + a.candidates, 0)}
+              {assessments.reduce((sum, a) => sum + (typeof a.candidates === 'number' ? a.candidates : 0), 0)}
             </div>
           </CardContent>
         </Card>
@@ -233,8 +234,8 @@ export function AssessmentsPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredAssessments.map((assessment) => (
-                <TableRow key={assessment.id} className="border-border/40 hover:bg-accent/30">
+              {filteredAssessments.map((assessment, i) => (
+                <TableRow key={assessment.id || i} className="border-border/40 hover:bg-accent/30">
                   <TableCell className="pl-6">
                     <Checkbox
                       checked={selectedAssessments.includes(assessment.id)}
@@ -246,7 +247,7 @@ export function AssessmentsPage() {
                     <div className="space-y-1">
                       <div className="font-medium text-foreground">{assessment.title}</div>
                       <div className="flex flex-wrap gap-1">
-                        {assessment.tags.slice(0, 2).map((tag) => (
+                        {assessment.tags.slice(0, 2).map((tag: string) => (
                           <Badge
                             key={tag}
                             variant="secondary"

@@ -129,6 +129,7 @@ model Assessment {
   showResults       Boolean             @default(true)
   enableProctoring  Boolean             @default(false)
   randomizeQuestions Boolean            @default(false)
+  randomizeOptions   Boolean            @default(false)
   tags              String[]
   notes             String?
   participantScores ParticipantScore[]
@@ -139,6 +140,24 @@ model Assessment {
   questions         Question[]
   candidates        Candidate[]
   analytics         AssessmentAnalytics?
+  allowBackNavigation   Boolean   @default(true)
+  timeWarnings         Boolean   @default(true)
+  autoSubmit           Boolean   @default(true)
+  warningTimes         String?   // e.g. "30,15,5"
+  webcamMonitoring     Boolean   @default(false)
+  screenRecording      Boolean   @default(false)
+  tabSwitchDetection   Boolean   @default(false)
+  copyPasteDetection   Boolean   @default(false)
+  rightClickDisable    Boolean   @default(false)
+  fullscreenMode       Boolean   @default(false)
+  idVerification       Boolean   @default(false)
+  environmentCheck     Boolean   @default(false)
+  suspiciousActivityThreshold Int?
+  warningBeforeFlagging Boolean  @default(true)
+  videoQuality         String?
+  recordingFrequency   String?
+  dataRetention        String?
+  autoDeleteAfter      String?
 }
 
 model Question {

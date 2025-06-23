@@ -17,6 +17,25 @@ export interface CreateAssessmentInput {
   showResults?: boolean;
   enableProctoring?: boolean;
   randomizeQuestions?: boolean;
+  randomizeOptions?: boolean;
+  allowBackNavigation?: boolean;
+  timeWarnings?: boolean;
+  autoSubmit?: boolean;
+  warningTimes?: string;
+  webcamMonitoring?: boolean;
+  screenRecording?: boolean;
+  tabSwitchDetection?: boolean;
+  copyPasteDetection?: boolean;
+  rightClickDisable?: boolean;
+  fullscreenMode?: boolean;
+  idVerification?: boolean;
+  environmentCheck?: boolean;
+  suspiciousActivityThreshold?: number;
+  warningBeforeFlagging?: boolean;
+  videoQuality?: string;
+  recordingFrequency?: string;
+  dataRetention?: string;
+  autoDeleteAfter?: string;
   tags?: string[];
   createdById: string;
 }
