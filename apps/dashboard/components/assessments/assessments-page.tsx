@@ -17,10 +17,10 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Checkbox } from "@/components/ui/checkbox"
-import { AssessmentDetailView } from "./assessment-detail-view"
 import { CreateAssessmentPage } from "./create-assessment-page"
 import { assessmentsApi, type Assessment } from "@/lib/api/api"
 import { useToast } from "@/hooks/use-toast"
+import { useRouter } from "next/navigation"
 
 const statusColors = {
   live: "bg-emerald-500/20 text-emerald-400 border-emerald-500/30",
@@ -40,12 +40,12 @@ export function AssessmentsPage() {
   const [activeTab, setActiveTab] = useState("all")
   const [typeFilter, setTypeFilter] = useState("all")
   const [selectedAssessments, setSelectedAssessments] = useState<string[]>([])
-  const [selectedAssessment, setSelectedAssessment] = useState<string | null>(null)
   const [showCreatePage, setShowCreatePage] = useState(false)
   const [assessments, setAssessments] = useState<Assessment[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const { toast } = useToast()
+  const router = useRouter()
 
   // Load assessments on component mount
   useEffect(() => {
@@ -164,10 +164,6 @@ export function AssessmentsPage() {
         variant: "destructive",
       })
     }
-  }
-
-  if (selectedAssessment) {
-    return <AssessmentDetailView assessmentId={selectedAssessment} onBack={() => setSelectedAssessment(null)} />
   }
 
   if (showCreatePage) {
@@ -435,7 +431,7 @@ export function AssessmentsPage() {
                         <Button
                           variant="ghost"
                           size="icon"
-                          onClick={() => setSelectedAssessment(assessment.id)}
+                          onClick={() => router.push(`/assessments/manage/${assessment.id}`)}
                           className="h-8 w-8 rounded-xl hover:bg-accent/80"
                         >
                           <Eye className="h-4 w-4" />
@@ -453,7 +449,7 @@ export function AssessmentsPage() {
                           >
                             <DropdownMenuItem
                               className="rounded-xl"
-                              onClick={() => setSelectedAssessment(assessment.id)}
+                              onClick={() => router.push(`/assessments/manage/${assessment.id}`)}
                             >
                               <Eye className="mr-2 h-4 w-4" />
                               View Details

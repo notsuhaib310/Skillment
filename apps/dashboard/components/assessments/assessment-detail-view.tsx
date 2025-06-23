@@ -109,17 +109,22 @@ export function AssessmentDetailView({ assessmentId, onBack }: AssessmentDetailV
       : 0
 
   return (
-    <div className="space-y-8">
-      {/* Header */}
-      <div className="flex items-center gap-4">
-        <Button variant="ghost" size="icon" onClick={onBack} className="rounded-xl">
-          <ArrowLeft className="h-4 w-4" />
-        </Button>
-        <div className="flex-1">
-          <h1 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-foreground to-primary bg-clip-text text-transparent">
-            {assessment.title}
-          </h1>
-          <p className="text-muted-foreground">Assessment Details & Analytics</p>
+    <div className="space-y-10">
+      {/* Sticky Header */}
+      <div className="sticky top-0 z-20 bg-background/80 backdrop-blur border-b border-border/40 py-4 mb-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4 px-2 md:px-0">
+        <div className="flex items-center gap-3">
+          <Button variant="outline" size="sm" onClick={onBack} className="rounded-xl">
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
+          <div>
+            <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-foreground flex items-center gap-2">
+              {assessment.title}
+              <Badge className="ml-2 capitalize rounded-xl border px-2 py-1 text-xs font-medium">
+                {assessment.status}
+              </Badge>
+            </h1>
+            <p className="text-muted-foreground text-sm">Assessment Details & Analytics</p>
+          </div>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" className="rounded-2xl">
@@ -150,7 +155,6 @@ export function AssessmentDetailView({ assessmentId, onBack }: AssessmentDetailV
             <div className="text-2xl font-bold text-foreground">{mockCandidates.length}</div>
           </CardContent>
         </Card>
-
         <Card className="card-gradient rounded-3xl border-border/40 shadow-xl">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
@@ -162,7 +166,6 @@ export function AssessmentDetailView({ assessmentId, onBack }: AssessmentDetailV
             <div className="text-2xl font-bold text-foreground">{avgScore}%</div>
           </CardContent>
         </Card>
-
         <Card className="card-gradient rounded-3xl border-border/40 shadow-xl">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
@@ -174,7 +177,6 @@ export function AssessmentDetailView({ assessmentId, onBack }: AssessmentDetailV
             <div className="text-2xl font-bold text-foreground">{assessment.duration}m</div>
           </CardContent>
         </Card>
-
         <Card className="card-gradient rounded-3xl border-border/40 shadow-xl">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
@@ -190,40 +192,42 @@ export function AssessmentDetailView({ assessmentId, onBack }: AssessmentDetailV
         </Card>
       </div>
 
-      {/* Assessment Info */}
+      {/* Details Section */}
       <Card className="card-gradient rounded-3xl border-border/40 shadow-xl">
         <CardHeader>
-          <CardTitle>Assessment Information</CardTitle>
+          <CardTitle>Assessment Details</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <p className="text-muted-foreground">{assessment.description}</p>
-          <div className="flex flex-wrap gap-2">
-            {assessment.tags?.map((tag: string) => (
-              <Badge key={tag} variant="secondary" className="rounded-xl bg-accent/50 text-foreground border-border/40">
-                {tag}
-              </Badge>
-            ))}
-          </div>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
-              <div className="text-sm text-muted-foreground">Created By</div>
-              <div className="font-medium text-foreground">
+              <div className="text-sm text-muted-foreground mb-1">Description</div>
+              <div className="text-foreground font-medium mb-2">{assessment.description || <span className="text-muted-foreground">No description provided.</span>}</div>
+              <div className="text-sm text-muted-foreground mb-1">Tags</div>
+              <div className="flex flex-wrap gap-2 mb-2">
+                {assessment.tags?.length ? assessment.tags.map((tag: string) => (
+                  <Badge key={tag} variant="secondary" className="rounded-xl bg-accent/50 text-foreground border-border/40">
+                    {tag}
+                  </Badge>
+                )) : <span className="text-muted-foreground">No tags</span>}
+              </div>
+              <div className="text-sm text-muted-foreground mb-1">Created By</div>
+              <div className="font-medium text-foreground mb-2">
                 {assessment.createdBy
                   ? `${assessment.createdBy.firstName} ${assessment.createdBy.lastName}`
                   : "Unknown"}
               </div>
+              <div className="text-sm text-muted-foreground mb-1">Created Date</div>
+              <div className="font-medium text-foreground mb-2">{new Date(assessment.createdAt).toLocaleDateString()}</div>
             </div>
             <div>
-              <div className="text-sm text-muted-foreground">Created Date</div>
-              <div className="font-medium text-foreground">{new Date(assessment.createdAt).toLocaleDateString()}</div>
-            </div>
-            <div>
-              <div className="text-sm text-muted-foreground">Total Questions</div>
-              <div className="font-medium text-foreground">{assessment.totalQuestions}</div>
-            </div>
-            <div>
-              <div className="text-sm text-muted-foreground">Total Marks</div>
-              <div className="font-medium text-foreground">{assessment.totalMarks}</div>
+              <div className="text-sm text-muted-foreground mb-1">Total Questions</div>
+              <div className="font-medium text-foreground mb-2">{assessment.totalQuestions}</div>
+              <div className="text-sm text-muted-foreground mb-1">Total Marks</div>
+              <div className="font-medium text-foreground mb-2">{assessment.totalMarks}</div>
+              <div className="text-sm text-muted-foreground mb-1">Duration</div>
+              <div className="font-medium text-foreground mb-2">{assessment.duration} minutes</div>
+              <div className="text-sm text-muted-foreground mb-1">Status</div>
+              <div className="font-medium text-foreground mb-2 capitalize">{assessment.status}</div>
             </div>
           </div>
         </CardContent>
