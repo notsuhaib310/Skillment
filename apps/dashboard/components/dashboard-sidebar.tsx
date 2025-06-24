@@ -14,7 +14,7 @@ import {
   SidebarHeader,
   SidebarFooter,
 } from "@/components/ui/sidebar"
-import {  useState } from "react"
+import { useState } from "react"
 
 const menuItems = [
   {
@@ -31,6 +31,16 @@ const menuItems = [
     title: "Assessments",
     icon: FileText,
     href: "/dashboard/assessments",
+    submenu: [
+      {
+        title: "Overview",
+        href: "/dashboard/assessments",
+      },
+      {
+        title: "Assessment Management",
+        href: "/dashboard/assessments/manage",
+      },
+    ],
   },
   {
     title: "Events & Interviews",
@@ -107,7 +117,7 @@ export function DashboardSidebar() {
                 <SidebarMenuItem key={item.href}>
                   <SidebarMenuButton
                     asChild
-                    isActive={pathname === item.href}
+                    isActive={pathname === item.href || pathname.startsWith(item.href + "/")}
                     className="h-12 px-4 rounded-2xl transition-all duration-200 hover:bg-accent/80 data-[active=true]:bg-primary data-[active=true]:text-primary-foreground data-[active=true]:shadow-lg data-[active=true]:glow-primary"
                   >
                     <Link href={item.href}>
@@ -115,6 +125,23 @@ export function DashboardSidebar() {
                       <span className="text-sm font-medium">{item.title}</span>
                     </Link>
                   </SidebarMenuButton>
+                  {item.submenu && (
+                    <SidebarMenu className="ml-4 mt-1">
+                      {item.submenu.map((subitem) => (
+                        <SidebarMenuItem key={subitem.href}>
+                          <SidebarMenuButton
+                            asChild
+                            isActive={pathname === subitem.href}
+                            className="h-10 px-4 rounded-2xl transition-all duration-200 hover:bg-accent/80 data-[active=true]:bg-primary/80 data-[active=true]:text-primary-foreground data-[active=true]:shadow-lg"
+                          >
+                            <Link href={subitem.href}>
+                              <span className="text-sm font-medium">{subitem.title}</span>
+                            </Link>
+                          </SidebarMenuButton>
+                        </SidebarMenuItem>
+                      ))}
+                    </SidebarMenu>
+                  )}
                 </SidebarMenuItem>
               ))}
             </SidebarMenu>
