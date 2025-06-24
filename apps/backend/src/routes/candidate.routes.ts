@@ -12,5 +12,6 @@ router.post('/:id/start', candidateController.startCandidate.bind(candidateContr
 router.post('/:id/send-email', candidateController.sendEmailToCandidate.bind(candidateController));
 // Reset password for candidate
 router.post('/:id/reset-password', candidateController.resetCandidatePassword.bind(candidateController));
+router.get('/', candidateController.getCandidates.bind(candidateController));
 
 export default router; 

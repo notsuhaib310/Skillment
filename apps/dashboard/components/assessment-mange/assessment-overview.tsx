@@ -221,7 +221,7 @@ export function AssessmentOverview({ onCreateNew }: AssessmentOverviewProps) {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-foreground">{totalCandidates}</div>
+            <div className="text-2xl font-bold text-foreground">{Number(totalCandidates) || 0}</div>
           </CardContent>
         </Card>
 
@@ -233,7 +233,7 @@ export function AssessmentOverview({ onCreateNew }: AssessmentOverviewProps) {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-red-400">{flaggedCandidates}</div>
+            <div className="text-2xl font-bold text-red-400">{Number(flaggedCandidates) || 0}</div>
           </CardContent>
         </Card>
       </div>

@@ -8,6 +8,8 @@ export const assignAssessment = async (req: Request, res: Response) => {
   try {
     const { assessmentId } = req.params;
     const { candidates } = req.body; // [{name, email, ...}]
+    const userId = req.user?.id || null;
+    const now = new Date();
     const created = [];
     for (const candidate of candidates) {
       const existing = await prisma.candidate.findFirst({
@@ -15,9 +17,25 @@ export const assignAssessment = async (req: Request, res: Response) => {
       });
       if (!existing) {
         const c = await prisma.candidate.create({
-          data: { ...candidate, assessmentId, status: 'invited' },
+          data: {
+            ...candidate,
+            assessmentId,
+            status: 'invited',
+            allottedBy: userId,
+            allottedAt: now,
+          },
         });
         created.push(c);
+      } else {
+        // Update schedule/attemptLimit if already assigned
+        await prisma.candidate.update({
+          where: { id: existing.id },
+          data: {
+            ...candidate,
+            allottedBy: userId,
+            allottedAt: now,
+          },
+        });
       }
     }
     return res.status(201).json({ created });

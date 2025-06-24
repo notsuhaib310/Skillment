@@ -194,6 +194,8 @@ model Candidate {
   answers       Json?
   createdAt     DateTime     @default(now())
   updatedAt     DateTime     @updatedAt
+  allottedBy    String?
+  allottedAt    DateTime?
   assessment    Assessment   @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
   user          User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
   

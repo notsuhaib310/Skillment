@@ -62,4 +62,20 @@ export class CandidateController {
       return res.status(500).json({ error: 'Failed to reset password' });
     }
   }
+
+  // Get all candidates for the organization or for a specific assessment
+  async getCandidates(req, res) {
+    try {
+      const { assessmentId } = req.query;
+      let candidates;
+      if (assessmentId) {
+        candidates = await prisma.candidate.findMany({ where: { assessmentId: assessmentId } });
+      } else {
+        candidates = await prisma.candidate.findMany();
+      }
+      return res.json(candidates);
+    } catch (error) {
+      return res.status(500).json({ error: 'Failed to fetch candidates' });
+    }
+  }
 } 

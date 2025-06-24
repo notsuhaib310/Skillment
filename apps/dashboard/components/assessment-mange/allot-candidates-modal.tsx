@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { X, Search, Calendar, Users, Send, CheckCircle } from "lucide-react"
+import { X, Search, Users, Send, CheckCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -47,14 +47,28 @@ export function AllotCandidatesModal({ open, onOpenChange, assessmentId }: Allot
   const [searchTerm, setSearchTerm] = useState("")
   const [batchFilter, setBatchFilter] = useState("all")
   const [selectedCandidates, setSelectedCandidates] = useState<string[]>([])
-  const [startTime, setStartTime] = useState("")
-  const [endTime, setEndTime] = useState("")
+  const [startDate, setStartDate] = useState<string>("")
+  const [startHour, setStartHour] = useState<string>("09:00")
+  const [endDate, setEndDate] = useState<string>("")
+  const [endHour, setEndHour] = useState<string>("18:00")
   const [attemptLimit, setAttemptLimit] = useState("1")
   const [step, setStep] = useState<"select" | "configure" | "success">("select")
   const [loading, setLoading] = useState(false)
   const [assessment, setAssessment] = useState<Assessment | null>(null)
   const [candidates, setCandidates] = useState<Candidate[]>([])
   const { toast } = useToast()
+
+  const getNext30Days = () => {
+    const days = [];
+    const today = new Date();
+    for (let i = 0; i < 30; i++) {
+      const d = new Date(today);
+      d.setDate(today.getDate() + i);
+      days.push(d.toISOString().split('T')[0]);
+    }
+    return days;
+  };
+  const next30Days = getNext30Days();
 
   useEffect(() => {
     if (assessmentId) {
@@ -89,20 +103,20 @@ export function AllotCandidatesModal({ open, onOpenChange, assessmentId }: Allot
   const loadCandidates = async () => {
     try {
       const token = getAuthToken();
-      const response = await fetch(`${API_URL}/candidates`, {
+      const response = await fetch(`${API_URL}/participants`, {
         credentials: "include",
         headers: {
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
       })
-      if (!response.ok) throw new Error("Failed to fetch candidates")
+      if (!response.ok) throw new Error("Failed to fetch participants")
       const data = await response.json()
-      setCandidates(data)
+      setCandidates(data.data?.participants || [])
     } catch (error) {
-      console.error("Error loading candidates:", error)
+      console.error("Error loading participants:", error)
       toast({
         title: "Error",
-        description: "Failed to load candidates",
+        description: "Failed to load participants",
         variant: "destructive",
       })
     }
@@ -147,7 +161,7 @@ export function AllotCandidatesModal({ open, onOpenChange, assessmentId }: Allot
   }
 
   const handleConfirmAllotment = async () => {
-    if (!startTime || !endTime) {
+    if (!startDate || !startHour || !endDate || !endHour) {
       toast({
         title: "Missing schedule",
         description: "Please set start and end times.",
@@ -162,13 +176,15 @@ export function AllotCandidatesModal({ open, onOpenChange, assessmentId }: Allot
     try {
       const selectedCandidateData = selectedCandidates.map(id => {
         const candidate = candidates.find(c => c.id === id)
+        const startTimeISO = new Date(`${startDate}T${startHour}:00`).toISOString();
+        const endTimeISO = new Date(`${endDate}T${endHour}:00`).toISOString();
         return {
           name: candidate?.name,
           email: candidate?.email,
           batch: candidate?.batch,
           tags: candidate?.tags,
-          startTime: new Date(startTime).toISOString(),
-          endTime: new Date(endTime).toISOString(),
+          startTime: startTimeISO,
+          endTime: endTimeISO,
           attemptLimit: parseInt(attemptLimit)
         }
       })
@@ -184,7 +200,12 @@ export function AllotCandidatesModal({ open, onOpenChange, assessmentId }: Allot
         }),
       })
 
-      if (!response.ok) throw new Error("Failed to allot candidates")
+      console.log('Allotment response:', response)
+      if (!response.ok) {
+        const errorText = await response.text()
+        console.error('Allotment error response:', errorText)
+        throw new Error("Failed to allot candidates: " + errorText)
+      }
 
       setStep("success")
       toast({
@@ -195,7 +216,7 @@ export function AllotCandidatesModal({ open, onOpenChange, assessmentId }: Allot
       console.error("Error allotting candidates:", error)
       toast({
         title: "Error",
-        description: "Failed to allot candidates to the assessment",
+        description: error instanceof Error ? error.message : "Failed to allot candidates to the assessment",
         variant: "destructive",
       })
     } finally {
@@ -241,8 +262,10 @@ export function AllotCandidatesModal({ open, onOpenChange, assessmentId }: Allot
     setSelectedCandidates([])
     setSearchTerm("")
     setBatchFilter("all")
-    setStartTime("")
-    setEndTime("")
+    setStartDate(next30Days[0])
+    setStartHour("09:00")
+    setEndDate(next30Days[0])
+    setEndHour("18:00")
     setAttemptLimit("1")
     onOpenChange(false)
   }
@@ -443,31 +466,62 @@ export function AllotCandidatesModal({ open, onOpenChange, assessmentId }: Allot
             <Card className="card-gradient rounded-2xl border-border/40">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <Calendar className="h-5 w-5" />
                   Schedule Configuration
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="startTime">Start Time</Label>
-                    <Input
-                      id="startTime"
-                      type="datetime-local"
-                      value={startTime}
-                      onChange={(e) => setStartTime(e.target.value)}
-                      className="rounded-2xl"
-                    />
+                    <Label htmlFor="startDate">Start Date</Label>
+                    <select
+                      id="startDate"
+                      value={startDate}
+                      onChange={e => setStartDate(e.target.value)}
+                      className="rounded-2xl border p-2 w-full"
+                    >
+                      {next30Days.map(date => (
+                        <option key={date} value={date}>{date}</option>
+                      ))}
+                    </select>
+                    <Label htmlFor="startHour">Start Time</Label>
+                    <select
+                      id="startHour"
+                      value={startHour}
+                      onChange={e => setStartHour(e.target.value)}
+                      className="rounded-2xl border p-2 w-full"
+                    >
+                      {Array.from({ length: 24 }, (_, h) =>
+                        ["00", "15", "30", "45"].map(m => (
+                          <option key={`${h}:${m}`} value={`${h.toString().padStart(2, "0")}:${m}`}>{`${h.toString().padStart(2, "0")}:${m}`}</option>
+                        ))
+                      )}
+                    </select>
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="endTime">End Time</Label>
-                    <Input
-                      id="endTime"
-                      type="datetime-local"
-                      value={endTime}
-                      onChange={(e) => setEndTime(e.target.value)}
-                      className="rounded-2xl"
-                    />
+                    <Label htmlFor="endDate">End Date</Label>
+                    <select
+                      id="endDate"
+                      value={endDate}
+                      onChange={e => setEndDate(e.target.value)}
+                      className="rounded-2xl border p-2 w-full"
+                    >
+                      {next30Days.map(date => (
+                        <option key={date} value={date}>{date}</option>
+                      ))}
+                    </select>
+                    <Label htmlFor="endHour">End Time</Label>
+                    <select
+                      id="endHour"
+                      value={endHour}
+                      onChange={e => setEndHour(e.target.value)}
+                      className="rounded-2xl border p-2 w-full"
+                    >
+                      {Array.from({ length: 24 }, (_, h) =>
+                        ["00", "15", "30", "45"].map(m => (
+                          <option key={`${h}:${m}`} value={`${h.toString().padStart(2, "0")}:${m}`}>{`${h.toString().padStart(2, "0")}:${m}`}</option>
+                        ))
+                      )}
+                    </select>
                   </div>
                 </div>
 
@@ -546,11 +600,11 @@ export function AllotCandidatesModal({ open, onOpenChange, assessmentId }: Allot
                 <div className="grid grid-cols-2 gap-4 text-sm">
                   <div>
                     <span className="text-muted-foreground">Start Time:</span>
-                    <div className="font-medium">{new Date(startTime).toLocaleString()}</div>
+                    <div className="font-medium">{startDate && startHour ? `${startDate} ${startHour}` : "-"}</div>
                   </div>
                   <div>
                     <span className="text-muted-foreground">End Time:</span>
-                    <div className="font-medium">{new Date(endTime).toLocaleString()}</div>
+                    <div className="font-medium">{endDate && endHour ? `${endDate} ${endHour}` : "-"}</div>
                   </div>
                   <div>
                     <span className="text-muted-foreground">Attempt Limit:</span>
