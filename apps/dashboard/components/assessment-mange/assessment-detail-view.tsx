@@ -13,6 +13,7 @@ import { useToast } from "@/hooks/use-toast"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Label } from "@/components/ui/label"
+import { getAuthToken } from "@/lib/auth"
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://api.skillment.in/api"
 
@@ -90,8 +91,12 @@ export function AssessmentDetailView({ assessmentId, onBack }: AssessmentDetailV
     setLoading(true)
     setError(null)
     try {
+      const token = getAuthToken();
       const response = await fetch(`${API_URL}/assessments/${assessmentId}`, {
         credentials: "include",
+        headers: {
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
       })
       
       if (!response.ok) {
@@ -114,9 +119,12 @@ export function AssessmentDetailView({ assessmentId, onBack }: AssessmentDetailV
 
   const loadCandidates = async () => {
     try {
-      // Fetch candidates for this assessment
+      const token = getAuthToken();
       const response = await fetch(`${API_URL}/assessments/${assessmentId}/candidates`, {
         credentials: "include",
+        headers: {
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
       })
       
       if (response.ok) {

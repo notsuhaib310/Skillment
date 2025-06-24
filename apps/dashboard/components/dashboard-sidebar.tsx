@@ -13,6 +13,8 @@ import {
   SidebarMenuItem,
   SidebarHeader,
   SidebarFooter,
+  SidebarGroupLabel,
+  SidebarSeparator,
 } from "@/components/ui/sidebar"
 import { useState } from "react"
 
@@ -28,19 +30,9 @@ const menuItems = [
     href: "/dashboard/participants",
   },
   {
-    title: "Assessments",
+    title: "Assessment Management",
     icon: FileText,
-    href: "/dashboard/assessments",
-    submenu: [
-      {
-        title: "Overview",
-        href: "/dashboard/assessments",
-      },
-      {
-        title: "Assessment Management",
-        href: "/dashboard/assessments/manage",
-      },
-    ],
+    href: "/dashboard/assessments/manage",
   },
   {
     title: "Events & Interviews",
@@ -113,36 +105,27 @@ export function DashboardSidebar() {
         <SidebarGroup>
           <SidebarGroupContent>
             <SidebarMenu>
-              {menuItems.map((item) => (
-                <SidebarMenuItem key={item.href}>
-                  <SidebarMenuButton
-                    asChild
-                    isActive={pathname === item.href || pathname.startsWith(item.href + "/")}
-                    className="h-12 px-4 rounded-2xl transition-all duration-200 hover:bg-accent/80 data-[active=true]:bg-primary data-[active=true]:text-primary-foreground data-[active=true]:shadow-lg data-[active=true]:glow-primary"
-                  >
-                    <Link href={item.href}>
-                      <item.icon className="h-5 w-5" />
-                      <span className="text-sm font-medium">{item.title}</span>
-                    </Link>
-                  </SidebarMenuButton>
-                  {item.submenu && (
-                    <SidebarMenu className="ml-4 mt-1">
-                      {item.submenu.map((subitem) => (
-                        <SidebarMenuItem key={subitem.href}>
-                          <SidebarMenuButton
-                            asChild
-                            isActive={pathname === subitem.href}
-                            className="h-10 px-4 rounded-2xl transition-all duration-200 hover:bg-accent/80 data-[active=true]:bg-primary/80 data-[active=true]:text-primary-foreground data-[active=true]:shadow-lg"
-                          >
-                            <Link href={subitem.href}>
-                              <span className="text-sm font-medium">{subitem.title}</span>
-                            </Link>
-                          </SidebarMenuButton>
-                        </SidebarMenuItem>
-                      ))}
-                    </SidebarMenu>
+              {menuItems.map((item, idx) => (
+                <>
+                  {idx === 2 && (
+                    <SidebarGroupLabel className="mt-2 mb-1 text-xs font-semibold text-muted-foreground uppercase tracking-widest">
+                      Assessments
+                    </SidebarGroupLabel>
                   )}
-                </SidebarMenuItem>
+                  <SidebarMenuItem key={item.href}>
+                    <SidebarMenuButton
+                      asChild
+                      isActive={pathname === item.href || pathname.startsWith(item.href + "/")}
+                      className="h-12 px-4 rounded-2xl transition-all duration-200 hover:bg-accent/80 data-[active=true]:bg-primary data-[active=true]:text-primary-foreground data-[active=true]:shadow-lg data-[active=true]:glow-primary"
+                    >
+                      <Link href={item.href}>
+                        <item.icon className="h-5 w-5" />
+                        <span className="text-sm font-medium">{item.title}</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                  {(idx === 2 || idx === 7) && <SidebarSeparator />}
+                </>
               ))}
             </SidebarMenu>
           </SidebarGroupContent>

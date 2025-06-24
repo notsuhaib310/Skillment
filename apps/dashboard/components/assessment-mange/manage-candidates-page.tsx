@@ -34,6 +34,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Progress } from "@/components/ui/progress"
 import { useToast } from "@/hooks/use-toast"
 import { getAuthToken } from "@/lib/auth"
+import { CreateAssessmentPage } from "./create-assessment-page"
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://api.skillment.in/api"
 
@@ -110,6 +111,7 @@ export function ManageCandidatesPage({ assessmentId, onBack }: ManageCandidatesP
   const [assessment, setAssessment] = useState<Assessment | null>(null)
   const [candidates, setCandidates] = useState<Candidate[]>([])
   const [liveActivities, setLiveActivities] = useState<LiveActivity[]>([])
+  const [showCreate, setShowCreate] = useState(false)
 
   useEffect(() => {
     loadData()
@@ -278,6 +280,10 @@ export function ManageCandidatesPage({ assessmentId, onBack }: ManageCandidatesP
     }
   }
 
+  if (showCreate) {
+    return <CreateAssessmentPage onBack={() => setShowCreate(false)} />
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
@@ -325,9 +331,9 @@ export function ManageCandidatesPage({ assessmentId, onBack }: ManageCandidatesP
           <p className="text-muted-foreground">{assessment.title}</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" className="rounded-2xl">
+          <Button onClick={() => setShowCreate(true)} className="rounded-2xl primary-gradient glow-primary">
             <Plus className="mr-2 h-4 w-4" />
-            Add Candidates
+            Create Assessment
           </Button>
           <Button className="rounded-2xl primary-gradient glow-primary">
             <Activity className="mr-2 h-4 w-4" />

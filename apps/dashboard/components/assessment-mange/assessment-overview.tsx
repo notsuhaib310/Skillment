@@ -27,6 +27,7 @@ import { ManageCandidatesPage } from "./manage-candidates-page"
 import { ResultsPage } from "./results-page"
 import { AssessmentDetailView } from "./assessment-detail-view"
 import { getAuthToken } from "@/lib/auth"
+import { CreateAssessmentPage } from "../assessments/create-assessment-page"
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://api.skillment.in/api"
 
@@ -72,6 +73,7 @@ export function AssessmentOverview({ onCreateNew }: AssessmentOverviewProps) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [allotModalOpen, setAllotModalOpen] = useState(false)
+  const [showCreate, setShowCreate] = useState(false)
 
   useEffect(() => {
     const fetchAssessments = async () => {
@@ -133,6 +135,30 @@ export function AssessmentOverview({ onCreateNew }: AssessmentOverviewProps) {
     setCurrentView("details")
   }
 
+  const reloadAssessments = async () => {
+    setLoading(true)
+    setError(null)
+    try {
+      const token = getAuthToken();
+      const response = await fetch(`${API_URL}/assessments`, {
+        credentials: "include",
+        headers: {
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+      })
+      if (!response.ok) {
+        throw new Error("Failed to fetch assessments")
+      }
+      const data = await response.json()
+      setAssessments(Array.isArray(data) ? data : data.data)
+      setError(null)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to fetch assessments")
+    } finally {
+      setLoading(false)
+    }
+  }
+
   if (currentView === "manage" && selectedAssessment) {
     return <ManageCandidatesPage assessmentId={selectedAssessment} onBack={handleBackToOverview} />
   }
@@ -143,6 +169,10 @@ export function AssessmentOverview({ onCreateNew }: AssessmentOverviewProps) {
 
   if (currentView === "details" && selectedAssessment) {
     return <AssessmentDetailView assessmentId={selectedAssessment} onBack={handleBackToOverview} />
+  }
+
+  if (showCreate) {
+    return <CreateAssessmentPage onBack={() => { setShowCreate(false); reloadAssessments(); }} />
   }
 
   // Calculate summary stats
@@ -181,7 +211,7 @@ export function AssessmentOverview({ onCreateNew }: AssessmentOverviewProps) {
           </h1>
           <p className="text-muted-foreground">Manage assessments, allot candidates, and monitor progress</p>
         </div>
-        <Button onClick={onCreateNew} className="rounded-2xl primary-gradient glow-primary">
+        <Button onClick={() => setShowCreate(true)} className="rounded-2xl primary-gradient glow-primary">
           <Plus className="mr-2 h-4 w-4" />
           Create Assessment
         </Button>
@@ -346,12 +376,12 @@ export function AssessmentOverview({ onCreateNew }: AssessmentOverviewProps) {
                       </div>
                     </TableCell>
                     <TableCell>
-                      <Badge className={`rounded-xl border ${typeColors[assessment.type]} capitalize`}>
+                      <Badge className={`rounded-xl border ${typeColors[assessment.type as keyof typeof typeColors]} capitalize`}>
                         {assessment.type}
                       </Badge>
                     </TableCell>
                     <TableCell>
-                      <Badge className={`rounded-xl border ${statusColors[assessment.status]} capitalize`}>
+                      <Badge className={`rounded-xl border ${statusColors[assessment.status as keyof typeof statusColors]} capitalize`}>
                         {assessment.status}
                       </Badge>
                     </TableCell>

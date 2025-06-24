@@ -34,6 +34,7 @@ import {
   Pie,
 } from "recharts"
 import { useToast } from "@/hooks/use-toast"
+import { getAuthToken } from "@/lib/auth"
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://api.skillment.in/api"
 
@@ -93,9 +94,13 @@ export function ResultsPage({ assessmentId, onBack }: ResultsPageProps) {
     setError(null)
     
     try {
+      const token = getAuthToken();
       // Load assessment details
       const assessmentResponse = await fetch(`${API_URL}/assessments/${assessmentId}`, {
         credentials: "include",
+        headers: {
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
       })
       
       if (assessmentResponse.ok) {
@@ -106,6 +111,9 @@ export function ResultsPage({ assessmentId, onBack }: ResultsPageProps) {
       // Load candidates
       const candidatesResponse = await fetch(`${API_URL}/assessments/${assessmentId}/candidates`, {
         credentials: "include",
+        headers: {
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
       })
       
       if (candidatesResponse.ok) {
