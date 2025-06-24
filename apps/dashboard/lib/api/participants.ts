@@ -18,6 +18,7 @@ export interface Participant {
     details?: string
     createdAt: string
   }>
+  assessmentHistory?: Array<any>
 }
 
 export interface ParticipantsResponse {
@@ -56,8 +57,16 @@ export const participantsApi = {
 
   // Get a single participant
   getParticipant: async (id: string): Promise<ParticipantResponse> => {
-    const response = await api.get(`/participants/${id}`)
-    return response.data
+    try {
+      const response = await api.get(`/participants/${id}`)
+      return response.data
+    } catch (error: any) {
+      if (error?.response?.status === 401) {
+        // Throw a custom error for UI to handle
+        throw new Error('AUTH_ERROR')
+      }
+      throw error
+    }
   },
 
   // Create a new participant

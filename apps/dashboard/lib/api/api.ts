@@ -297,12 +297,16 @@ export const api = axios.create({
 
 // Add request interceptor for authentication
 api.interceptors.request.use((config: InternalAxiosRequestConfig) => {
-  // Get token from localStorage if available
-  const token = localStorage.getItem("auth_token")
-  if (token && config.headers) {
-    config.headers.Authorization = `Bearer ${token}`
+  // Get token from localStorage or cookies (robust)
+  let token = localStorage.getItem("auth_token") || localStorage.getItem("token");
+  if (!token) {
+    const match = document.cookie.match(/(?:^|; )token=([^;]*)/);
+    token = match ? decodeURIComponent(match[1]) : null;
   }
-  return config
+  if (token && config.headers) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
 })
 
 // Add response interceptor for error handling
@@ -312,7 +316,13 @@ api.interceptors.response.use(
     // Handle 401 Unauthorized errors
     if (error.response?.status === 401) {
       // Only redirect to login if we're not already on the login page
-      if (typeof window !== "undefined" && !window.location.pathname.includes("/auth/login")) {
+      // BUT: Do NOT redirect for /participants/* endpoints, let the UI handle it
+      const url = error.config?.url || '';
+      if (
+        typeof window !== "undefined" &&
+        !window.location.pathname.includes("/auth/login") &&
+        !url.includes('/participants')
+      ) {
         // Clear token
         localStorage.removeItem("auth_token")
         // Redirect to login

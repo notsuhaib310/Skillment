@@ -71,12 +71,15 @@ export function ParticipantProfile({ participantId, onClose }: ParticipantProfil
         } else {
           setError("Failed to fetch participant data")
         }
-      } catch (err) {
-        console.error("Error fetching participant:", err)
-        setError("Failed to load participant data. Please try again.")
+      } catch (err: any) {
+        if (err.message === 'AUTH_ERROR') {
+          setError("You do not have permission to view this participant or your session has expired. Please refresh or contact your admin.")
+        } else {
+          setError("Failed to load participant data. Please try again.")
+        }
         toast({
           title: "Error",
-          description: "Failed to load participant data",
+          description: err.message === 'AUTH_ERROR' ? "You do not have permission to view this participant or your session has expired." : "Failed to load participant data",
           variant: "destructive",
         })
       } finally {
@@ -136,9 +139,20 @@ export function ParticipantProfile({ participantId, onClose }: ParticipantProfil
           </div>
         ) : participant ? (
           <div>
-            {/* Participant content */}
+            {(!participant.assessmentHistory?.length && !participant.activityLogs?.length) ? (
+              <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+                <p className="text-lg font-medium mb-2">No additional data or activity available for this participant.</p>
+              </div>
+            ) : (
+              // ...render the actual participant details here...
+              <></>
+            )}
           </div>
-        ) : null}
+        ) : (
+          <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+            <p className="text-lg font-medium mb-2">Participant data not available for now.</p>
+          </div>
+        )}
       </DialogContent>
     </Dialog>
   )

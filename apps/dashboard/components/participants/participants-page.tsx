@@ -48,7 +48,7 @@ import {
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Label } from "@/components/ui/label"
 import { Checkbox } from "@/components/ui/checkbox"
-import { AddParticipantModal } from "./add-participant-modal"
+import Link from "next/link"
 import { ParticipantProfile } from "./participant-profile"
 
 // Import the participants API service
@@ -99,7 +99,6 @@ export function ParticipantsPage() {
   const [assessmentFilter, setAssessmentFilter] = useState("all")
   const [batchFilter, setBatchFilter] = useState("all")
   const [selectedParticipants, setSelectedParticipants] = useState<string[]>([])
-  const [showAddModal, setShowAddModal] = useState(false)
   const [selectedParticipant, setSelectedParticipant] = useState<string | null>(null)
   const [showBulkActions, setShowBulkActions] = useState(false)
   const [participants, setParticipants] = useState<Participant[]>([])
@@ -291,13 +290,11 @@ export function ParticipantsPage() {
             </DropdownMenu>
           )}
 
-          <Button
-            onClick={() => setShowAddModal(true)}
-            className="rounded-3xl primary-gradient glow-primary btn-professional"
-          >
-            <Plus className="mr-2 h-4 w-4" />
-            Add Participant
-          </Button>
+          <Link href="/participants/add">
+            <Button variant="default" className="rounded-2xl">
+              Add New Participant
+            </Button>
+          </Link>
         </div>
       </div>
 
@@ -693,9 +690,6 @@ export function ParticipantsPage() {
           </Table>
         </CardContent>
       </Card>
-
-      {/* Add Participant Modal */}
-      <AddParticipantModal open={showAddModal} onOpenChange={setShowAddModal} onParticipantAdded={fetchParticipants} />
 
       {/* Participant Profile */}
       {selectedParticipant && (
