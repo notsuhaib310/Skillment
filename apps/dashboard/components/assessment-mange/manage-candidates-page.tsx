@@ -191,7 +191,7 @@ export function ManageCandidatesPage({ assessmentId, onBack }: ManageCandidatesP
   const started = candidates.filter((c) => c.status !== "not-started").length
   const submitted = candidates.filter((c) => c.status === "submitted" || c.status === "completed").length
   const flagged = candidates.filter((c) => 
-    c.flags.tabSwitches > 0 || c.flags.suspiciousActivity > 0 || c.flags.timeViolations > 0
+    c.flags?.tabSwitches > 0 || c.flags?.suspiciousActivity > 0 || c.flags?.timeViolations > 0
   ).length
   const avgScore =
     submitted > 0
@@ -501,21 +501,24 @@ export function ManageCandidatesPage({ assessmentId, onBack }: ManageCandidatesP
                         </TableCell>
                         <TableCell>
                           <div className="space-y-1">
-                            {candidate.flags.tabSwitches > 0 && (
+                            {candidate.flags?.tabSwitches > 0 && (
                               <div className="text-xs text-amber-400">{candidate.flags.tabSwitches} tab switches</div>
                             )}
-                            {candidate.flags.suspiciousActivity > 0 && (
+                            {candidate.flags?.suspiciousActivity > 0 && (
                               <div className="text-xs text-red-400">
                                 {candidate.flags.suspiciousActivity} suspicious
                               </div>
                             )}
-                            {candidate.flags.timeViolations > 0 && (
+                            {candidate.flags?.timeViolations > 0 && (
                               <div className="text-xs text-orange-400">
                                 {candidate.flags.timeViolations} time violations
                               </div>
                             )}
-                            {Object.values(candidate.flags).every((v) => v === 0) && (
+                            {candidate.flags && Object.values(candidate.flags).every((v) => v === 0) && (
                               <div className="text-xs text-emerald-400">Clean</div>
+                            )}
+                            {!candidate.flags && (
+                              <div className="text-xs text-muted-foreground">No data</div>
                             )}
                           </div>
                         </TableCell>

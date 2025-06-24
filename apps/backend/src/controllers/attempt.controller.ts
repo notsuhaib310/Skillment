@@ -15,6 +15,7 @@ export const assignAssessment = async (req: Request, res: Response) => {
       const existing = await prisma.candidate.findFirst({
         where: { email: candidate.email, assessmentId },
       });
+      // Only include allowed fields for Candidate model
       const candidateData = {
         name: candidate.name,
         email: candidate.email,
