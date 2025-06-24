@@ -17,6 +17,7 @@ import {
   SidebarSeparator,
 } from "@/components/ui/sidebar"
 import { useState } from "react"
+import React from "react"
 
 const menuItems = [
   {
@@ -32,7 +33,7 @@ const menuItems = [
   {
     title: "Assessment Management",
     icon: FileText,
-    href: "/dashboard/assessments/manage",
+    href: "/dashboard/assessment-manage",
   },
   {
     title: "Events & Interviews",
@@ -106,7 +107,7 @@ export function DashboardSidebar() {
           <SidebarGroupContent>
             <SidebarMenu>
               {menuItems.map((item, idx) => (
-                <>
+                <React.Fragment key={item.href}>
                   {idx === 2 && (
                     <SidebarGroupLabel className="mt-2 mb-1 text-xs font-semibold text-muted-foreground uppercase tracking-widest">
                       Assessments
@@ -125,7 +126,7 @@ export function DashboardSidebar() {
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                   {(idx === 2 || idx === 7) && <SidebarSeparator />}
-                </>
+                </React.Fragment>
               ))}
             </SidebarMenu>
           </SidebarGroupContent>

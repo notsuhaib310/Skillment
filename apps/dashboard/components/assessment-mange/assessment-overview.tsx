@@ -28,6 +28,7 @@ import { ResultsPage } from "./results-page"
 import { AssessmentDetailView } from "./assessment-detail-view"
 import { getAuthToken } from "@/lib/auth"
 import { CreateAssessmentPage } from "../assessments/create-assessment-page"
+import { useRouter } from "next/navigation"
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://api.skillment.in/api"
 
@@ -63,6 +64,7 @@ interface AssessmentOverviewProps {
 }
 
 export function AssessmentOverview({ onCreateNew }: AssessmentOverviewProps) {
+  const router = useRouter()
   const [searchTerm, setSearchTerm] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
   const [typeFilter, setTypeFilter] = useState("all")
@@ -116,23 +118,15 @@ export function AssessmentOverview({ onCreateNew }: AssessmentOverviewProps) {
   }
 
   const handleManageCandidates = (assessmentId: string) => {
-    setSelectedAssessment(assessmentId)
-    setCurrentView("manage")
+    router.push(`/dashboard/assessment-manage/manage/${assessmentId}`)
   }
 
   const handleViewResults = (assessmentId: string) => {
-    setSelectedAssessment(assessmentId)
-    setCurrentView("results")
-  }
-
-  const handleBackToOverview = () => {
-    setCurrentView("overview")
-    setSelectedAssessment(null)
+    router.push(`/dashboard/assessment-manage/results/${assessmentId}`)
   }
 
   const handleViewDetails = (assessmentId: string) => {
-    setSelectedAssessment(assessmentId)
-    setCurrentView("details")
+    router.push(`/dashboard/assessment-manage/detail/${assessmentId}`)
   }
 
   const reloadAssessments = async () => {
@@ -157,18 +151,6 @@ export function AssessmentOverview({ onCreateNew }: AssessmentOverviewProps) {
     } finally {
       setLoading(false)
     }
-  }
-
-  if (currentView === "manage" && selectedAssessment) {
-    return <ManageCandidatesPage assessmentId={selectedAssessment} onBack={handleBackToOverview} />
-  }
-
-  if (currentView === "results" && selectedAssessment) {
-    return <ResultsPage assessmentId={selectedAssessment} onBack={handleBackToOverview} />
-  }
-
-  if (currentView === "details" && selectedAssessment) {
-    return <AssessmentDetailView assessmentId={selectedAssessment} onBack={handleBackToOverview} />
   }
 
   if (showCreate) {
