@@ -41,7 +41,10 @@ export const assignAssessment = async (req: Request, res: Response) => {
     return res.status(201).json({ created });
   } catch (error) {
     console.error('Error assigning assessment:', error);
-    return res.status(500).json({ error: 'Failed to assign assessment' });
+    console.error('AssessmentId:', req.params.assessmentId);
+    console.error('Candidates:', req.body.candidates);
+    if (error && error.stack) console.error(error.stack);
+    return res.status(500).json({ error: 'Failed to assign assessment', details: error?.message });
   }
 };
 

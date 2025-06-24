@@ -8,6 +8,7 @@ import {
   getAssessmentStats,
 } from '../controllers/assessment.controller';
 import { authenticate } from '../middleware/authenticate';
+import { CandidateController } from '../controllers/candidate.controller';
 
 const router = Router();
 
@@ -25,6 +26,11 @@ router.get('/stats', getAssessmentStats);
 
 // Get a single assessment by ID
 router.get('/:id', getAssessmentById);
+
+const candidateController = new CandidateController();
+
+// Get candidates for a specific assessment
+router.get('/:id/candidates', candidateController.getCandidates.bind(candidateController));
 
 // Update an assessment
 router.put('/:id', updateAssessment);

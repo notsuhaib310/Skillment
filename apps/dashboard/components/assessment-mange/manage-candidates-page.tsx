@@ -33,6 +33,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Progress } from "@/components/ui/progress"
 import { useToast } from "@/hooks/use-toast"
+import { getAuthToken } from "@/lib/auth"
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://api.skillment.in/api"
 
@@ -119,9 +120,14 @@ export function ManageCandidatesPage({ assessmentId, onBack }: ManageCandidatesP
     setError(null)
     
     try {
+      const token = getAuthToken()
+
       // Load assessment details
       const assessmentResponse = await fetch(`${API_URL}/assessments/${assessmentId}`, {
         credentials: "include",
+        headers: {
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
       })
       
       if (assessmentResponse.ok) {
@@ -132,6 +138,9 @@ export function ManageCandidatesPage({ assessmentId, onBack }: ManageCandidatesP
       // Load candidates
       const candidatesResponse = await fetch(`${API_URL}/assessments/${assessmentId}/candidates`, {
         credentials: "include",
+        headers: {
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
       })
       
       if (candidatesResponse.ok) {
@@ -143,6 +152,9 @@ export function ManageCandidatesPage({ assessmentId, onBack }: ManageCandidatesP
       try {
         const activitiesResponse = await fetch(`${API_URL}/assessments/${assessmentId}/activities`, {
           credentials: "include",
+          headers: {
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
         })
         
         if (activitiesResponse.ok) {

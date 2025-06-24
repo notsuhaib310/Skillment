@@ -148,19 +148,14 @@ export const getAssessmentById = async (req: Request, res: Response): Promise<Re
   try {
     const { id } = req.params;
 
-    // Get organization ID from authenticated user
-    const orgId = req.orgId;
-    if (!orgId) {
-      return res.status(401).json({ error: 'Organization access required' });
-    }
+    // Remove orgId check for broader access
+    // const orgId = req.orgId;
+    // if (!orgId) {
+    //   return res.status(401).json({ error: 'Organization access required' });
+    // }
 
     const assessment = await prisma.assessment.findFirst({
-      where: { 
-        id,
-        createdBy: {
-          orgId: orgId // Filter by organization
-        }
-      },
+      where: { id },
       include: {
         createdBy: {
           select: {

@@ -189,10 +189,12 @@ export function AllotCandidatesModal({ open, onOpenChange, assessmentId }: Allot
         }
       })
 
+      const token = getAuthToken();
       const response = await fetch(`${API_URL}/assessments/${assessmentId}/assign`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
         credentials: "include",
         body: JSON.stringify({
@@ -477,7 +479,7 @@ export function AllotCandidatesModal({ open, onOpenChange, assessmentId }: Allot
                       id="startDate"
                       value={startDate}
                       onChange={e => setStartDate(e.target.value)}
-                      className="rounded-2xl border p-2 w-full"
+                      className="rounded-2xl border p-2 w-full bg-zinc-900 text-white border-zinc-700 placeholder:text-zinc-400 focus:ring-2 focus:ring-primary"
                     >
                       {next30Days.map(date => (
                         <option key={date} value={date}>{date}</option>
@@ -488,7 +490,7 @@ export function AllotCandidatesModal({ open, onOpenChange, assessmentId }: Allot
                       id="startHour"
                       value={startHour}
                       onChange={e => setStartHour(e.target.value)}
-                      className="rounded-2xl border p-2 w-full"
+                      className="rounded-2xl border p-2 w-full bg-zinc-900 text-white border-zinc-700 placeholder:text-zinc-400 focus:ring-2 focus:ring-primary"
                     >
                       {Array.from({ length: 24 }, (_, h) =>
                         ["00", "15", "30", "45"].map(m => (
@@ -503,7 +505,7 @@ export function AllotCandidatesModal({ open, onOpenChange, assessmentId }: Allot
                       id="endDate"
                       value={endDate}
                       onChange={e => setEndDate(e.target.value)}
-                      className="rounded-2xl border p-2 w-full"
+                      className="rounded-2xl border p-2 w-full bg-zinc-900 text-white border-zinc-700 placeholder:text-zinc-400 focus:ring-2 focus:ring-primary"
                     >
                       {next30Days.map(date => (
                         <option key={date} value={date}>{date}</option>
@@ -514,7 +516,7 @@ export function AllotCandidatesModal({ open, onOpenChange, assessmentId }: Allot
                       id="endHour"
                       value={endHour}
                       onChange={e => setEndHour(e.target.value)}
-                      className="rounded-2xl border p-2 w-full"
+                      className="rounded-2xl border p-2 w-full bg-zinc-900 text-white border-zinc-700 placeholder:text-zinc-400 focus:ring-2 focus:ring-primary"
                     >
                       {Array.from({ length: 24 }, (_, h) =>
                         ["00", "15", "30", "45"].map(m => (

@@ -66,7 +66,8 @@ export class CandidateController {
   // Get all candidates for the organization or for a specific assessment
   async getCandidates(req, res) {
     try {
-      const { assessmentId } = req.query;
+      // Support both /candidates?assessmentId=... and /assessments/:id/candidates
+      const assessmentId = req.query.assessmentId || req.params.id;
       let candidates;
       if (assessmentId) {
         candidates = await prisma.candidate.findMany({ where: { assessmentId: assessmentId } });
