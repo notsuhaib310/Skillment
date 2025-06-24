@@ -57,6 +57,9 @@ interface Assessment {
   averageScore: number
   tags: string[]
   candidatesFlagged: number
+  _count?: {
+    candidates?: number
+  }
 }
 
 interface AssessmentOverviewProps {
@@ -160,8 +163,8 @@ export function AssessmentOverview({ onCreateNew }: AssessmentOverviewProps) {
   // Calculate summary stats
   const totalAssessments = assessments.length
   const ongoingAssessments = assessments.filter((a) => a.status === "ongoing").length
-  const totalCandidates = assessments.reduce((sum, a) => sum + a.totalCandidates, 0)
-  const flaggedCandidates = assessments.reduce((sum, a) => sum + a.candidatesFlagged, 0)
+  const totalCandidates = assessments.reduce((sum, a) => sum + (a._count?.candidates || 0), 0)
+  const flaggedCandidates = 0
 
   if (loading) {
     return (

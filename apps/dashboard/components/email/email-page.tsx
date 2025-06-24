@@ -75,7 +75,7 @@ const sentEmails = [
 const drafts = [
   {
     id: 1,
-    subject: "Welcome to TalentHub Platform",
+    subject: "Welcome to Skillment Platform",
     type: "welcome",
     lastModified: "2024-01-25 12:00",
     template: "Welcome Email",
