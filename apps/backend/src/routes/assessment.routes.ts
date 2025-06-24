@@ -6,6 +6,7 @@ import {
   updateAssessment,
   deleteAssessment,
   getAssessmentStats,
+  getCandidateCredentialsStatus,
 } from '../controllers/assessment.controller';
 import { authenticate } from '../middleware/authenticate';
 import { CandidateController } from '../controllers/candidate.controller';
@@ -31,6 +32,9 @@ const candidateController = new CandidateController();
 
 // Get candidates for a specific assessment
 router.get('/:id/candidates', candidateController.getCandidates.bind(candidateController));
+
+// Get candidate credentials status for a specific assessment
+router.get('/:id/candidates/credentials', getCandidateCredentialsStatus);
 
 // Update an assessment
 router.put('/:id', updateAssessment);

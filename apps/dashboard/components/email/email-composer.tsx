@@ -81,9 +81,11 @@ const variables = [
 interface EmailComposerProps {
   open: boolean
   onOpenChange: (open: boolean) => void
+  onSend?: (data: any) => Promise<void>
+  onSaveDraft?: (data: any) => Promise<void>
 }
 
-export function EmailComposer({ open, onOpenChange }: EmailComposerProps) {
+export function EmailComposer({ open, onOpenChange, onSend, onSaveDraft }: EmailComposerProps) {
   const [formData, setFormData] = useState({
     to: [] as any[],
     subject: "",
@@ -96,9 +98,21 @@ export function EmailComposer({ open, onOpenChange }: EmailComposerProps) {
   const [previewMode, setPreviewMode] = useState(false)
 
   const handleSubmit = () => {
-    console.log("Sending email:", formData)
+    if (onSend) onSend(formData)
     onOpenChange(false)
-    // Reset form
+    setFormData({
+      to: [],
+      subject: "",
+      content: "",
+      template: "",
+      scheduleFor: "",
+      sendReminders: true,
+    })
+  }
+
+  const handleSaveDraft = () => {
+    if (onSaveDraft) onSaveDraft(formData)
+    onOpenChange(false)
     setFormData({
       to: [],
       subject: "",
@@ -110,14 +124,14 @@ export function EmailComposer({ open, onOpenChange }: EmailComposerProps) {
   }
 
   const addRecipient = (recipient: any) => {
-    if (!formData.to.find((r) => r.id === recipient.id)) {
+    if (!formData.to.find((r: any) => r.id === recipient.id)) {
       setFormData({ ...formData, to: [...formData.to, recipient] })
     }
     setShowRecipientSelector(false)
   }
 
   const removeRecipient = (id: number) => {
-    setFormData({ ...formData, to: formData.to.filter((r) => r.id !== id) })
+    setFormData({ ...formData, to: formData.to.filter((r: any) => r.id !== id) })
   }
 
   const insertVariable = (variable: string) => {
@@ -364,7 +378,7 @@ export function EmailComposer({ open, onOpenChange }: EmailComposerProps) {
 
         {/* Footer */}
         <div className="flex gap-3 pt-6 border-t border-border/40">
-          <Button variant="outline" onClick={() => onOpenChange(false)} className="rounded-2xl">
+          <Button variant="outline" onClick={handleSaveDraft} className="rounded-2xl">
             <Save className="mr-2 h-4 w-4" />
             Save Draft
           </Button>

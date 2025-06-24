@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
+import { emailService } from '../services/email.service';
 
 const prisma = new PrismaClient();
 
@@ -24,11 +25,23 @@ export const assignAssessment = async (req: Request, res: Response) => {
         allottedBy: userId,
         allottedAt: now,
       };
+      let c;
       if (!existing) {
-        const c = await prisma.candidate.create({
+        c = await prisma.candidate.create({
           data: candidateData,
         });
         created.push(c);
+        // Send credentials email
+        try {
+          await emailService.sendCandidateCredentialEmail({
+            id: c.id,
+            name: c.name,
+            email: c.email,
+            assessmentId: c.assessmentId,
+          });
+        } catch (err) {
+          console.error('Failed to send credentials email:', err);
+        }
       } else {
         // Update schedule/attemptLimit if already assigned
         await prisma.candidate.update({

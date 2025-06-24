@@ -50,6 +50,8 @@ import { Label } from "@/components/ui/label"
 import { Checkbox } from "@/components/ui/checkbox"
 import Link from "next/link"
 import { ParticipantProfile } from "./participant-profile"
+import { saveAs } from "file-saver"
+import { useToast } from "@/hooks/use-toast"
 
 // Import the participants API service
 import { participantsApi } from "@/lib/api"
@@ -110,6 +112,8 @@ export function ParticipantsPage() {
     total: 0,
     totalPages: 0
   })
+  const [actionLoading, setActionLoading] = useState(false)
+  const { toast } = useToast()
 
   // Fetch participants from API
   const fetchParticipants = async () => {
@@ -163,6 +167,38 @@ export function ParticipantsPage() {
   const uniqueBatches = participants.length > 0 
     ? [...new Set(participants.flatMap((p) => p.tags.filter((tag) => tag.includes("Batch"))))]
     : []
+
+  // Export selected participants as CSV
+  const handleExport = async () => {
+    if (selectedParticipants.length === 0) return;
+    setActionLoading(true);
+    try {
+      const blob = await participantsApi.exportParticipants(selectedParticipants);
+      saveAs(new Blob([blob], { type: "text/csv" }), "participants.csv");
+      toast({ title: "Export Successful", description: "Participants exported as CSV.", });
+    } catch (err) {
+      toast({ title: "Export Failed", description: "Failed to export participants.", });
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // Bulk delete selected participants
+  const handleBulkDelete = async () => {
+    if (selectedParticipants.length === 0) return;
+    if (!window.confirm("Are you sure you want to delete the selected participants?")) return;
+    setActionLoading(true);
+    try {
+      await participantsApi.bulkAction({ action: "delete", ids: selectedParticipants });
+      setSelectedParticipants([]);
+      fetchParticipants();
+      toast({ title: "Participants Deleted", description: "Selected participants have been removed.", });
+    } catch (err) {
+      toast({ title: "Delete Failed", description: "Failed to delete participants.", });
+    } finally {
+      setActionLoading(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -248,9 +284,14 @@ export function ParticipantsPage() {
             </DialogContent>
           </Dialog>
 
-          <Button variant="outline" className="rounded-3xl border-border/40 hover:bg-accent/80 btn-professional">
+          <Button
+            variant="outline"
+            className="rounded-3xl border-border/40 hover:bg-accent/80 btn-professional"
+            onClick={handleExport}
+            disabled={selectedParticipants.length === 0 || actionLoading}
+          >
             <Download className="mr-2 h-4 w-4" />
-            Export
+            {actionLoading ? "Exporting..." : "Export"}
           </Button>
 
           {selectedParticipants.length > 0 && (
@@ -265,26 +306,26 @@ export function ParticipantsPage() {
                 align="end"
                 className="rounded-3xl border-border/40 bg-card/80 backdrop-blur-xl w-56 animate-scale-in"
               >
-                <DropdownMenuItem className="rounded-2xl">
+                <DropdownMenuItem className="rounded-2xl" onClick={() => alert('TODO: Assign to Assessment')}>
                   <UserPlus className="mr-2 h-4 w-4" />
                   Assign to Assessment
                 </DropdownMenuItem>
-                <DropdownMenuItem className="rounded-2xl">
+                <DropdownMenuItem className="rounded-2xl" onClick={() => alert('TODO: Send Email')}>
                   <Mail className="mr-2 h-4 w-4" />
                   Send Email
                 </DropdownMenuItem>
-                <DropdownMenuItem className="rounded-2xl">
+                <DropdownMenuItem className="rounded-2xl" onClick={() => alert('TODO: Add Tags')}>
                   <Tag className="mr-2 h-4 w-4" />
                   Add Tags
                 </DropdownMenuItem>
-                <DropdownMenuItem className="rounded-2xl">
+                <DropdownMenuItem className="rounded-2xl" onClick={handleExport} disabled={actionLoading}>
                   <Download className="mr-2 h-4 w-4" />
-                  Export Selected
+                  {actionLoading ? "Exporting..." : "Export Selected"}
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem className="rounded-2xl text-red-400 focus:text-red-300">
+                <DropdownMenuItem className="rounded-2xl text-red-400 focus:text-red-300" onClick={handleBulkDelete} disabled={actionLoading}>
                   <Trash2 className="mr-2 h-4 w-4" />
-                  Remove Selected
+                  {actionLoading ? "Removing..." : "Remove Selected"}
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>

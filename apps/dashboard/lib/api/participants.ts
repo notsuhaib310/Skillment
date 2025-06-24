@@ -1,4 +1,7 @@
 import { api } from "./api"
+import { getAuthHeaders } from "@/lib/auth"
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://api.skillment.in/api"
 
 export interface Participant {
   id: string
@@ -101,5 +104,27 @@ export const participantsApi = {
   // Delete a participant
   deleteParticipant: async (id: string): Promise<void> => {
     await api.delete(`/participants/${id}`)
+  },
+
+  // Bulk action on participants (delete, assign, update)
+  bulkAction: async (data: { action: string; ids: string[]; assignBatch?: string; updateFields?: any }): Promise<any> => {
+    const response = await api.post("/participants/bulk", data)
+    return response.data
+  },
+
+  // Export selected participants as CSV
+  exportParticipants: async (ids: string[]): Promise<Blob> => {
+    const params = ids.length > 0 ? `?ids=${ids.join(",")}` : "";
+    const url = `${API_URL}/participants/export${params}`;
+    const response = await fetch(url, {
+      method: "GET",
+      headers: {
+        ...(getAuthHeaders() as Record<string, string>),
+      },
+    });
+    if (!response.ok) {
+      throw new Error("Failed to export participants");
+    }
+    return await response.blob();
   }
 } 

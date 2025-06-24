@@ -6,6 +6,7 @@ import userRoutes from "./routes/user.routes"
 import participantsRoutes from "./routes/participants"
 import teamRoutes from "./routes/team"
 import assessmentRoutes from "./routes/assessment.routes"
+import emailRoutes from "./routes/email.routes"
 import { PrismaClient } from "@prisma/client"
 
 const app = express()
@@ -35,6 +36,7 @@ app.use("/api/users", userRoutes)
 app.use("/api/participants", participantsRoutes)
 app.use("/api/team", teamRoutes)
 app.use("/api/assessments", assessmentRoutes)
+app.use("/api/email", emailRoutes)
 
 // Error handling middleware
 app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {

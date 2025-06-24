@@ -1,4 +1,5 @@
 import { getAuthHeaders } from './auth'
+import * as participantsApiModule from './api/participants';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://api.skillment.in"
 
@@ -41,6 +42,7 @@ export const apiDelete = (endpoint: string) =>
 
 // API endpoints for participants
 export const participantsApi = {
+  ...participantsApiModule.participantsApi,
   getAll: (params?: { page?: number; limit?: number; search?: string }) => {
     const searchParams = new URLSearchParams()
     if (params?.page) searchParams.append('page', params.page.toString())

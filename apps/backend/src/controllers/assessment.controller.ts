@@ -372,3 +372,39 @@ export const getAssessmentStats = async (req: Request, res: Response): Promise<R
     return res.status(500).json({ error: 'Failed to fetch assessment stats' })
   }
 }
+
+export const getCandidateCredentialsStatus = async (req: Request, res: Response) => {
+  try {
+    const { id: assessmentId } = req.params;
+    // Get all candidates for this assessment
+    const candidates = await prisma.candidate.findMany({
+      where: { assessmentId },
+      select: { id: true, name: true, email: true },
+    });
+    // Get credentials for these candidates
+    const credentials = await prisma.credential.findMany({
+      where: { candidateId: { in: candidates.map((c) => c.id) } },
+      select: { candidateId: true },
+    });
+    // Get email logs for these candidates (sent credentials)
+    const logs = await prisma.emailLog.findMany({
+      where: {
+        candidateId: { in: candidates.map((c) => c.id) },
+        type: "send-credentials",
+        status: { in: ["sent", "delivered", "opened", "clicked"] },
+      },
+      select: { candidateId: true },
+    });
+    const sentIds = new Set(logs.map((l) => l.candidateId));
+    const result = candidates.map((c) => ({
+      candidateId: c.id,
+      name: c.name,
+      email: c.email,
+      credentialSent: sentIds.has(c.id),
+    }));
+    return res.json(result);
+  } catch (error) {
+    console.error("Error fetching candidate credentials status:", error);
+    return res.status(500).json({ error: "Failed to fetch candidate credentials status" });
+  }
+};

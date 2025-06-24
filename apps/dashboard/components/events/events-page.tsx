@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import {
   CalendarIcon,
   Plus,
@@ -33,6 +33,7 @@ import {
 import { EventCalendar } from "./event-calendar"
 import { CreateEventDrawer } from "./create-event-drawer"
 import { EventDetailModal } from "./event-detail-modal"
+import { useToast } from "@/hooks/use-toast"
 
 const events = [
   {
@@ -130,6 +131,14 @@ export function EventsPage() {
   const [selectedEvent, setSelectedEvent] = useState<any>(null)
   const [showCreateDrawer, setShowCreateDrawer] = useState(false)
   const [showEventDetail, setShowEventDetail] = useState(false)
+  const { toast } = useToast()
+
+  useEffect(() => {
+    toast({
+      title: "Coming Soon!",
+      description: "Events is coming soon! Check back later.",
+    })
+  }, [toast])
 
   const upcomingEvents = events.filter((e) => e.status === "upcoming")
   const todayEvents = events.filter((e) => e.date === "2024-01-25")
@@ -157,298 +166,316 @@ export function EventsPage() {
 
   return (
     <TooltipProvider>
-      <div className="space-y-8">
-        {/* Header */}
-        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-foreground to-primary bg-clip-text text-transparent">
-              Events & Interviews
-            </h1>
-            <p className="text-muted-foreground">Manage interviews, webinars, and coding events</p>
+      <div className="relative">
+        {/* Suspense Overlay */}
+        <div className="absolute inset-0 z-20 flex items-center justify-center bg-gradient-to-br from-black/60 to-background/80 pointer-events-auto cursor-not-allowed">
+          <div className="flex flex-col items-center justify-center p-10 rounded-3xl shadow-2xl bg-card/90 border border-border/40 animate-fade-in">
+            <div className="flex items-center justify-center w-20 h-20 rounded-full bg-gradient-to-br from-primary to-orange-500 mb-6 shadow-lg">
+              <Clock className="h-12 w-12 text-white" />
+            </div>
+            <h1 className="text-4xl font-bold mb-2 text-foreground">Events – Coming Soon!</h1>
+            <p className="text-lg text-muted-foreground max-w-xl mx-auto">
+              This section is a work in progress. Soon you'll be able to view, create, and manage all your organization events right here.
+            </p>
+            <div className="mt-8 text-sm text-muted-foreground">Stay tuned for updates!</div>
           </div>
-          <Button onClick={() => setShowCreateDrawer(true)} className="rounded-2xl primary-gradient glow-primary">
-            <Plus className="mr-2 h-4 w-4" />
-            Schedule Event
-          </Button>
         </div>
+        {/* Main Events Page (translucent, blurred, untouchable) */}
+        <div className="pointer-events-none opacity-60 blur-sm select-none">
+          <div className="space-y-8">
+            {/* Header */}
+            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+              <div>
+                <h1 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-foreground to-primary bg-clip-text text-transparent">
+                  Events & Interviews
+                </h1>
+                <p className="text-muted-foreground">Manage interviews, webinars, and coding events</p>
+              </div>
+              <Button onClick={() => setShowCreateDrawer(true)} className="rounded-2xl primary-gradient glow-primary">
+                <Plus className="mr-2 h-4 w-4" />
+                Schedule Event
+              </Button>
+            </div>
 
-        {/* Quick Stats */}
-        <div className="grid gap-6 md:grid-cols-4">
-          <Card className="card-gradient rounded-3xl border-border/40 shadow-xl">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Today's Events</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-foreground">{todayEvents.length}</div>
-            </CardContent>
-          </Card>
+            {/* Quick Stats */}
+            <div className="grid gap-6 md:grid-cols-4">
+              <Card className="card-gradient rounded-3xl border-border/40 shadow-xl">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium text-muted-foreground">Today's Events</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold text-foreground">{todayEvents.length}</div>
+                </CardContent>
+              </Card>
 
-          <Card className="card-gradient rounded-3xl border-border/40 shadow-xl">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Upcoming</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-amber-400">{upcomingEvents.length}</div>
-            </CardContent>
-          </Card>
+              <Card className="card-gradient rounded-3xl border-border/40 shadow-xl">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium text-muted-foreground">Upcoming</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold text-amber-400">{upcomingEvents.length}</div>
+                </CardContent>
+              </Card>
 
-          <Card className="card-gradient rounded-3xl border-border/40 shadow-xl">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">This Week</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-foreground">12</div>
-            </CardContent>
-          </Card>
+              <Card className="card-gradient rounded-3xl border-border/40 shadow-xl">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium text-muted-foreground">This Week</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold text-foreground">12</div>
+                </CardContent>
+              </Card>
 
-          <Card className="card-gradient rounded-3xl border-border/40 shadow-xl">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Total Events</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-foreground">{events.length}</div>
-            </CardContent>
-          </Card>
-        </div>
+              <Card className="card-gradient rounded-3xl border-border/40 shadow-xl">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium text-muted-foreground">Total Events</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold text-foreground">{events.length}</div>
+                </CardContent>
+              </Card>
+            </div>
 
-        {/* Main Content */}
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
-          {/* Mini Calendar */}
-          <div className="lg:col-span-1">
-            <Card className="card-gradient rounded-3xl border-border/40 shadow-xl">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <CalendarIcon className="h-5 w-5" />
-                  Calendar
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div className="text-center">
-                    <div className="text-2xl font-bold text-foreground">January 2024</div>
-                    <div className="text-sm text-muted-foreground">Today: Jan 25</div>
-                  </div>
-
-                  {/* Quick Event List */}
-                  <div className="space-y-2">
-                    <h4 className="text-sm font-semibold text-foreground">Today's Events</h4>
-                    {todayEvents.map((event) => (
-                      <div
-                        key={event.id}
-                        className="p-3 rounded-2xl bg-accent/30 cursor-pointer hover:bg-accent/50 transition-colors"
-                        onClick={() => {
-                          setSelectedEvent(event)
-                          setShowEventDetail(true)
-                        }}
-                      >
-                        <div className="flex items-center gap-2">
-                          <Badge
-                            className={`rounded-xl border text-xs ${eventTypeColors[event.type as keyof typeof eventTypeColors]}`}
-                          >
-                            {event.type}
-                          </Badge>
-                          <span className="text-xs text-muted-foreground">{formatTime(event.time)}</span>
-                        </div>
-                        <div className="text-sm font-medium text-foreground mt-1 truncate">{event.title}</div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Events View */}
-          <div className="lg:col-span-3">
-            <Tabs defaultValue="calendar" className="space-y-6">
-              <TabsList className="grid w-full grid-cols-2 lg:w-[300px] rounded-2xl bg-muted/50 p-1">
-                <TabsTrigger value="calendar" className="rounded-xl">
-                  <Grid className="mr-2 h-4 w-4" />
-                  Calendar View
-                </TabsTrigger>
-                <TabsTrigger value="list" className="rounded-xl">
-                  <List className="mr-2 h-4 w-4" />
-                  List View
-                </TabsTrigger>
-              </TabsList>
-
-              <TabsContent value="calendar" className="space-y-6">
-                <EventCalendar
-                  events={events}
-                  onEventClick={(event) => {
-                    setSelectedEvent(event)
-                    setShowEventDetail(true)
-                  }}
-                />
-              </TabsContent>
-
-              <TabsContent value="list" className="space-y-6">
+            {/* Main Content */}
+            <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+              {/* Mini Calendar */}
+              <div className="lg:col-span-1">
                 <Card className="card-gradient rounded-3xl border-border/40 shadow-xl">
-                  <CardContent className="p-0">
-                    <Table>
-                      <TableHeader>
-                        <TableRow className="border-border/40">
-                          <TableHead className="text-muted-foreground font-medium">Event</TableHead>
-                          <TableHead className="text-muted-foreground font-medium">Type</TableHead>
-                          <TableHead className="text-muted-foreground font-medium">Date & Time</TableHead>
-                          <TableHead className="text-muted-foreground font-medium">Mode</TableHead>
-                          <TableHead className="text-muted-foreground font-medium">Participants</TableHead>
-                          <TableHead className="text-muted-foreground font-medium">Status</TableHead>
-                          <TableHead className="text-right text-muted-foreground font-medium pr-6">Actions</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {events.map((event) => (
-                          <TableRow key={event.id} className="border-border/40 hover:bg-accent/30">
-                            <TableCell>
-                              <div className="space-y-1">
-                                <div className="font-medium text-foreground">{event.title}</div>
-                                <div className="text-sm text-muted-foreground">Host: {event.host}</div>
-                              </div>
-                            </TableCell>
-                            <TableCell>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <CalendarIcon className="h-5 w-5" />
+                      Calendar
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-4">
+                      <div className="text-center">
+                        <div className="text-2xl font-bold text-foreground">January 2024</div>
+                        <div className="text-sm text-muted-foreground">Today: Jan 25</div>
+                      </div>
+
+                      {/* Quick Event List */}
+                      <div className="space-y-2">
+                        <h4 className="text-sm font-semibold text-foreground">Today's Events</h4>
+                        {todayEvents.map((event) => (
+                          <div
+                            key={event.id}
+                            className="p-3 rounded-2xl bg-accent/30 cursor-pointer hover:bg-accent/50 transition-colors"
+                            onClick={() => {
+                              setSelectedEvent(event)
+                              setShowEventDetail(true)
+                            }}
+                          >
+                            <div className="flex items-center gap-2">
                               <Badge
-                                className={`rounded-xl border ${eventTypeColors[event.type as keyof typeof eventTypeColors]} capitalize`}
+                                className={`rounded-xl border text-xs ${eventTypeColors[event.type as keyof typeof eventTypeColors]}`}
                               >
                                 {event.type}
                               </Badge>
-                            </TableCell>
-                            <TableCell>
-                              <div className="space-y-1">
-                                <div className="flex items-center gap-1 text-foreground">
-                                  <CalendarIcon className="h-4 w-4 text-muted-foreground" />
-                                  {event.date}
-                                </div>
-                                <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                                  <Clock className="h-4 w-4" />
-                                  {formatTime(event.time)} ({event.duration}m)
-                                </div>
-                              </div>
-                            </TableCell>
-                            <TableCell>
-                              <div className="flex items-center gap-2">
-                                {getModeIcon(event.mode)}
-                                <span className="text-sm text-foreground capitalize">{event.mode}</span>
-                              </div>
-                            </TableCell>
-                            <TableCell>
-                              <div className="flex items-center gap-2">
-                                <div className="flex -space-x-2">
-                                  {event.participants.slice(0, 3).map((participant) => (
-                                    <Tooltip key={participant.id}>
-                                      <TooltipTrigger>
-                                        <Avatar className="h-8 w-8 border-2 border-background rounded-2xl">
-                                          <AvatarImage src={participant.avatar || "/placeholder.svg"} />
-                                          <AvatarFallback className="rounded-2xl bg-gradient-to-br from-primary to-orange-600 text-primary-foreground text-xs">
-                                            {participant.name
-                                              .split(" ")
-                                              .map((n) => n[0])
-                                              .join("")}
-                                          </AvatarFallback>
-                                        </Avatar>
-                                      </TooltipTrigger>
-                                      <TooltipContent>
-                                        <p>{participant.name}</p>
-                                      </TooltipContent>
-                                    </Tooltip>
-                                  ))}
-                                  {event.participants.length > 3 && (
-                                    <div className="h-8 w-8 rounded-2xl bg-muted border-2 border-background flex items-center justify-center">
-                                      <span className="text-xs text-muted-foreground">
-                                        +{event.participants.length - 3}
-                                      </span>
-                                    </div>
-                                  )}
-                                </div>
-                                <span className="text-sm text-muted-foreground">{event.participants.length}</span>
-                              </div>
-                            </TableCell>
-                            <TableCell>
-                              <Badge
-                                className={`rounded-xl border ${statusColors[event.status as keyof typeof statusColors]} capitalize`}
-                              >
-                                {event.status}
-                              </Badge>
-                            </TableCell>
-                            <TableCell className="text-right pr-6">
-                              <div className="flex items-center justify-end gap-2">
-                                {event.status === "upcoming" && event.meetingLink && (
-                                  <Tooltip>
-                                    <TooltipTrigger asChild>
-                                      <Button
-                                        variant="ghost"
-                                        size="icon"
-                                        className="h-8 w-8 rounded-xl hover:bg-accent/80"
-                                        onClick={() => window.open(event.meetingLink, "_blank")}
-                                      >
-                                        <ExternalLink className="h-4 w-4" />
-                                      </Button>
-                                    </TooltipTrigger>
-                                    <TooltipContent>
-                                      <p>Join Meeting</p>
-                                    </TooltipContent>
-                                  </Tooltip>
-                                )}
-
-                                <DropdownMenu>
-                                  <DropdownMenuTrigger asChild>
-                                    <Button
-                                      variant="ghost"
-                                      size="icon"
-                                      className="h-8 w-8 rounded-xl hover:bg-accent/80"
-                                    >
-                                      <MoreHorizontal className="h-4 w-4" />
-                                    </Button>
-                                  </DropdownMenuTrigger>
-                                  <DropdownMenuContent
-                                    align="end"
-                                    className="rounded-2xl border-border/40 bg-card/80 backdrop-blur-xl"
-                                  >
-                                    <DropdownMenuItem
-                                      className="rounded-xl"
-                                      onClick={() => {
-                                        setSelectedEvent(event)
-                                        setShowEventDetail(true)
-                                      }}
-                                    >
-                                      <CalendarIcon className="mr-2 h-4 w-4" />
-                                      View Details
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem className="rounded-xl">
-                                      <Edit className="mr-2 h-4 w-4" />
-                                      Edit Event
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem className="rounded-xl">
-                                      <Copy className="mr-2 h-4 w-4" />
-                                      Duplicate
-                                    </DropdownMenuItem>
-                                    <DropdownMenuSeparator />
-                                    <DropdownMenuItem className="rounded-xl text-red-400 focus:text-red-300">
-                                      <Trash2 className="mr-2 h-4 w-4" />
-                                      Cancel Event
-                                    </DropdownMenuItem>
-                                  </DropdownMenuContent>
-                                </DropdownMenu>
-                              </div>
-                            </TableCell>
-                          </TableRow>
+                              <span className="text-xs text-muted-foreground">{formatTime(event.time)}</span>
+                            </div>
+                            <div className="text-sm font-medium text-foreground mt-1 truncate">{event.title}</div>
+                          </div>
                         ))}
-                      </TableBody>
-                    </Table>
+                      </div>
+                    </div>
                   </CardContent>
                 </Card>
-              </TabsContent>
-            </Tabs>
+              </div>
+
+              {/* Events View */}
+              <div className="lg:col-span-3">
+                <Tabs defaultValue="calendar" className="space-y-6">
+                  <TabsList className="grid w-full grid-cols-2 lg:w-[300px] rounded-2xl bg-muted/50 p-1">
+                    <TabsTrigger value="calendar" className="rounded-xl">
+                      <Grid className="mr-2 h-4 w-4" />
+                      Calendar View
+                    </TabsTrigger>
+                    <TabsTrigger value="list" className="rounded-xl">
+                      <List className="mr-2 h-4 w-4" />
+                      List View
+                    </TabsTrigger>
+                  </TabsList>
+
+                  <TabsContent value="calendar" className="space-y-6">
+                    <EventCalendar
+                      events={events}
+                      onEventClick={(event) => {
+                        setSelectedEvent(event)
+                        setShowEventDetail(true)
+                      }}
+                    />
+                  </TabsContent>
+
+                  <TabsContent value="list" className="space-y-6">
+                    <Card className="card-gradient rounded-3xl border-border/40 shadow-xl">
+                      <CardContent className="p-0">
+                        <Table>
+                          <TableHeader>
+                            <TableRow className="border-border/40">
+                              <TableHead className="text-muted-foreground font-medium">Event</TableHead>
+                              <TableHead className="text-muted-foreground font-medium">Type</TableHead>
+                              <TableHead className="text-muted-foreground font-medium">Date & Time</TableHead>
+                              <TableHead className="text-muted-foreground font-medium">Mode</TableHead>
+                              <TableHead className="text-muted-foreground font-medium">Participants</TableHead>
+                              <TableHead className="text-muted-foreground font-medium">Status</TableHead>
+                              <TableHead className="text-right text-muted-foreground font-medium pr-6">Actions</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {events.map((event) => (
+                              <TableRow key={event.id} className="border-border/40 hover:bg-accent/30">
+                                <TableCell>
+                                  <div className="space-y-1">
+                                    <div className="font-medium text-foreground">{event.title}</div>
+                                    <div className="text-sm text-muted-foreground">Host: {event.host}</div>
+                                  </div>
+                                </TableCell>
+                                <TableCell>
+                                  <Badge
+                                    className={`rounded-xl border ${eventTypeColors[event.type as keyof typeof eventTypeColors]} capitalize`}
+                                  >
+                                    {event.type}
+                                  </Badge>
+                                </TableCell>
+                                <TableCell>
+                                  <div className="space-y-1">
+                                    <div className="flex items-center gap-1 text-foreground">
+                                      <CalendarIcon className="h-4 w-4 text-muted-foreground" />
+                                      {event.date}
+                                    </div>
+                                    <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                                      <Clock className="h-4 w-4" />
+                                      {formatTime(event.time)} ({event.duration}m)
+                                    </div>
+                                  </div>
+                                </TableCell>
+                                <TableCell>
+                                  <div className="flex items-center gap-2">
+                                    {getModeIcon(event.mode)}
+                                    <span className="text-sm text-foreground capitalize">{event.mode}</span>
+                                  </div>
+                                </TableCell>
+                                <TableCell>
+                                  <div className="flex items-center gap-2">
+                                    <div className="flex -space-x-2">
+                                      {event.participants.slice(0, 3).map((participant) => (
+                                        <Tooltip key={participant.id}>
+                                          <TooltipTrigger>
+                                            <Avatar className="h-8 w-8 border-2 border-background rounded-2xl">
+                                              <AvatarImage src={participant.avatar || "/placeholder.svg"} />
+                                              <AvatarFallback className="rounded-2xl bg-gradient-to-br from-primary to-orange-600 text-primary-foreground text-xs">
+                                                {participant.name
+                                                  .split(" ")
+                                                  .map((n) => n[0])
+                                                  .join("")}
+                                              </AvatarFallback>
+                                            </Avatar>
+                                          </TooltipTrigger>
+                                          <TooltipContent>
+                                            <p>{participant.name}</p>
+                                          </TooltipContent>
+                                        </Tooltip>
+                                      ))}
+                                      {event.participants.length > 3 && (
+                                        <div className="h-8 w-8 rounded-2xl bg-muted border-2 border-background flex items-center justify-center">
+                                          <span className="text-xs text-muted-foreground">
+                                            +{event.participants.length - 3}
+                                          </span>
+                                        </div>
+                                      )}
+                                    </div>
+                                    <span className="text-sm text-muted-foreground">{event.participants.length}</span>
+                                  </div>
+                                </TableCell>
+                                <TableCell>
+                                  <Badge
+                                    className={`rounded-xl border ${statusColors[event.status as keyof typeof statusColors]} capitalize`}
+                                  >
+                                    {event.status}
+                                  </Badge>
+                                </TableCell>
+                                <TableCell className="text-right pr-6">
+                                  <div className="flex items-center justify-end gap-2">
+                                    {event.status === "upcoming" && event.meetingLink && (
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>
+                                          <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="h-8 w-8 rounded-xl hover:bg-accent/80"
+                                            onClick={() => window.open(event.meetingLink, "_blank")}
+                                          >
+                                            <ExternalLink className="h-4 w-4" />
+                                          </Button>
+                                        </TooltipTrigger>
+                                        <TooltipContent>
+                                          <p>Join Meeting</p>
+                                        </TooltipContent>
+                                      </Tooltip>
+                                    )}
+
+                                    <DropdownMenu>
+                                      <DropdownMenuTrigger asChild>
+                                        <Button
+                                          variant="ghost"
+                                          size="icon"
+                                          className="h-8 w-8 rounded-xl hover:bg-accent/80"
+                                        >
+                                          <MoreHorizontal className="h-4 w-4" />
+                                        </Button>
+                                      </DropdownMenuTrigger>
+                                      <DropdownMenuContent
+                                        align="end"
+                                        className="rounded-2xl border-border/40 bg-card/80 backdrop-blur-xl"
+                                      >
+                                        <DropdownMenuItem
+                                          className="rounded-xl"
+                                          onClick={() => {
+                                            setSelectedEvent(event)
+                                            setShowEventDetail(true)
+                                          }}
+                                        >
+                                          <CalendarIcon className="mr-2 h-4 w-4" />
+                                          View Details
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem className="rounded-xl">
+                                          <Edit className="mr-2 h-4 w-4" />
+                                          Edit Event
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem className="rounded-xl">
+                                          <Copy className="mr-2 h-4 w-4" />
+                                          Duplicate
+                                        </DropdownMenuItem>
+                                        <DropdownMenuSeparator />
+                                        <DropdownMenuItem className="rounded-xl text-red-400 focus:text-red-300">
+                                          <Trash2 className="mr-2 h-4 w-4" />
+                                          Cancel Event
+                                        </DropdownMenuItem>
+                                      </DropdownMenuContent>
+                                    </DropdownMenu>
+                                  </div>
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </CardContent>
+                    </Card>
+                  </TabsContent>
+                </Tabs>
+              </div>
+            </div>
+
+            {/* Create Event Drawer */}
+            <CreateEventDrawer open={showCreateDrawer} onOpenChange={setShowCreateDrawer} />
+
+            {/* Event Detail Modal */}
+            {selectedEvent && (
+              <EventDetailModal event={selectedEvent} open={showEventDetail} onOpenChange={setShowEventDetail} />
+            )}
           </div>
         </div>
-
-        {/* Create Event Drawer */}
-        <CreateEventDrawer open={showCreateDrawer} onOpenChange={setShowCreateDrawer} />
-
-        {/* Event Detail Modal */}
-        {selectedEvent && (
-          <EventDetailModal event={selectedEvent} open={showEventDetail} onOpenChange={setShowEventDetail} />
-        )}
       </div>
     </TooltipProvider>
   )

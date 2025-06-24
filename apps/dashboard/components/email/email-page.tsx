@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Plus, Send, Eye, Edit, Trash2, Copy, Search, MoreHorizontal } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -20,74 +20,11 @@ import {
 import { EmailComposer } from "./email-composer"
 import { EmailTemplates } from "./email-templates"
 import { EmailMetrics } from "./email-metrics"
-
-const sentEmails = [
-  {
-    id: 1,
-    subject: "Frontend Developer Assessment Invitation",
-    recipient: "Alex Johnson",
-    recipientEmail: "alex@example.com",
-    type: "assessment-invite",
-    status: "delivered",
-    sentAt: "2024-01-25 10:30",
-    openedAt: "2024-01-25 11:15",
-    clickedAt: "2024-01-25 11:20",
-    template: "Assessment Invitation",
-  },
-  {
-    id: 2,
-    subject: "Interview Scheduled - React Developer Position",
-    recipient: "Maria Garcia",
-    recipientEmail: "maria@example.com",
-    type: "interview-schedule",
-    status: "opened",
-    sentAt: "2024-01-24 14:20",
-    openedAt: "2024-01-24 15:45",
-    clickedAt: null,
-    template: "Interview Schedule",
-  },
-  {
-    id: 3,
-    subject: "Assessment Results - Data Science Challenge",
-    recipient: "David Chen",
-    recipientEmail: "david@example.com",
-    type: "result-notification",
-    status: "clicked",
-    sentAt: "2024-01-23 16:00",
-    openedAt: "2024-01-23 16:30",
-    clickedAt: "2024-01-23 16:35",
-    template: "Result Notification",
-  },
-  {
-    id: 4,
-    subject: "Webinar Reminder - React Best Practices",
-    recipient: "Multiple Recipients",
-    recipientEmail: "bulk@example.com",
-    type: "event-reminder",
-    status: "sent",
-    sentAt: "2024-01-25 09:00",
-    openedAt: null,
-    clickedAt: null,
-    template: "Event Reminder",
-  },
-]
-
-const drafts = [
-  {
-    id: 1,
-    subject: "Welcome to Skillment Platform",
-    type: "welcome",
-    lastModified: "2024-01-25 12:00",
-    template: "Welcome Email",
-  },
-  {
-    id: 2,
-    subject: "Follow-up: Backend Developer Interview",
-    type: "follow-up",
-    lastModified: "2024-01-24 18:30",
-    template: "Interview Follow-up",
-  },
-]
+import { toast } from "sonner"
+import * as api from "@/lib/api/email"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
+import { Select as ShadSelect } from "@/components/ui/select"
+import { Table as ShadTable, TableBody as ShadTableBody, TableCell as ShadTableCell, TableHead as ShadTableHead, TableHeader as ShadTableHeader, TableRow as ShadTableRow } from "@/components/ui/table"
 
 const statusColors = {
   sent: "bg-blue-500/20 text-blue-400 border-blue-500/30",
@@ -106,11 +43,152 @@ const typeColors = {
   "follow-up": "bg-pink-500/20 text-pink-400 border-pink-500/30",
 }
 
+// Helper to get JWT token from localStorage
+function getAuthHeaders(): Record<string, string> {
+  if (typeof window !== 'undefined') {
+    const token = localStorage.getItem('token')
+    if (token) {
+      return { 'Authorization': `Bearer ${token}` }
+    }
+  }
+  return {} as Record<string, string>
+}
+
 export function EmailPage() {
   const [showComposer, setShowComposer] = useState(false)
   const [searchTerm, setSearchTerm] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
   const [typeFilter, setTypeFilter] = useState("all")
+  const [sentEmails, setSentEmails] = useState<any[]>([])
+  const [drafts, setDrafts] = useState<any[]>([])
+  const [loading, setLoading] = useState(false)
+  const [showCredentialsModal, setShowCredentialsModal] = useState(false)
+  const [assessments, setAssessments] = useState<any[]>([])
+  const [candidates, setCandidates] = useState<any[]>([])
+  const [selectedAssessment, setSelectedAssessment] = useState<string>("")
+  const [selectedCandidates, setSelectedCandidates] = useState<string[]>([])
+  const [candidateCredentials, setCandidateCredentials] = useState<any[]>([])
+
+  useEffect(() => {
+    setLoading(true)
+    api.getLogs()
+      .then((data) => {
+        setSentEmails(data.filter((log: any) => log.status !== "draft"))
+        setDrafts(data.filter((log: any) => log.status === "draft"))
+      })
+      .catch(() => toast.error("Failed to load emails"))
+      .finally(() => setLoading(false))
+  }, [])
+
+  // Fetch assessments when credentials modal opens
+  useEffect(() => {
+    if (showCredentialsModal) {
+      fetch("/api/assessments?limit=100", {
+        credentials: "include",
+        headers: getAuthHeaders(),
+      })
+        .then(res => res.json())
+        .then(data => setAssessments(data.data || []))
+        .catch(() => toast.error("Failed to load assessments"))
+    }
+  }, [showCredentialsModal])
+
+  // Fetch candidates for selected assessment
+  useEffect(() => {
+    if (selectedAssessment) {
+      fetch(`/api/assessments/${selectedAssessment}`, {
+        credentials: "include",
+        headers: getAuthHeaders(),
+      })
+        .then(res => res.json())
+        .then(data => setCandidates(data?.candidates || []))
+        .catch(() => toast.error("Failed to load candidates"))
+    } else {
+      setCandidates([])
+    }
+  }, [selectedAssessment])
+
+  // Fetch candidate credentials for selected assessment
+  useEffect(() => {
+    if (selectedAssessment) {
+      fetch(`/api/assessments/${selectedAssessment}/candidates/credentials`, {
+        credentials: "include",
+        headers: getAuthHeaders(),
+      })
+        .then(res => res.json())
+        .then(data => setCandidateCredentials(data || []))
+        .catch(() => toast.error("Failed to load candidate credentials"))
+    } else {
+      setCandidateCredentials([])
+    }
+  }, [selectedAssessment, showCredentialsModal])
+
+  const handleSendEmail = async (data: any) => {
+    setLoading(true)
+    try {
+      await api.sendEmail(data)
+      toast.success("Email sent")
+      setShowComposer(false)
+      // Optionally refetch logs
+    } catch {
+      toast.error("Failed to send email")
+    } finally {
+      setLoading(false)
+    }
+  }
+  const handleSaveDraft = async (data: any) => {
+    setLoading(true)
+    try {
+      await api.saveDraft(data)
+      toast.success("Draft saved")
+      setShowComposer(false)
+      // Optionally refetch logs
+    } catch {
+      toast.error("Failed to save draft")
+    } finally {
+      setLoading(false)
+    }
+  }
+  const handleSendCredentials = async (data: any) => {
+    setLoading(true)
+    try {
+      await api.sendCredentials(data)
+      toast.success("Credentials sent")
+      setShowCredentialsModal(false)
+    } catch {
+      toast.error("Failed to send credentials")
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleSend = async () => {
+    await handleSendCredentials({
+      assessmentId: selectedAssessment,
+      candidateIds: selectedCandidates,
+    })
+    setSelectedAssessment("")
+    setSelectedCandidates([])
+  }
+
+  const handleResendCredential = async (candidateId: string) => {
+    setLoading(true)
+    try {
+      await api.sendCredentials({ assessmentId: selectedAssessment, candidateIds: [candidateId] })
+      toast.success("Credentials resent")
+      // Optionally refetch credentials
+      fetch(`/api/assessments/${selectedAssessment}/candidates/credentials`, {
+        credentials: "include",
+        headers: getAuthHeaders(),
+      })
+        .then(res => res.json())
+        .then(data => setCandidateCredentials(data || []))
+    } catch {
+      toast.error("Failed to resend credentials")
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const filteredEmails = sentEmails.filter((email) => {
     const matchesSearch =
@@ -188,7 +266,7 @@ export function EmailPage() {
 
       {/* Main Content */}
       <Tabs defaultValue="sent" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-4 lg:w-[500px] rounded-2xl bg-muted/50 p-1">
+        <TabsList className="grid w-full grid-cols-5 lg:w-[650px] rounded-2xl bg-muted/50 p-1">
           <TabsTrigger value="templates" className="rounded-xl">
             Templates
           </TabsTrigger>
@@ -197,6 +275,9 @@ export function EmailPage() {
           </TabsTrigger>
           <TabsTrigger value="drafts" className="rounded-xl">
             Drafts
+          </TabsTrigger>
+          <TabsTrigger value="credentials" className="rounded-xl">
+            Credentials
           </TabsTrigger>
           <TabsTrigger value="metrics" className="rounded-xl">
             Metrics
@@ -276,7 +357,7 @@ export function EmailPage() {
                             <AvatarFallback className="rounded-2xl bg-gradient-to-br from-primary to-orange-600 text-primary-foreground text-xs">
                               {email.recipient
                                 .split(" ")
-                                .map((n) => n[0])
+                                .map((n: string) => n[0])
                                 .join("")}
                             </AvatarFallback>
                           </Avatar>
@@ -421,13 +502,110 @@ export function EmailPage() {
           </Card>
         </TabsContent>
 
+        <TabsContent value="credentials" className="space-y-6">
+          <Card className="card-gradient rounded-3xl border-border/40 shadow-xl">
+            <CardHeader>
+              <CardTitle>Send Credentials</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Button onClick={() => setShowCredentialsModal(true)} className="rounded-2xl primary-gradient glow-primary">
+                Send Credentials to Candidates
+              </Button>
+              <Dialog open={showCredentialsModal} onOpenChange={setShowCredentialsModal}>
+                <DialogContent className="max-w-lg">
+                  <DialogHeader>
+                    <DialogTitle>Send Credentials</DialogTitle>
+                  </DialogHeader>
+                  <div className="space-y-4">
+                    <label className="block text-sm font-medium">Assessment</label>
+                    <ShadSelect value={selectedAssessment} onValueChange={setSelectedAssessment}>
+                      <SelectTrigger className="w-full rounded-2xl">
+                        <SelectValue placeholder="Select assessment" />
+                      </SelectTrigger>
+                      <SelectContent className="rounded-2xl">
+                        {assessments.map((a: any) => (
+                          <SelectItem key={a.id} value={a.id}>{a.title}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </ShadSelect>
+                    {selectedAssessment && (
+                      <>
+                        <label className="block text-sm font-medium mt-4">Candidates</label>
+                        <div className="max-h-48 overflow-y-auto border rounded-2xl p-2">
+                          {candidates.map((c: any) => (
+                            <div key={c.id} className="flex items-center gap-2 py-1">
+                              <input
+                                type="checkbox"
+                                checked={selectedCandidates.includes(c.id)}
+                                onChange={e => {
+                                  if (e.target.checked) setSelectedCandidates([...selectedCandidates, c.id])
+                                  else setSelectedCandidates(selectedCandidates.filter(id => id !== c.id))
+                                }}
+                                className="rounded"
+                              />
+                              <span>{c.name} ({c.email})</span>
+                            </div>
+                          ))}
+                        </div>
+                        {/* Credentials Table */}
+                        <div className="mt-6">
+                          <ShadTable>
+                            <TableHeader>
+                              <TableRow>
+                                <TableHead>Name</TableHead>
+                                <TableHead>Email</TableHead>
+                                <TableHead>Status</TableHead>
+                                <TableHead>Actions</TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {candidateCredentials.map((cred: any) => (
+                                <TableRow key={cred.candidateId}>
+                                  <TableCell>{cred.name}</TableCell>
+                                  <TableCell>{cred.email}</TableCell>
+                                  <TableCell>
+                                    {cred.credentialSent ? (
+                                      <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30">Sent</Badge>
+                                    ) : (
+                                      <Badge className="bg-red-500/20 text-red-400 border-red-500/30">Not Sent</Badge>
+                                    )}
+                                  </TableCell>
+                                  <TableCell>
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      onClick={() => handleResendCredential(cred.candidateId)}
+                                      disabled={loading}
+                                    >
+                                      Resend Credentials
+                                    </Button>
+                                  </TableCell>
+                                </TableRow>
+                              ))}
+                            </TableBody>
+                          </ShadTable>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                  <DialogFooter>
+                    <Button onClick={handleSend} disabled={!selectedAssessment || selectedCandidates.length === 0} className="rounded-2xl primary-gradient glow-primary">
+                      Send Credentials
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
         <TabsContent value="metrics" className="space-y-6">
           <EmailMetrics />
         </TabsContent>
       </Tabs>
 
       {/* Email Composer */}
-      <EmailComposer open={showComposer} onOpenChange={setShowComposer} />
+      <EmailComposer open={showComposer} onOpenChange={setShowComposer} onSend={handleSendEmail} onSaveDraft={handleSaveDraft} />
     </div>
   )
 }

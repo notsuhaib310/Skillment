@@ -11,6 +11,7 @@ interface AuthenticatedRequest extends Request {
     id: string
     email: string
     role: string
+    orgId: string
     orgName: string
   }
 }
@@ -442,6 +443,65 @@ export class ParticipantController {
     } catch (error) {
       console.error("Error creating activity log:", error)
       return res.status(500).json({ error: "Internal server error" })
+    }
+  }
+
+  // Bulk action on participants
+  async bulkAction(req: AuthenticatedRequest, res: Response): Promise<ApiResponse> {
+    try {
+      const { action, ids, assignBatch, updateFields } = req.body;
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ error: "Unauthorized" });
+      const user = await prisma.user.findUnique({ where: { id: userId }, include: { organization: true } });
+      if (!user?.organization) return res.status(403).json({ error: "Organization not found" });
+      if (!Array.isArray(ids) || ids.length === 0) return res.status(400).json({ error: "No participant IDs provided" });
+      let result = null;
+      if (action === "delete") {
+        result = await prisma.participant.deleteMany({ where: { id: { in: ids }, organization: user.organization.name } });
+      } else if (action === "assign" && assignBatch) {
+        result = await prisma.participant.updateMany({ where: { id: { in: ids }, organization: user.organization.name }, data: { tags: { push: assignBatch } } });
+      } else if (action === "update" && updateFields) {
+        result = await prisma.participant.updateMany({ where: { id: { in: ids }, organization: user.organization.name }, data: updateFields });
+      } else {
+        return res.status(400).json({ error: "Invalid action or missing parameters" });
+      }
+      return res.json({ success: true, result });
+    } catch (error) {
+      console.error("Bulk action error:", error);
+      return res.status(500).json({ error: "Bulk action failed" });
+    }
+  }
+
+  // Export selected participants as CSV
+  async exportParticipants(req: AuthenticatedRequest, res: Response): Promise<any> {
+    try {
+      let ids: string[] = [];
+      if (req.query.ids) {
+        if (Array.isArray(req.query.ids)) {
+          ids = req.query.ids as string[];
+        } else if (typeof req.query.ids === 'string') {
+          ids = req.query.ids.split(",");
+        } else {
+          ids = String(req.query.ids).split(",");
+        }
+      }
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ error: "Unauthorized" });
+      const user = await prisma.user.findUnique({ where: { id: userId }, include: { organization: true } });
+      if (!user?.organization) return res.status(403).json({ error: "Organization not found" });
+      const where: any = { organization: user.organization.name };
+      if (ids.length > 0) where.id = { in: ids };
+      const participants = await prisma.participant.findMany({ where });
+      // CSV header
+      const header = ["id","name","email","phone","location","tags","createdAt","updatedAt"];
+      const rows = participants.map(p => [p.id, p.name, p.email, p.phone || "", p.location || "", (p.tags||[]).join(";"), p.createdAt.toISOString(), p.updatedAt.toISOString()]);
+      const csv = [header.join(","), ...rows.map(r => r.map(x => `"${String(x).replace(/"/g,'""')}"`).join(","))].join("\n");
+      res.setHeader("Content-Type", "text/csv");
+      res.setHeader("Content-Disposition", "attachment; filename=participants.csv");
+      return res.send(csv);
+    } catch (error) {
+      console.error("Export error:", error);
+      return res.status(500).json({ error: "Export failed" });
     }
   }
 } 

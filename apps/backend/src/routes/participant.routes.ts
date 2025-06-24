@@ -27,4 +27,10 @@ router.delete("/:id", participantController.deleteParticipant.bind(participantCo
 // Add assessment for a participant
 router.post('/:id/assessments', participantController.addAssessment.bind(participantController))
 
+// Bulk actions on participants
+router.post("/bulk", participantController.bulkAction.bind(participantController))
+
+// Export selected participants as CSV
+router.get("/export", participantController.exportParticipants.bind(participantController))
+
 export default router 

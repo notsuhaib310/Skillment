@@ -1,6 +1,10 @@
 import nodemailer from 'nodemailer';
 import { readFileSync } from 'fs';
 import { join } from 'path';
+import bcrypt from 'bcrypt';
+import { PrismaClient } from '@prisma/client';
+
+const prisma = new PrismaClient();
 
 interface EmailOptions {
   to: string;
@@ -1039,6 +1043,64 @@ class EmailService {
       </body>
       </html>
     `;
+  }
+
+  /**
+   * Sends credentials to a candidate, generates and stores password if needed, logs the email.
+   * Returns the password sent.
+   */
+  async sendCandidateCredentialEmail(candidate: { id: string, name: string, email: string, assessmentId?: string }, password?: string): Promise<string> {
+    // 1. Check for existing credential
+    let credential = await prisma.credential.findUnique({ where: { candidateId: candidate.id } });
+    let generatedPassword = password;
+    if (!credential) {
+      generatedPassword = generatedPassword || Math.random().toString(36).slice(-10);
+      const hash = await bcrypt.hash(generatedPassword, 10);
+      credential = await prisma.credential.create({
+        data: {
+          candidateId: candidate.id,
+          email: candidate.email,
+          passwordHash: hash,
+        },
+      });
+    } else {
+      // If credential exists, do not overwrite password, but send placeholder
+      generatedPassword = "(already set)";
+    }
+    // 2. Fetch template
+    const template = await prisma.emailTemplate.findFirst({ where: { name: "Send Credentials" } });
+    const LOGIN_LINK = process.env.CANDIDATE_LOGIN_LINK || "https://candidate.skillment.in/login";
+    const emailData = {
+      name: candidate.name,
+      email: candidate.email,
+      password: generatedPassword,
+      login_link: LOGIN_LINK,
+    };
+    const renderTemplate = (tpl: string, data: Record<string, string>) => tpl.replace(/\{(.*?)\}/g, (_, key) => data[key] || '');
+    const subject = template ? renderTemplate(template.subject, emailData) : "Your Skillment Login Credentials";
+    const body = template ? renderTemplate(template.body, emailData) :
+      `<p>Hello ${candidate.name},</p><p>Your login email: <b>${candidate.email}</b><br/>Password: <b>${generatedPassword}</b><br/><a href="${LOGIN_LINK}">Login here</a></p>`;
+    // 3. Send email
+    await this.sendEmail({
+      to: candidate.email,
+      subject,
+      html: body,
+    });
+    // 4. Log email
+    await prisma.emailLog.create({
+      data: {
+        to: candidate.email,
+        candidateId: candidate.id,
+        assessmentId: candidate.assessmentId || null,
+        templateId: template?.id || null,
+        subject,
+        body,
+        status: "sent",
+        sentAt: new Date(),
+        createdById: "system",
+      },
+    });
+    return generatedPassword;
   }
 
   // Public methods
