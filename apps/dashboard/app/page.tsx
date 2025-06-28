@@ -138,14 +138,13 @@ export default function HomePage() {
 
   // Desktop Loading Screen
   return (
-    <div className="min-h-screen bg-gray-900 flex items-center justify-center overflow-hidden relative">
+    <div className="min-h-screen w-full flex items-center justify-center bg-gray-900 overflow-hidden relative">
       {/* Subtle background pattern */}
-      <div className="absolute inset-0 opacity-5">
-        <div className="absolute inset-0 bg-[url('data:image/svg+xml,%3Csvg width=&quot;60&quot; height=&quot;60&quot; viewBox=&quot;0 0 60 60&quot; xmlns=&quot;http://www.w3.org/2000/svg&quot;%3E%3Cg fill=&quot;none&quot; fillRule=&quot;evenodd&quot;%3E%3Cg fill=&quot;%23ffffff&quot; fillOpacity=&quot;0.1&quot;%3E%3Ccircle cx=&quot;7&quot; cy=&quot;7&quot; r=&quot;7&quot;/%3E%3Ccircle cx=&quot;53&quot; cy=&quot;7&quot; r=&quot;7&quot;/%3E%3Ccircle cx=&quot;7&quot; cy=&quot;53&quot; r=&quot;7&quot;/%3E%3Ccircle cx=&quot;53&quot; cy=&quot;53&quot; r=&quot;7&quot;/%3E%3C/g%3E%3C/g%3E%3C/svg%3E')]"></div>
+      <div className="absolute inset-0 opacity-5 pointer-events-none">
+        <div className="absolute inset-0 bg-[url('data:image/svg+xml,%3Csvg width=&quot;60&quot; height=&quot;60&quot; viewBox=&quot;0 0 60 60&quot; xmlns=&quot;http://www.w3.org/2000/svg&quot;%3E%3Cg fill=&quot;none&quot; fillRule=&quot;evenodd&quot;%3E%3Cg fill=&quot;%23ffffff&quot; fillOpacity=&quot;0.1&quot;%3E%3Ccircle cx=&quot;7&quot; cy=&quot;7&quot; r=&quot;7&quot;/%3E%3Ccircle cx=&quot;53&quot; cy=&quot;7&quot; r=&quot;7&quot;/%3E%3Ccircle cx=&quot;7&quot; cy=&quot;53&quot; r=&quot;7&quot;/%3E%3Ccircle cx=&quot;53&quot; cy=&quot;53&quot; r=&quot;7&quot;/%3E%3C/g%3E%3C/g%3E%3C/svg%3E')]" />
       </div>
-
-      <div className="relative z-10 max-w-md w-full mx-auto px-6">
-        <div className="bg-gray-800/50 backdrop-blur-sm rounded-3xl border border-gray-700/50 p-8 space-y-8">
+      <div className="relative z-10 max-w-xl w-full mx-auto px-8">
+        <div className="bg-gray-800/60 backdrop-blur-md rounded-3xl border border-gray-700/50 p-14 space-y-12 shadow-2xl">
           {/* Logo and Branding */}
           <div className="text-center space-y-4">
             <div className="flex items-center justify-center space-x-3">
@@ -156,10 +155,10 @@ export default function HomePage() {
                 <div className="absolute -inset-1 bg-gradient-to-br from-orange-500 to-orange-600 rounded-2xl blur opacity-25"></div>
               </div>
             </div>
-            <div>
-              <h1 className="text-3xl font-bold text-white mb-2">Skillment</h1>
-              <p className="text-gray-400">Event Management Platform</p>
-            </div>
+          </div>
+          <div>
+            <h1 className="text-3xl font-bold text-white mb-2">Skillment</h1>
+            <p className="text-gray-400">Event Management Platform</p>
           </div>
 
           {/* Loading Status */}

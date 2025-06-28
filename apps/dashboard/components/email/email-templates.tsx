@@ -9,6 +9,8 @@ import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { toast } from "sonner"
 import * as api from "@/lib/api/email"
+import { EmailComposer } from "@/components/email/email-composer"
+import Editor from '@tinymce/tinymce-react';
 
 const typeColors = {
   "assessment-invite": "bg-blue-500/20 text-blue-400 border-blue-500/30",
@@ -28,6 +30,53 @@ const typeIcons = {
   "follow-up": Mail,
 }
 
+function TemplateModal({ open, onClose, onSave, template }: { open: boolean, onClose: () => void, onSave: (data: any) => void, template?: any }) {
+  const [name, setName] = useState(template?.name || "");
+  const [subject, setSubject] = useState(template?.subject || "");
+  const [body, setBody] = useState(template?.body || "");
+  useEffect(() => {
+    setName(template?.name || "");
+    setSubject(template?.subject || "");
+    setBody(template?.body || "");
+  }, [template, open]);
+  return (
+    <div className={`fixed inset-0 z-50 flex items-center justify-center bg-black/40 ${open ? '' : 'hidden'}`}>
+      <div className="bg-white dark:bg-card rounded-2xl shadow-2xl w-full max-w-2xl p-8">
+        <h2 className="text-2xl font-bold mb-4">{template ? 'Edit' : 'Create'} Email Template</h2>
+        <div className="space-y-4">
+          <Input placeholder="Template Name" value={name} onChange={e => setName(e.target.value)} />
+          <Input placeholder="Subject" value={subject} onChange={e => setSubject(e.target.value)} />
+          <div>
+            <label className="block mb-2 font-medium">Body</label>
+            <Editor
+              apiKey="no-api-key"
+              value={body}
+              init={{
+                height: 300,
+                menubar: true,
+                plugins: [
+                  'advlist autolink lists link image charmap print preview anchor',
+                  'searchreplace visualblocks code fullscreen',
+                  'insertdatetime media table paste code help wordcount'
+                ],
+                toolbar:
+                  'undo redo | formatselect | bold italic backcolor | \
+                  alignleft aligncenter alignright alignjustify | \
+                  bullist numlist outdent indent | removeformat | help',
+              }}
+              onEditorChange={setBody}
+            />
+          </div>
+        </div>
+        <div className="flex justify-end gap-2 mt-6">
+          <Button variant="outline" onClick={onClose}>Cancel</Button>
+          <Button onClick={() => onSave({ name, subject, body })}>{template ? 'Update' : 'Create'}</Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function EmailTemplates() {
   const [searchTerm, setSearchTerm] = useState("")
   const [typeFilter, setTypeFilter] = useState("all")
@@ -35,11 +84,15 @@ export function EmailTemplates() {
   const [loading, setLoading] = useState(false)
   const [showModal, setShowModal] = useState(false)
   const [editTemplate, setEditTemplate] = useState<any>(null)
+  const [showComposer, setShowComposer] = useState(false)
+  const [selectedTemplate, setSelectedTemplate] = useState<any>(null)
 
   useEffect(() => {
     setLoading(true)
     api.getTemplates()
-      .then((data) => setTemplates(data))
+      .then((data) => {
+        setTemplates(data)
+      })
       .catch(() => toast.error("Failed to load templates"))
       .finally(() => setLoading(false))
   }, [])
@@ -130,7 +183,11 @@ export function EmailTemplates() {
       </div>
       {/* Templates Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {filteredTemplates.map((template) => {
+        {filteredTemplates.length === 0 ? (
+          <div className="col-span-full text-center text-muted-foreground py-12">
+            No templates found. Create a new template to get started.
+          </div>
+        ) : filteredTemplates.map((template) => {
           const IconComponent = typeIcons[template.type as keyof typeof typeIcons] || FileText
           return (
             <Card
@@ -168,6 +225,7 @@ export function EmailTemplates() {
                   <span>Last: {template.updatedAt ? new Date(template.updatedAt).toLocaleDateString() : "-"}</span>
                 </div>
                 <div className="flex gap-2 pt-2">
+                  <Button variant="outline" size="sm" className="rounded-2xl text-blue-500 hover:text-blue-400" onClick={() => { setSelectedTemplate(template); setShowComposer(true); }}>Send</Button>
                   <Button variant="outline" size="sm" className="flex-1 rounded-2xl">
                     <Eye className="mr-2 h-4 w-4" />
                     Preview
@@ -187,8 +245,27 @@ export function EmailTemplates() {
           )
         })}
       </div>
-      {/* Modal for create/edit template (pseudo, implement as needed) */}
-      {/* {showModal && <TemplateModal ... />} */}
+      {showComposer && selectedTemplate && (
+        <EmailComposer
+          open={showComposer}
+          onOpenChange={(open) => { setShowComposer(open); if (!open) setSelectedTemplate(null); }}
+          template={selectedTemplate}
+        />
+      )}
+      {showModal && (
+        <TemplateModal
+          open={showModal}
+          onClose={() => { setShowModal(false); setEditTemplate(null); }}
+          onSave={async (data) => {
+            if (editTemplate) {
+              await handleUpdate(editTemplate.id, data)
+            } else {
+              await handleCreate(data)
+            }
+          }}
+          template={editTemplate}
+        />
+      )}
     </div>
   )
 }

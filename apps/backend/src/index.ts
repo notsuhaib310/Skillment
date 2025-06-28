@@ -14,6 +14,7 @@ import cookieParser from 'cookie-parser';
 import questionRouter from './routes/question.routes';
 import attemptRouter from './routes/attempt.routes';
 import candidateAssessmentRouter from './routes/candidate-assessment.routes';
+import emailRoutes from './routes/email.routes';
 
 // Load environment variables
 config();
@@ -55,6 +56,7 @@ app.use('/api/team', require('./routes/team').default);
 app.use('/api', questionRouter);
 app.use('/api', attemptRouter);
 app.use('/api', candidateAssessmentRouter);
+app.use('/api/email', emailRoutes);
 
 // Error handling
 app.use(errorHandler);

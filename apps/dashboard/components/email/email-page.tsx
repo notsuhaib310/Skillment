@@ -73,7 +73,10 @@ export function EmailPage() {
     setLoading(true)
     api.getLogs()
       .then((data) => {
-        setSentEmails(data.filter((log: any) => log.status !== "draft"))
+        const sent = data.filter((log: any) => log.status !== "draft")
+        // Sort A-Z by subject
+        sent.sort((a: any, b: any) => a.subject.localeCompare(b.subject))
+        setSentEmails(sent)
         setDrafts(data.filter((log: any) => log.status === "draft"))
       })
       .catch(() => toast.error("Failed to load emails"))

@@ -115,9 +115,9 @@ function LoginPageContent() {
   const organization = getOrganizationFromSubdomain()
 
   return (
-    <div className="min-h-screen flex">
+    <div className="min-h-screen w-full flex flex-col md:flex-row">
       {/* Left Side - Enhanced Hero Section */}
-      <div className="flex-1 relative bg-gradient-to-br from-orange-400 via-orange-500 to-orange-600 overflow-hidden">
+      <div className="w-full md:w-1/2 h-[320px] md:h-auto relative bg-gradient-to-br from-orange-400 via-orange-500 to-orange-600 overflow-hidden flex-shrink-0 flex flex-col">
         {/* Animated Background Pattern */}
         <div className="absolute inset-0 opacity-10">
           <div className="absolute inset-0 bg-[url('data:image/svg+xml,%3Csvg width=&quot;60&quot; height=&quot;60&quot; viewBox=&quot;0 0 60 60&quot; xmlns=&quot;http://www.w3.org/2000/svg&quot;%3E%3Cg fill=&quot;none&quot; fillRule=&quot;evenodd&quot;%3E%3Cg fill=&quot;%23ffffff&quot; fillOpacity=&quot;0.1&quot;%3E%3Ccircle cx=&quot;7&quot; cy=&quot;7&quot; r=&quot;7&quot;/%3E%3Ccircle cx=&quot;53&quot; cy=&quot;7&quot; r=&quot;7&quot;/%3E%3Ccircle cx=&quot;7&quot; cy=&quot;53&quot; r=&quot;7&quot;/%3E%3Ccircle cx=&quot;53&quot; cy=&quot;53&quot; r=&quot;7&quot;/%3E%3C/g%3E%3C/g%3E%3C/svg%3E')]"></div>
@@ -221,24 +221,8 @@ function LoginPageContent() {
       </div>
 
       {/* Right Side - Login Form */}
-      <div className="flex-1 bg-gray-50 flex items-center justify-center p-8 relative">
-        {/* Floating Avatars for Right Side */}
-        {rightFloatingAvatars.map((avatar) => (
-          <div
-            key={`right-${avatar.id}`}
-            className={`absolute ${avatar.position} ${avatar.size} rounded-full bg-gray-200 flex items-center justify-center animate-pulse`}
-            style={{
-              animationDelay: `${avatar.id * 0.7}s`,
-              animationDuration: "4s",
-            }}
-          >
-            <div
-              className={`${avatar.size === "w-10 h-10" ? "w-6 h-6" : avatar.size === "w-8 h-8" ? "w-4 h-4" : "w-3 h-3"} rounded-full bg-gray-300`}
-            ></div>
-          </div>
-        ))}
-
-        <div className="w-full max-w-md relative z-10">
+      <div className="w-full md:w-1/2 flex items-center justify-center bg-white dark:bg-[#0a1120] min-h-[calc(100vh-0px)]">
+        <div className="w-full max-w-md px-4 sm:px-0 relative z-10">
           {/* Organization Header */}
           {organization && (
             <div className="text-center mb-8">
