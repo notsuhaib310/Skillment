@@ -30,78 +30,8 @@ export default function ProctoredExam({ candidateData, systemStatus, onComplete 
   const [currentAnswer, setCurrentAnswer] = useState("")
   const [savedAnswers, setSavedAnswers] = useState<Record<number, boolean>>({})
 
-  // Questions with individual time limits and different types
-  const questions = [
-    {
-      id: 1,
-      type: "mcq",
-      question: "What is the capital of France?",
-      options: ["Paris", "Berlin", "Madrid", "Rome"],
-      timeLimit: 60, // 1 minute
-      marks: 1,
-    },
-    {
-      id: 2,
-      type: "mcq",
-      question: "What is the time complexity of binary search algorithm?",
-      options: ["O(n)", "O(log n)", "O(n²)", "O(1)"],
-      timeLimit: 90, // 1.5 minutes
-      marks: 1,
-    },
-    {
-      id: 3,
-      type: "fill",
-      question: "The _______ method is used to add an element to the end of an array in JavaScript.",
-      placeholder: "Enter method name",
-      timeLimit: 75, // 1.25 minutes
-      marks: 2,
-    },
-    {
-      id: 4,
-      type: "mcq",
-      question: "Which of the following are programming paradigms?",
-      options: ["Object-oriented", "Functional", "Procedural", "All of the above"],
-      timeLimit: 60,
-      marks: 1,
-    },
-    {
-      id: 5,
-      type: "fill",
-      question: "In React, _______ is used to manage component state and _______ is used for side effects.",
-      placeholder: "Enter two terms separated by comma",
-      timeLimit: 90,
-      marks: 2,
-    },
-    {
-      id: 6,
-      type: "mcq",
-      question: "What does HTML stand for?",
-      options: [
-        "Hyper Text Markup Language",
-        "High Tech Modern Language",
-        "Home Tool Markup Language",
-        "Hyperlink and Text Markup Language",
-      ],
-      timeLimit: 45,
-      marks: 1,
-    },
-    {
-      id: 7,
-      type: "fill",
-      question: "The CSS property _______ is used to change the background color of an element.",
-      placeholder: "Enter CSS property name",
-      timeLimit: 60,
-      marks: 1,
-    },
-    {
-      id: 8,
-      type: "mcq",
-      question: "Which data structure uses LIFO principle?",
-      options: ["Queue", "Stack", "Array", "Linked List"],
-      timeLimit: 60,
-      marks: 1,
-    },
-  ]
+  // Use questions from assessment prop, fallback to []
+  const questions = candidateData?.assignedAssessment?.questions || [];
 
   useEffect(() => {
     initializeUltraStrictProctoring()
@@ -678,18 +608,18 @@ export default function ProctoredExam({ candidateData, systemStatus, onComplete 
                   onValueChange={handleAnswerChange}
                   className="space-y-4"
                 >
-                  {questions[currentQuestion].options?.map((option, index) => (
+                  {questions[currentQuestion].options?.map((option: any, index: number) => (
                     <div
                       key={index}
                       className="flex items-center space-x-4 p-4 rounded-lg border border-[#2a2d31] hover:border-[#ff4d00]/30 hover:bg-[#ff4d00]/5 transition-colors cursor-pointer"
                     >
                       <RadioGroupItem
-                        value={option}
+                        value={typeof option === 'string' ? option : option.text}
                         id={`option-${index}`}
                         className="border-gray-500 text-[#ff4d00]"
                       />
                       <Label htmlFor={`option-${index}`} className="flex-1 text-gray-200 cursor-pointer text-lg">
-                        {option}
+                        {typeof option === 'string' ? option : option.text}
                       </Label>
                     </div>
                   ))}
@@ -775,7 +705,7 @@ export default function ProctoredExam({ candidateData, systemStatus, onComplete 
           <div className="mb-6">
             <h3 className="text-sm font-medium text-gray-300 mb-3">Questions</h3>
             <div className="grid grid-cols-3 gap-2">
-              {questions.map((question, index) => (
+              {questions.map((question: any, index: number) => (
                 <button
                   key={index}
                   onClick={() => {
@@ -836,7 +766,7 @@ export default function ProctoredExam({ candidateData, systemStatus, onComplete 
                 {violationLogs
                   .slice(-5)
                   .reverse()
-                  .map((log, index) => (
+                  .map((log: string, index: number) => (
                     <div key={index} className="text-xs text-red-400">
                       {log}
                     </div>
@@ -908,7 +838,7 @@ export default function ProctoredExam({ candidateData, systemStatus, onComplete 
             <div className="mb-6">
               <h3 className="font-medium text-gray-900 mb-3">Status of Questions</h3>
               <div className="grid grid-cols-5 gap-2">
-                {questions.map((_, index) => (
+                {questions.map((_: any, index: number) => (
                   <button
                     key={index}
                     onClick={() => {
