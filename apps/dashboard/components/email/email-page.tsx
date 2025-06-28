@@ -44,6 +44,26 @@ const typeColors = {
   "follow-up": "bg-pink-500/20 text-pink-400 border-pink-500/30",
 }
 
+// Add TypeScript type for email log
+interface EmailLog {
+  id: string;
+  recipient?: string;
+  recipientEmail?: string;
+  to?: string;
+  toEmail?: string;
+  meta?: { name?: string; email?: string };
+  subject?: string;
+  template?: string;
+  type?: string;
+  status?: string;
+  sentAt?: string;
+  openedAt?: string;
+  clickedAt?: string;
+  body?: string;
+  html?: string;
+  [key: string]: any;
+}
+
 // Helper to get JWT token from localStorage
 function getAuthHeaders(): Record<string, string> {
   if (typeof window !== 'undefined') {
@@ -72,6 +92,9 @@ export function EmailPage() {
   const [viewEmailId, setViewEmailId] = useState<string | null>(null)
   const [viewEmailData, setViewEmailData] = useState<any>(null)
   const [viewEmailLoading, setViewEmailLoading] = useState(false)
+
+  const recipientName = viewEmailData?.recipient || viewEmailData?.to || (viewEmailData?.meta && viewEmailData.meta.name) || "Unknown";
+  const recipientEmail = viewEmailData?.recipientEmail || viewEmailData?.toEmail || viewEmailData?.to || (viewEmailData?.meta && viewEmailData.meta.email) || "-";
 
   useEffect(() => {
     setLoading(true)
@@ -368,95 +391,102 @@ export function EmailPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredEmails.map((email) => (
-                    <TableRow key={email.id} className="border-border/40 hover:bg-accent/30">
-                      <TableCell>
-                        <div className="flex items-center gap-3">
-                          <Avatar className="h-8 w-8 rounded-2xl">
-                            <AvatarImage src="/placeholder.svg" />
-                            <AvatarFallback className="rounded-2xl bg-gradient-to-br from-primary to-orange-600 text-primary-foreground text-xs">
-                              {(typeof email.recipient === 'string' && email.recipient.trim())
-                                ? email.recipient.split(" ").map((n: string) => n[0]).join("")
-                                : "??"}
-                            </AvatarFallback>
-                          </Avatar>
-                          <div>
-                            <div className="font-medium text-foreground">{email.recipient || "Unknown"}</div>
-                            <div className="text-sm text-muted-foreground">{email.recipientEmail || "-"}</div>
+                  {filteredEmails.map((email: EmailLog) => {
+                    const recipientName = email.recipient || email.to || (email.meta && email.meta.name) || "Unknown";
+                    const recipientEmail = email.recipientEmail || email.toEmail || email.to || (email.meta && email.meta.email) || "-";
+                    const type = email.type || 'assessment-invite';
+                    // Google profile image if email is available
+                    const googleProfileImg = recipientEmail && recipientEmail !== '-' ? `https://www.google.com/s2/photos/profile/${encodeURIComponent(recipientEmail)}` : '/placeholder.svg';
+                    return (
+                      <TableRow key={email.id} className="border-border/40 hover:bg-accent/30">
+                        <TableCell>
+                          <div className="flex items-center gap-3">
+                            <Avatar className="h-8 w-8 rounded-2xl">
+                              <AvatarImage src={googleProfileImg} />
+                              <AvatarFallback className="rounded-2xl bg-gradient-to-br from-primary to-orange-600 text-primary-foreground text-xs">
+                                {(typeof recipientName === 'string' && recipientName.trim())
+                                  ? recipientName.split(" ").map((n: string) => n[0]).join("")
+                                  : "??"}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div>
+                              <div className="font-medium text-foreground">{recipientName}</div>
+                              <div className="text-sm text-muted-foreground">{recipientEmail}</div>
+                            </div>
                           </div>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="font-medium text-foreground max-w-64 truncate">{email.subject}</div>
-                        <div className="text-sm text-muted-foreground">{email.template}</div>
-                      </TableCell>
-                      <TableCell>
-                        <Badge
-                          className={`rounded-xl border ${typeColors[email.type as keyof typeof typeColors]} capitalize`}
-                        >
-                          {(typeof email.type === 'string' && email.type)
-                            ? email.type.replace(/-/g, " ")
-                            : "Unknown"}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <Badge
-                          className={`rounded-xl border ${statusColors[email.status as keyof typeof statusColors]} capitalize`}
-                        >
-                          {email.status}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <div className="text-sm text-foreground">{email.sentAt}</div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          {email.openedAt && (
-                            <Badge variant="secondary" className="rounded-xl text-xs">
-                              <Eye className="mr-1 h-3 w-3" />
-                              Opened
-                            </Badge>
-                          )}
-                          {email.clickedAt && (
-                            <Badge variant="secondary" className="rounded-xl text-xs">
-                              Clicked
-                            </Badge>
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-right pr-6">
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-xl hover:bg-accent/80">
-                              <MoreHorizontal className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent
-                            align="end"
-                            className="rounded-2xl border-border/40 bg-card/80 backdrop-blur-xl"
+                        </TableCell>
+                        <TableCell>
+                          <div className="font-medium text-foreground max-w-64 truncate">{email.subject}</div>
+                          <div className="text-sm text-muted-foreground">{email.template}</div>
+                        </TableCell>
+                        <TableCell>
+                          <Badge
+                            className={`rounded-xl border ${typeColors[type as keyof typeof typeColors] || typeColors['assessment-invite']} capitalize`}
                           >
-                            <DropdownMenuItem className="rounded-xl" onClick={() => setViewEmailId(email.id)}>
-                              <Eye className="mr-2 h-4 w-4" />
-                              View Email
-                            </DropdownMenuItem>
-                            <DropdownMenuItem className="rounded-xl">
-                              <Copy className="mr-2 h-4 w-4" />
-                              Duplicate
-                            </DropdownMenuItem>
-                            <DropdownMenuItem className="rounded-xl">
-                              <Send className="mr-2 h-4 w-4" />
-                              Resend
-                            </DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem className="rounded-xl text-red-400 focus:text-red-300">
-                              <Trash2 className="mr-2 h-4 w-4" />
-                              Delete
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                            {(typeof type === 'string' && type)
+                              ? type.replace(/-/g, " ")
+                              : "Assessment Invite"}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <Badge
+                            className={`rounded-xl border ${statusColors[email.status as keyof typeof statusColors]} capitalize`}
+                          >
+                            {email.status}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <div className="text-sm text-foreground">{email.sentAt}</div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            {email.openedAt && (
+                              <Badge variant="secondary" className="rounded-xl text-xs">
+                                <Eye className="mr-1 h-3 w-3" />
+                                Opened
+                              </Badge>
+                            )}
+                            {email.clickedAt && (
+                              <Badge variant="secondary" className="rounded-xl text-xs">
+                                Clicked
+                              </Badge>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-right pr-6">
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="icon" className="h-8 w-8 rounded-xl hover:bg-accent/80">
+                                <MoreHorizontal className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent
+                              align="end"
+                              className="rounded-2xl border-border/40 bg-card/80 backdrop-blur-xl"
+                            >
+                              <DropdownMenuItem className="rounded-xl" onClick={() => setViewEmailId(email.id)}>
+                                <Eye className="mr-2 h-4 w-4" />
+                                View Email
+                              </DropdownMenuItem>
+                              <DropdownMenuItem className="rounded-xl">
+                                <Copy className="mr-2 h-4 w-4" />
+                                Duplicate
+                              </DropdownMenuItem>
+                              <DropdownMenuItem className="rounded-xl">
+                                <Send className="mr-2 h-4 w-4" />
+                                Resend
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem className="rounded-xl text-red-400 focus:text-red-300">
+                                <Trash2 className="mr-2 h-4 w-4" />
+                                Delete
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
             </CardContent>
@@ -647,11 +677,11 @@ export function EmailPage() {
               </div>
               <div>
                 <span className="font-semibold text-neutral-300">Recipient:</span>
-                <span className="ml-2 text-white">{viewEmailData?.recipient || <span className="text-neutral-500">-</span>} {viewEmailData?.recipientEmail && <span className="text-neutral-400">({viewEmailData.recipientEmail})</span>}</span>
+                <span className="ml-2 text-white">{recipientName} <span className="text-neutral-400">({recipientEmail})</span></span>
               </div>
               <div>
                 <span className="font-semibold text-neutral-300">Type:</span>
-                <span className="ml-2 text-white">{viewEmailData?.type || <span className="text-neutral-500">-</span>}</span>
+                <span className="ml-2 text-white">{(typeof viewEmailData?.type === 'string' && viewEmailData.type) ? viewEmailData.type.replace(/-/g, ' ') : 'Assessment Invite'}</span>
               </div>
               <div>
                 <span className="font-semibold text-neutral-300">Status:</span>
