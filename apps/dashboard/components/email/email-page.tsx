@@ -358,10 +358,9 @@ export function EmailPage() {
                           <Avatar className="h-8 w-8 rounded-2xl">
                             <AvatarImage src="/placeholder.svg" />
                             <AvatarFallback className="rounded-2xl bg-gradient-to-br from-primary to-orange-600 text-primary-foreground text-xs">
-                              {email.recipient
-                                .split(" ")
-                                .map((n: string) => n[0])
-                                .join("")}
+                              {(typeof email.recipient === 'string' && email.recipient.trim())
+                                ? email.recipient.split(" ").map((n: string) => n[0]).join("")
+                                : "??"}
                             </AvatarFallback>
                           </Avatar>
                           <div>
@@ -378,7 +377,9 @@ export function EmailPage() {
                         <Badge
                           className={`rounded-xl border ${typeColors[email.type as keyof typeof typeColors]} capitalize`}
                         >
-                          {email.type.replace("-", " ")}
+                          {(typeof email.type === 'string' && email.type)
+                            ? email.type.replace(/-/g, " ")
+                            : "Unknown"}
                         </Badge>
                       </TableCell>
                       <TableCell>
