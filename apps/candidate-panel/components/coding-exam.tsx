@@ -31,7 +31,8 @@ import { sendProctoringEvent } from "@/lib/proctoring"
 
 interface CodingExamProps {
   candidateData: any
-  systemStatus: any
+  systemStatus?: any
+  assessment: any
   onComplete?: (results: any) => void
 }
 
@@ -74,7 +75,7 @@ interface Violation {
   action: string
 }
 
-export default function CodingExam({ candidateData, systemStatus, onComplete }: CodingExamProps) {
+export default function CodingExam({ candidateData, systemStatus, assessment, onComplete }: CodingExamProps) {
   const [currentProblem, setCurrentProblem] = useState(0)
   const [code, setCode] = useState("")
   const [language, setLanguage] = useState("javascript")
@@ -116,104 +117,19 @@ export default function CodingExam({ candidateData, systemStatus, onComplete }: 
   const [tabInactive, setTabInactive] = useState(false)
   const [notFullscreen, setNotFullscreen] = useState(false)
 
-  // Sample coding problems with public and private test cases
-  const problems: CodingProblem[] = [
-    {
-      id: 1,
-      title: "Two Sum",
-      difficulty: "Easy",
-      description: `Given an array of integers nums and an integer target, return indices of the two numbers such that they add up to target.
-
-You may assume that each input would have exactly one solution, and you may not use the same element twice.
-
-You can return the answer in any order.`,
-      examples: [
-        {
-          input: "nums = [2,7,11,15], target = 9",
-          output: "[0,1]",
-          explanation: "Because nums[0] + nums[1] == 9, we return [0, 1].",
-        },
-        {
-          input: "nums = [3,2,4], target = 6",
-          output: "[1,2]",
-        },
-      ],
-      constraints: [
-        "2 ≤ nums.length ≤ 10⁴",
-        "-10⁹ ≤ nums[i] ≤ 10⁹",
-        "-10⁹ ≤ target ≤ 10⁹",
-        "Only one valid answer exists.",
-      ],
-      testCases: [
-        {
-          id: 1,
-          type: "public",
-          input: "[2,7,11,15], 9",
-          expectedOutput: "[0,1]",
-          visible: true,
-          status: "pending",
-        },
-        {
-          id: 2,
-          type: "public",
-          input: "[3,2,4], 6",
-          expectedOutput: "[1,2]",
-          visible: true,
-          status: "pending",
-        },
-        {
-          id: 3,
-          type: "private",
-          input: "[3,3], 6",
-          expectedOutput: "[0,1]",
-          visible: false,
-          status: "pending",
-        },
-        {
-          id: 4,
-          type: "private",
-          input: "[1,2,3,4,5], 8",
-          expectedOutput: "[2,4]",
-          visible: false,
-          status: "pending",
-        },
-        {
-          id: 5,
-          type: "private",
-          input: "[5,5,5,5], 10",
-          expectedOutput: "[0,1]",
-          visible: false,
-          status: "pending",
-        },
-      ],
-      starterCode: {
-        javascript: `/**
- * @param {number[]} nums
- * @param {number} target
- * @return {number[]}
- */
-var twoSum = function(nums, target) {
-    
-};`,
-        python: `class Solution:
-    def twoSum(self, nums: List[int], target: int) -> List[int]:
-        pass`,
-        java: `class Solution {
-    public int[] twoSum(int[] nums, int target) {
-        
-    }
-}`,
-        cpp: `class Solution {
-public:
-    vector<int> twoSum(vector<int>& nums, int target) {
-        
-    }
-};`,
-      },
-      timeLimit: 30,
-      marks: 10,
-    },
-  ]
+  // Map backend questions to CodingProblem format expected by the UI
+  const problems = (assessment?.questions || []).map((q: any, idx: number) => ({
+    id: q.id || idx + 1,
+    title: q.question || `Problem ${idx + 1}`,
+    description: q.explanation || q.question || '',
+    difficulty: q.difficulty || 'Easy',
+    examples: q.examples || [], // If backend has examples field, else []
+    constraints: q.constraints || q.hints || [], // Use hints as constraints if present
+    testCases: q.testCases || [], // If backend has testCases field, else []
+    starterCode: q.starterCode || { javascript: '', python: '', java: '', cpp: '' },
+    timeLimit: q.timeLimit || assessment.duration || 30,
+    marks: q.marks || 1,
+  }));
 
   const languages = [
     { id: "javascript", name: "JavaScript", monacoId: "javascript" },
@@ -1252,7 +1168,7 @@ public:
 
                   <div>
                     <h3 className="text-lg font-semibold mb-3">Examples</h3>
-                    {problems[currentProblem].examples.map((example, index) => (
+                    {problems[currentProblem].examples.map((example: any, index: number) => (
                       <div key={index} className="mb-4 p-4 bg-[#1a1d21] rounded-lg border border-[#2a2d31]">
                         <div className="mb-2">
                           <strong className="text-gray-300">Input:</strong>
@@ -1275,7 +1191,7 @@ public:
                   <div>
                     <h3 className="text-lg font-semibold mb-3">Constraints</h3>
                     <ul className="space-y-1">
-                      {problems[currentProblem].constraints.map((constraint, index) => (
+                      {problems[currentProblem].constraints.map((constraint: any, index: number) => (
                         <li key={index} className="text-gray-400">
                           • {constraint}
                         </li>
@@ -1510,7 +1426,7 @@ public:
             <div className="mb-6 flex-shrink-0">
               <h3 className="text-sm font-medium text-gray-300 mb-3">Problems</h3>
               <div className="space-y-2">
-                {problems.map((problem, index) => (
+                {problems.map((problem: any, index: number) => (
                   <button
                     key={index}
                     onClick={() => {
@@ -1598,7 +1514,7 @@ public:
                   {violations
                     .slice(-10)
                     .reverse()
-                    .map((violation, index) => (
+                    .map((violation: any, index: number) => (
                       <div key={violation.id} className={`text-xs ${getViolationColor(violation.type)}`}>
                         <div className="font-medium">{violation.type.toUpperCase()}</div>
                         <div className="opacity-75">{violation.message}</div>

@@ -3,12 +3,17 @@ import { listAssignedAssessments, getCandidateAssessment, getCandidateAttempt } 
 import { authenticate } from '../middleware/authenticate';
 
 const router = Router();
-router.use(authenticate);
 
-// List assigned assessments
-router.get('/candidate/assessments', listAssignedAssessments);
+// Public: List assigned assessments for login
+router.get('/assessments', (req, res, next) => {
+  console.log('Public /candidate/assessments hit');
+  next();
+}, listAssignedAssessments);
+
+// Protected: All other candidate assessment routes
+router.use(authenticate);
 // Get assessment details for candidate
-router.get('/candidate/assessments/:id', getCandidateAssessment);
+router.get('/assessments/:id', getCandidateAssessment);
 // Get attempt/result for candidate
 router.get('/candidate/attempts/:id', getCandidateAttempt);
 

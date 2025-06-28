@@ -47,16 +47,16 @@ app.get('/', (_req, res) => {
 });
 
 // Routes
+app.use('/api/candidate', candidateAssessmentRouter);
+app.use('/api/assessments', assessmentRouter);
 app.use('/api/auth', authRouter);
 app.use('/api/users', userRouter);
 app.use('/api/participants', participantsRouter);
 app.use('/api/organizations', organizationsRouter);
-app.use('/api/assessments', assessmentRouter);
 app.use('/api/billing', billingRouter);
 app.use('/api/team', require('./routes/team').default);
 app.use('/api', questionRouter);
 app.use('/api', attemptRouter);
-app.use('/api', candidateAssessmentRouter);
 app.use('/api/email', emailRoutes);
 app.use('/api/candidates', candidateRouter);
 

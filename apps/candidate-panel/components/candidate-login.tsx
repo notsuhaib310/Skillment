@@ -64,7 +64,12 @@ export default function CandidateLogin({ onSuccess }: CandidateLoginProps) {
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || "Login failed")
-      onSuccess({ ...data.candidate, assessmentType })
+      // Fetch assigned assessment for this candidate
+      const assessmentRes = await fetch(`http://localhost:5000/api/candidate/assessments?email=${encodeURIComponent(formData.email)}`)
+      const assigned = await assessmentRes.json()
+      console.log('Assigned assessments:', assigned)
+      // Pass assessment data to onSuccess, set assessmentType from assignedAssessment.type
+      onSuccess({ ...data.candidate, assessmentType: assigned[0]?.assessment?.type, assignedAssessment: assigned[0]?.assessment })
     } catch (err: any) {
       setError(err.message)
     } finally {
@@ -155,27 +160,6 @@ export default function CandidateLogin({ onSuccess }: CandidateLoginProps) {
                 />
                 <div className="flex justify-end mt-1">
                   <a href="#" className="text-xs text-[#ff6b35] hover:underline font-medium transition-all">Forgot password?</a>
-                </div>
-              </div>
-              <div className="space-y-2">
-                <Label className="text-gray-200 font-semibold text-base">Assessment Type *</Label>
-                <div className="grid grid-cols-2 gap-3">
-                  <button
-                    type="button"
-                    onClick={() => setAssessmentType("mcq")}
-                    className={`h-12 rounded-lg border-2 transition-all duration-200 flex items-center justify-center space-x-2 focus:outline-none focus:ring-2 focus:ring-[#ff4d00] focus:border-[#ff4d00] font-semibold text-base ${assessmentType === "mcq" ? "border-[#ff4d00] bg-[#ff4d00]/10 text-[#ff4d00] shadow-md" : "border-[#3a3d41] bg-[#23272f]/80 text-gray-400 hover:border-[#ff4d00]/50"}`}
-                    aria-pressed={assessmentType === "mcq"}
-                  >
-                    <span>MCQ Test</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setAssessmentType("coding")}
-                    className={`h-12 rounded-lg border-2 transition-all duration-200 flex items-center justify-center space-x-2 focus:outline-none focus:ring-2 focus:ring-[#ff4d00] focus:border-[#ff4d00] font-semibold text-base ${assessmentType === "coding" ? "border-[#ff4d00] bg-[#ff4d00]/10 text-[#ff4d00] shadow-md" : "border-[#3a3d41] bg-[#23272f]/80 text-gray-400 hover:border-[#ff4d00]/50"}`}
-                    aria-pressed={assessmentType === "coding"}
-                  >
-                    <span>Coding Test</span>
-                  </button>
                 </div>
               </div>
               <Button
