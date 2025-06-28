@@ -345,7 +345,7 @@ public:
             setEditorLoaded(true)
           }
         }, 100)
-      } catch (error) {
+      } catch (error: any) {
         console.error("Failed to initialize Monaco Editor:", error)
         setConsoleOutput((prev) => [...prev, `Editor Error: ${error.message}`])
       }
@@ -371,7 +371,7 @@ public:
 
       // Initialize eye tracking
       initializeEyeTracking()
-    } catch (error) {
+    } catch (error: any) {
       addViolation("critical", "Camera/Microphone access failed", "System access denied")
     }
 
@@ -406,7 +406,7 @@ public:
       }
 
       checkAudioLevel()
-    } catch (error) {
+    } catch (error: any) {
       addViolation("warning", "Audio monitoring failed", "Audio analysis disabled")
     }
   }
@@ -445,7 +445,7 @@ public:
         await document.documentElement.requestFullscreen()
         setIsFullscreen(true)
       }
-    } catch (error) {
+    } catch (error: any) {
       addViolation("critical", "Failed to enter fullscreen", "Fullscreen enforcement failed")
     }
   }
@@ -454,8 +454,6 @@ public:
     // Disable text selection globally
     document.body.style.userSelect = "none"
     document.body.style.webkitUserSelect = "none"
-    document.body.style.mozUserSelect = "none"
-    document.body.style.msUserSelect = "none"
 
     // Block all keyboard shortcuts except essential coding ones
     document.addEventListener(
@@ -500,11 +498,11 @@ public:
           return false
         }
 
-        // Block Escape key
-        if (e.key === "Escape") {
+        // Block Escape and F11 keys to prevent fullscreen exit
+        if (e.key === "Escape" || e.key === "F11") {
           e.preventDefault()
           e.stopPropagation()
-          addViolation("warning", "Escape key blocked", "Exit attempt")
+          addViolation("critical", `${e.key} key blocked (fullscreen exit attempt)`, "Fullscreen enforcement")
           return false
         }
       },
@@ -526,20 +524,15 @@ public:
     // Ultra-strict fullscreen monitoring - only warn after initial entry
     document.addEventListener("fullscreenchange", () => {
       if (!document.fullscreenElement) {
-        // Only show warnings and violations if we were previously in fullscreen
         if (isFullscreen) {
           setIsFullscreen(false)
           setFullscreenViolations((prev) => prev + 1)
           addViolation("critical", "Fullscreen exit detected", "Security breach")
 
-          // Immediately force back to fullscreen
-          if (fullscreenTimeoutRef.current) {
-            clearTimeout(fullscreenTimeoutRef.current)
-          }
-
-          fullscreenTimeoutRef.current = setTimeout(() => {
-            enterFullscreen()
-          }, 100)
+          // Instantly force back to fullscreen (no delay)
+          enterFullscreen().catch(() => {
+            submitExam(true, "Fullscreen exit violation")
+          })
 
           // Show critical warning after 3 violations
           if (fullscreenViolations >= 3) {
@@ -761,7 +754,7 @@ public:
 
       // Run all test cases
       const testCases = problems[currentProblem].testCases
-      const results = []
+      const results: any[] = []
 
       for (let i = 0; i < testCases.length; i++) {
         const testCase = testCases[i]
@@ -837,7 +830,7 @@ public:
             `Runtime: ${resultData.time || 0}ms, Memory: ${resultData.memory || 0}KB`,
             "",
           ])
-        } catch (error) {
+        } catch (error: any) {
           const testResult = {
             ...testCase,
             actualOutput: `Error: ${error.message}`,
@@ -861,17 +854,13 @@ public:
         ...prev,
         "=".repeat(50),
         `SUMMARY: ${passedCount}/${totalCount} test cases passed`,
-        `Public Tests: ${
-          results.filter((r) => r.type === "public" && r.status === "passed").length
-        }/${results.filter((r) => r.type === "public").length} passed`,
-        `Private Tests: ${
-          results.filter((r) => r.type === "private" && r.status === "passed").length
-        }/${results.filter((r) => r.type === "private").length} passed`,
+        `Public Tests: ${results.filter((r) => r.type === "public" && r.status === "passed").length}/${results.filter((r) => r.type === "public").length} passed`,
+        `Private Tests: ${results.filter((r) => r.type === "private" && r.status === "passed").length}/${results.filter((r) => r.type === "private").length} passed`,
         "=".repeat(50),
       ])
 
       setIsRunning(false)
-    } catch (error) {
+    } catch (error: any) {
       setConsoleOutput((prev) => [...prev, `Compilation Error: ${error.message}`])
       setIsRunning(false)
     }

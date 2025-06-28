@@ -176,11 +176,11 @@ export default function ProctoredExam({ candidateData, systemStatus, onComplete 
           return false
         }
 
-        // Block Escape key
-        if (e.key === "Escape") {
+        // Block Escape and F11 keys to prevent fullscreen exit
+        if (e.key === "Escape" || e.key === "F11") {
           e.preventDefault()
           e.stopPropagation()
-          addViolation("Escape key blocked")
+          addViolation(`${e.key} key blocked (fullscreen exit attempt)`)
           return false
         }
       },
@@ -265,12 +265,10 @@ export default function ProctoredExam({ candidateData, systemStatus, onComplete 
     document.addEventListener("fullscreenchange", () => {
       if (!document.fullscreenElement) {
         addViolation("Fullscreen exit detected")
-        // Force back to fullscreen immediately
-        setTimeout(() => {
-          document.documentElement.requestFullscreen().catch(() => {
-            submitExam(true, "Fullscreen exit violation")
-          })
-        }, 100)
+        // Instantly force back to fullscreen (no delay)
+        document.documentElement.requestFullscreen().catch(() => {
+          submitExam(true, "Fullscreen exit violation")
+        })
       }
     })
 
@@ -367,8 +365,6 @@ export default function ProctoredExam({ candidateData, systemStatus, onComplete 
     // Disable text selection via CSS
     document.body.style.userSelect = "none"
     document.body.style.webkitUserSelect = "none"
-    document.body.style.mozUserSelect = "none"
-    document.body.style.msUserSelect = "none"
 
     // Block image saving
     document.addEventListener("dragstart", (e) => {
@@ -525,18 +521,21 @@ export default function ProctoredExam({ candidateData, systemStatus, onComplete 
 
     let score = 0
     Object.entries(answers).forEach(([questionIndex, answer]) => {
-      const correctAnswer = correctAnswers[Number.parseInt(questionIndex)]
-      if (questions[Number.parseInt(questionIndex)].type === "fill") {
-        // For fill-in-the-blank, check if answer contains correct keywords
-        const answerLower = answer.toLowerCase().trim()
-        const correctLower = correctAnswer.toLowerCase()
-        if (answerLower.includes(correctLower) || correctLower.includes(answerLower)) {
-          score += questions[Number.parseInt(questionIndex)].marks
-        }
-      } else {
-        // For MCQ, exact match
-        if (correctAnswer === answer) {
-          score += questions[Number.parseInt(questionIndex)].marks
+      const idx = Number(questionIndex)
+      if (Object.prototype.hasOwnProperty.call(correctAnswers, idx)) {
+        const correctAnswer = correctAnswers[idx as keyof typeof correctAnswers]
+        if (questions[idx].type === "fill") {
+          // For fill-in-the-blank, check if answer contains correct keywords
+          const answerLower = answer.toLowerCase().trim()
+          const correctLower = correctAnswer.toLowerCase()
+          if (answerLower.includes(correctLower) || correctLower.includes(answerLower)) {
+            score += questions[idx].marks
+          }
+        } else {
+          // For MCQ, exact match
+          if (correctAnswer === answer) {
+            score += questions[idx].marks
+          }
         }
       }
     })

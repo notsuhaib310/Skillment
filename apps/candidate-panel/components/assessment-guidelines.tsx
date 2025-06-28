@@ -44,10 +44,28 @@ export default function AssessmentGuidelines({ onAccept }: AssessmentGuidelinesP
       // Enter fullscreen IMMEDIATELY when "start" is typed
       try {
         await document.documentElement.requestFullscreen()
-      } catch (error) {
-        console.error("Fullscreen failed:", error)
+        // Add strict enforcement listeners
+        const enforceFullscreen = () => {
+          if (!document.fullscreenElement) {
+            document.documentElement.requestFullscreen().catch(() => {
+              alert("Fullscreen is required to start the assessment. Please allow fullscreen mode.")
+              return
+            })
+          }
+        }
+        document.addEventListener("fullscreenchange", enforceFullscreen)
+        document.addEventListener("keydown", (e) => {
+          if (e.key === "Escape" || e.key === "F11") {
+            e.preventDefault()
+            e.stopPropagation()
+            alert(`${e.key} key blocked (fullscreen exit attempt). Fullscreen is required.`)
+            return false
+          }
+        }, true)
+      } catch (error: any) {
+        alert("Fullscreen failed: " + (error?.message || error))
+        return
       }
-
       // Start exam immediately with no delays
       onAccept()
     }
