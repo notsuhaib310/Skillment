@@ -13,7 +13,7 @@ import { CandidateController } from '../controllers/candidate.controller';
 
 const router = Router();
 
-// router.use(authenticate); // TEMP: Make all assessment endpoints public for dashboard testing
+router.use(authenticate); // PRODUCTION: Protect all assessment endpoints
 
 // Create a new assessment
 router.post('/', createAssessment);

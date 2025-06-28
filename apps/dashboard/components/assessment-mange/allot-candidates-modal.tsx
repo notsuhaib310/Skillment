@@ -56,6 +56,7 @@ export function AllotCandidatesModal({ open, onOpenChange, assessmentId }: Allot
   const [loading, setLoading] = useState(false)
   const [assessment, setAssessment] = useState<Assessment | null>(null)
   const [candidates, setCandidates] = useState<Candidate[]>([])
+  const [allottedCandidateIds, setAllottedCandidateIds] = useState<string[]>([])
   const { toast } = useToast()
 
   const getNext30Days = () => {
@@ -74,6 +75,7 @@ export function AllotCandidatesModal({ open, onOpenChange, assessmentId }: Allot
     if (assessmentId) {
       loadAssessment()
       loadCandidates()
+      loadAllottedCandidates()
     }
   }, [assessmentId])
 
@@ -122,7 +124,26 @@ export function AllotCandidatesModal({ open, onOpenChange, assessmentId }: Allot
     }
   }
 
+  const loadAllottedCandidates = async () => {
+    if (!assessmentId) return
+    try {
+      const token = getAuthToken();
+      const response = await fetch(`${API_URL}/assessments/${assessmentId}/candidates`, {
+        credentials: "include",
+        headers: {
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+      })
+      if (!response.ok) throw new Error("Failed to fetch allotted candidates")
+      const data = await response.json()
+      setAllottedCandidateIds(data.map((c: any) => c.id))
+    } catch (error) {
+      console.error("Error loading allotted candidates:", error)
+    }
+  }
+
   const filteredCandidates = candidates.filter((candidate) => {
+    if (allottedCandidateIds.includes(candidate.id)) return false;
     const matchesSearch =
       candidate.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       candidate.email.toLowerCase().includes(searchTerm.toLowerCase())
@@ -214,6 +235,7 @@ export function AllotCandidatesModal({ open, onOpenChange, assessmentId }: Allot
         title: "Candidates Allotted",
         description: `${selectedCandidates.length} candidates have been successfully allotted to the assessment.`,
       })
+      await handleSendCredentials();
     } catch (error) {
       console.error("Error allotting candidates:", error)
       toast({

@@ -7,12 +7,6 @@ console.log('Candidate router loaded');
 const router = Router();
 const candidateController = new CandidateController();
 
-// PUBLIC: Candidate login route (no authentication)
-router.post('/login', (req, res) => {
-  console.log('POST /api/candidates/login hit');
-  return candidateController.loginCandidate(req, res);
-});
-
 // All routes below this require authentication
 router.use((req, res, next) => {
   console.log('authenticate middleware called for', req.path);

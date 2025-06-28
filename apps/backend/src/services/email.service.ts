@@ -1079,7 +1079,7 @@ class EmailService {
     const renderTemplate = (tpl: string, data: Record<string, string>) => tpl.replace(/\{(.*?)\}/g, (_, key) => data[key] || '');
     const subject = template ? renderTemplate(template.subject, emailData) : "Your Skillment Login Credentials";
     const body = template ? renderTemplate(template.body, emailData) :
-      `<p>Hello ${candidate.name},</p><p>Your login email: <b>${candidate.email}</b><br/>Password: <b>${generatedPassword}</b><br/><a href="${LOGIN_LINK}">Login here</a></p>`;
+      `<p>Hello ${candidate.name},</p><p>Your Candidate ID: <b>${candidate.id}</b><br/>Password: <b>${generatedPassword}</b><br/><a href="${LOGIN_LINK}">Login here</a></p>`;
     // 3. Send email
     await this.sendEmail({
       to: candidate.email,

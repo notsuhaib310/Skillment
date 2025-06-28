@@ -17,7 +17,7 @@ interface CandidateLoginProps {
 
 export default function CandidateLogin({ onSuccess }: CandidateLoginProps) {
   const [formData, setFormData] = useState({
-    email: "",
+    candidateId: "",
     password: "",
   })
   const [isLoading, setIsLoading] = useState(false)
@@ -48,8 +48,8 @@ export default function CandidateLogin({ onSuccess }: CandidateLoginProps) {
       return
     }
 
-    if (!formData.email || !formData.password) {
-      setError("Please enter both Email and Password")
+    if (!formData.candidateId || !formData.password) {
+      setError("Please enter both Candidate ID and Password")
       return
     }
 
@@ -60,12 +60,12 @@ export default function CandidateLogin({ onSuccess }: CandidateLoginProps) {
       const res = await fetch('http://localhost:5000/api/candidates/login', {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: formData.email, password: formData.password }),
+        body: JSON.stringify({ candidateId: formData.candidateId, password: formData.password }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || "Login failed")
       // Fetch assigned assessment for this candidate
-      const assessmentRes = await fetch(`http://localhost:5000/api/candidate/assessments?email=${encodeURIComponent(formData.email)}`)
+      const assessmentRes = await fetch(`http://localhost:5000/api/candidate/assessments?candidateId=${encodeURIComponent(formData.candidateId)}`)
       const assigned = await assessmentRes.json()
       console.log('Assigned assessments:', assigned)
       // Pass assessment data to onSuccess, set assessmentType from assignedAssessment.type
@@ -134,16 +134,16 @@ export default function CandidateLogin({ onSuccess }: CandidateLoginProps) {
             )}
             <form onSubmit={handleSubmit} className="space-y-6">
               <div className="space-y-2">
-                <Label htmlFor="email" className="text-gray-200 font-semibold text-base">Email *</Label>
+                <Label htmlFor="candidateId" className="text-gray-200 font-semibold text-base">Candidate ID *</Label>
                 <Input
-                  id="email"
-                  type="email"
-                  placeholder="Enter your email"
-                  value={formData.email}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  id="candidateId"
+                  type="text"
+                  placeholder="Enter your Candidate ID"
+                  value={formData.candidateId}
+                  onChange={(e) => setFormData({ ...formData, candidateId: e.target.value })}
                   required
                   className="h-12 bg-[#23272f]/80 border-[#3a3d41] text-white placeholder:text-gray-500 focus:border-[#ff4d00] focus:ring-[#ff4d00] text-lg focus:outline-none focus:ring-2 transition-all"
-                  aria-label="Email"
+                  aria-label="Candidate ID"
                 />
               </div>
               <div className="space-y-2">

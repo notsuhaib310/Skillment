@@ -83,13 +83,13 @@ export class CandidateController {
   // Candidate login
   async loginCandidate(req, res) {
     try {
-      const { candidateId, email, password } = req.body;
-      console.log('Login attempt:', { candidateId, email, password });
-      if ((!candidateId && !email) || !password) {
-        return res.status(400).json({ error: 'Candidate ID or email and password are required' });
+      const { candidateId, password } = req.body;
+      console.log('Login attempt:', { candidateId, password });
+      if (!candidateId || !password) {
+        return res.status(400).json({ error: 'Candidate ID and password are required' });
       }
       // Demo credential fallback
-      if ((email === 'demo@skillment.in' || candidateId === 'demo') && password === 'demo1234') {
+      if (candidateId === 'demo' && password === 'demo1234') {
         console.log('Demo login successful');
         return res.json({ success: true, candidate: {
           id: 'demo',
@@ -99,31 +99,22 @@ export class CandidateController {
           status: 'invited',
         }});
       }
-      let credential;
-      if (candidateId) {
-        credential = await prisma.credential.findUnique({ where: { candidateId } });
-        console.log('Lookup by candidateId:', !!credential);
-      } else if (email) {
-        credential = await prisma.credential.findFirst({ where: { email } });
-        console.log('Lookup by email:', !!credential);
-      }
+      let credential = await prisma.credential.findUnique({ where: { candidateId } });
+      console.log('Lookup by candidateId:', !!credential);
       if (!credential) {
-        // Fallback: check Candidate table for plain password (for demo/testing)
-        const candidate = await prisma.candidate.findFirst({ where: { email, password } });
-        if (candidate) {
-          console.log('Login via Candidate.password field');
-          return res.json({ success: true, candidate });
-        }
-        console.log('No credential or candidate found');
-        return res.status(401).json({ error: 'Invalid credentials' });
+        return res.status(401).json({ error: 'Invalid credentials (no credential found for candidateId)' });
       }
       const valid = await bcrypt.compare(password, credential.passwordHash);
       console.log('Password valid:', valid);
       if (!valid) {
-        return res.status(401).json({ error: 'Invalid credentials' });
+        return res.status(401).json({ error: 'Invalid credentials (password mismatch)' });
       }
       // Fetch candidate info
       const candidate = await prisma.candidate.findUnique({ where: { id: credential.candidateId } });
+      if (!candidate) {
+        console.log('Credential found but candidate missing:', credential.candidateId);
+        return res.status(401).json({ error: 'Invalid credentials (candidate missing)' });
+      }
       return res.json({ success: true, candidate });
     } catch (err) {
       console.error('Login error:', err);

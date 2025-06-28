@@ -16,6 +16,7 @@ import attemptRouter from './routes/attempt.routes';
 import candidateAssessmentRouter from './routes/candidate-assessment.routes';
 import emailRoutes from './routes/email.routes';
 import candidateRouter from './routes/candidate.routes';
+import candidatePublicRouter from './routes/candidate-public.routes';
 
 // Load environment variables
 config();
@@ -47,6 +48,10 @@ app.get('/', (_req, res) => {
 });
 
 // Routes
+// Mount public candidate login route FIRST to guarantee it is always public
+app.use('/api/candidates', candidatePublicRouter);
+// IMPORTANT: Do NOT apply any global authentication middleware here.
+// /api/candidates/login must remain public for candidate login to work.
 app.use('/api/candidate', candidateAssessmentRouter);
 app.use('/api/assessments', assessmentRouter);
 app.use('/api/auth', authRouter);

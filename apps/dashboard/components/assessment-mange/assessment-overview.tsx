@@ -81,7 +81,9 @@ export function AssessmentOverview({ onCreateNew }: AssessmentOverviewProps) {
   const [showCreate, setShowCreate] = useState(false)
 
   useEffect(() => {
+    console.log('AssessmentOverview useEffect running');
     const fetchAssessments = async () => {
+      console.log('Fetching assessments from:', `${API_URL}/assessments`);
       try {
         const token = getAuthToken();
         const response = await fetch(`${API_URL}/assessments`, {
@@ -97,6 +99,7 @@ export function AssessmentOverview({ onCreateNew }: AssessmentOverviewProps) {
         setAssessments(Array.isArray(data) ? data : data.data)
         setError(null)
       } catch (err) {
+        console.error('Error fetching assessments:', err);
         setError(err instanceof Error ? err.message : "Failed to fetch assessments")
       } finally {
         setLoading(false)

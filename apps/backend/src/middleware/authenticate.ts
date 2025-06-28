@@ -21,26 +21,6 @@ declare global {
   }
 }
 
-export function authenticate(req: Request, res: Response, next: NextFunction) {
-  // Always allow public access to candidate login
-  if (req.originalUrl.endsWith('/api/candidates/login')) {
-    return next();
-  }
-
-  const authHeader = req.headers['authorization'];
-  if (!authHeader) {
-    return res.status(401).json({ success: false, message: 'No token provided' });
-  }
-  const token = authHeader.replace('Bearer ', '');
-  try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
-    (req as any).user = decoded;
-    next();
-  } catch (err) {
-    return res.status(401).json({ success: false, message: 'Invalid token' });
-  }
-}
-
 export const authenticateOld = async (
   req: Request,
   _res: Response,
@@ -153,4 +133,6 @@ export const authenticateOld = async (
       next(new AppError(500, 'Internal server error'));
     }
   }
-}; 
+};
+
+export { authenticateOld as authenticate }; 

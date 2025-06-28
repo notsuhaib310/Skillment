@@ -72,6 +72,14 @@ export const createAssessment = async (req: Request, res: Response): Promise<Res
       tags: req.body.tags || [],
       createdBy: { connect: { id: req.user?.id } },
     });
+    // Require authentication for assessment creation
+    if (!req.user?.id) {
+      return res.status(401).json({ error: 'Authentication required to create assessment' });
+    }
+    if (!req.user.orgId) {
+      return res.status(400).json({ error: 'User must belong to an organization to create an assessment' });
+    }
+    const creatorId = req.user.id;
     const assessment = await prisma.assessment.create({
       data: {
         ...assessmentData,
@@ -100,7 +108,7 @@ export const createAssessment = async (req: Request, res: Response): Promise<Res
         dataRetention: req.body.dataRetention,
         autoDeleteAfter: req.body.autoDeleteAfter,
         tags: req.body.tags || [],
-        createdBy: { connect: { id: req.user?.id } },
+        createdBy: { connect: { id: creatorId } },
       },
       include: {
         createdBy: {
@@ -191,21 +199,20 @@ export const getAssessments = async (req: Request, res: Response) => {
   try {
     // Get organization ID from authenticated user (optional)
     const orgId = req.orgId;
-    // Remove orgId check for public access
-    // if (!orgId) {
-    //   return res.status(401).json({ error: 'Organization access required' });
-    // }
-
-    const filters: AssessmentListFilters = {
+    console.log('getAssessments orgId:', orgId);
+    // Build where clause for organization filtering
+    let where = buildAssessmentWhere({
       search: req.query.search as string,
       status: req.query.status as AssessmentStatus,
       type: req.query.type as AssessmentType,
-      // Only filter by orgId if present
-      createdById: orgId ? orgId : undefined,
-    };
-
-    const where = buildAssessmentWhere(filters);
-
+    });
+    if (orgId) {
+      where = {
+        ...where,
+        createdBy: { orgId },
+      };
+    }
+    console.log('getAssessments where:', JSON.stringify(where));
     const assessments = await prisma.assessment.findMany({
       where,
       include: {
@@ -215,6 +222,7 @@ export const getAssessments = async (req: Request, res: Response) => {
             firstName: true,
             lastName: true,
             email: true,
+            orgId: true,
           },
         },
         questions: true,
@@ -227,7 +235,7 @@ export const getAssessments = async (req: Request, res: Response) => {
       },
       orderBy: { createdAt: 'desc' },
     });
-
+    console.log('getAssessments found:', assessments.length);
     return res.json(assessments);
   } catch (error) {
     console.error('Error fetching assessments:', error);
