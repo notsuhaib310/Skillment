@@ -79,4 +79,55 @@ export class CandidateController {
       return res.status(500).json({ error: 'Failed to fetch candidates' });
     }
   }
+
+  // Candidate login
+  async loginCandidate(req, res) {
+    try {
+      const { candidateId, email, password } = req.body;
+      console.log('Login attempt:', { candidateId, email, password });
+      if ((!candidateId && !email) || !password) {
+        return res.status(400).json({ error: 'Candidate ID or email and password are required' });
+      }
+      // Demo credential fallback
+      if ((email === 'demo@skillment.in' || candidateId === 'demo') && password === 'demo1234') {
+        console.log('Demo login successful');
+        return res.json({ success: true, candidate: {
+          id: 'demo',
+          name: 'Demo Candidate',
+          email: 'demo@skillment.in',
+          assessmentId: 'demo-assessment',
+          status: 'invited',
+        }});
+      }
+      let credential;
+      if (candidateId) {
+        credential = await prisma.credential.findUnique({ where: { candidateId } });
+        console.log('Lookup by candidateId:', !!credential);
+      } else if (email) {
+        credential = await prisma.credential.findFirst({ where: { email } });
+        console.log('Lookup by email:', !!credential);
+      }
+      if (!credential) {
+        // Fallback: check Candidate table for plain password (for demo/testing)
+        const candidate = await prisma.candidate.findFirst({ where: { email, password } });
+        if (candidate) {
+          console.log('Login via Candidate.password field');
+          return res.json({ success: true, candidate });
+        }
+        console.log('No credential or candidate found');
+        return res.status(401).json({ error: 'Invalid credentials' });
+      }
+      const valid = await bcrypt.compare(password, credential.passwordHash);
+      console.log('Password valid:', valid);
+      if (!valid) {
+        return res.status(401).json({ error: 'Invalid credentials' });
+      }
+      // Fetch candidate info
+      const candidate = await prisma.candidate.findUnique({ where: { id: credential.candidateId } });
+      return res.json({ success: true, candidate });
+    } catch (err) {
+      console.error('Login error:', err);
+      return res.status(500).json({ error: 'Server error' });
+    }
+  }
 } 

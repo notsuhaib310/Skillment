@@ -26,4 +26,7 @@ router.post('/webhooks/razorpay', authController.handleSubscriptionWebhook.bind(
 router.post('/send-otp', authController.sendOtp.bind(authController));
 router.post('/verify-otp', authController.verifyOtp.bind(authController));
 
+// Candidate login route
+router.post('/candidate/login', authController.candidateLogin.bind(authController));
+
 export default router; 

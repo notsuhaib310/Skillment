@@ -115,9 +115,11 @@ export function EmailPage() {
   // Fetch assessments when credentials modal opens
   useEffect(() => {
     if (showCredentialsModal) {
+      const headers = getAuthHeaders();
+      console.log('Headers for /api/assessments fetch:', headers);
       fetch(`${API_URL}/assessments?limit=100`, {
         credentials: "include",
-        headers: getAuthHeaders(),
+        headers,
       })
         .then(res => res.json())
         .then(data => setAssessments(data.data || []))

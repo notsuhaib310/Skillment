@@ -15,6 +15,7 @@ import questionRouter from './routes/question.routes';
 import attemptRouter from './routes/attempt.routes';
 import candidateAssessmentRouter from './routes/candidate-assessment.routes';
 import emailRoutes from './routes/email.routes';
+import candidateRouter from './routes/candidate.routes';
 
 // Load environment variables
 config();
@@ -57,6 +58,7 @@ app.use('/api', questionRouter);
 app.use('/api', attemptRouter);
 app.use('/api', candidateAssessmentRouter);
 app.use('/api/email', emailRoutes);
+app.use('/api/candidates', candidateRouter);
 
 // Error handling
 app.use(errorHandler);
