@@ -10,7 +10,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { toast } from "sonner"
 import * as api from "@/lib/api/email"
 import { EmailComposer } from "@/components/email/email-composer"
-import Editor from '@tinymce/tinymce-react';
+import Editor from 'react-simple-code-editor';
+import Prism from 'prismjs';
+import 'prismjs/themes/prism-tomorrow.css';
 
 const typeColors = {
   "assessment-invite": "bg-blue-500/20 text-blue-400 border-blue-500/30",
@@ -30,6 +32,42 @@ const typeIcons = {
   "follow-up": Mail,
 }
 
+function wrapWithBaseTheme(userHtml: string) {
+  return `
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+      <meta charset="UTF-8" />
+      <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+      <title>Email from Skillment</title>
+      <style>
+        body { margin: 0; padding: 20px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background: #f1f5f9; color: #0f172a; }
+        .container { max-width: 600px; margin: auto; background: #fff; border-radius: 16px; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.05); border: 1px solid #e2e8f0; }
+        .header { background: linear-gradient(135deg, #0f0f23 0%, #1e293b 100%); color: #fff; padding: 32px 24px; text-align: center; }
+        .header h1 { margin: 0; font-size: 24px; }
+        .content { padding: 32px 24px; }
+        .footer { text-align: center; font-size: 14px; color: #94a3b8; padding: 20px; border-top: 1px solid #e2e8f0; background: #f8fafc; }
+        @media (max-width: 600px) { .content, .header { padding: 16px; } }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <header class="header">
+          <h1>Skillment</h1>
+        </header>
+        <section class="content">
+          ${userHtml}
+        </section>
+        <footer class="footer">
+          <p>Regards,<br/>Skillment</p>
+          <p style="font-size:12px;">© ${new Date().getFullYear()} Skillment. All rights reserved.</p>
+        </footer>
+      </div>
+    </body>
+    </html>
+  `;
+}
+
 function TemplateModal({ open, onClose, onSave, template }: { open: boolean, onClose: () => void, onSave: (data: any) => void, template?: any }) {
   const [name, setName] = useState(template?.name || "");
   const [subject, setSubject] = useState(template?.subject || "");
@@ -40,32 +78,53 @@ function TemplateModal({ open, onClose, onSave, template }: { open: boolean, onC
     setBody(template?.body || "");
   }, [template, open]);
   return (
-    <div className={`fixed inset-0 z-50 flex items-center justify-center bg-black/40 ${open ? '' : 'hidden'}`}>
-      <div className="bg-white dark:bg-card rounded-2xl shadow-2xl w-full max-w-2xl p-8">
+    <div className={`fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm ${open ? '' : 'hidden'}`}>
+      <div className="bg-neutral-900 border border-neutral-800 rounded-2xl shadow-2xl w-full max-w-2xl p-8 text-white relative">
+        <button
+          onClick={onClose}
+          className="absolute top-4 right-4 text-neutral-400 hover:text-white text-2xl font-bold focus:outline-none"
+          aria-label="Close"
+        >
+          &times;
+        </button>
         <h2 className="text-2xl font-bold mb-4">{template ? 'Edit' : 'Create'} Email Template</h2>
         <div className="space-y-4">
-          <Input placeholder="Template Name" value={name} onChange={e => setName(e.target.value)} />
-          <Input placeholder="Subject" value={subject} onChange={e => setSubject(e.target.value)} />
+          <Input placeholder="Template Name" value={name} onChange={e => setName(e.target.value)} className="bg-neutral-800 border border-neutral-700 text-white" />
+          <Input placeholder="Subject" value={subject} onChange={e => setSubject(e.target.value)} className="bg-neutral-800 border border-neutral-700 text-white" />
           <div>
-            <label className="block mb-2 font-medium">Body</label>
-            <Editor
-              apiKey="no-api-key"
-              value={body}
-              init={{
-                height: 300,
-                menubar: true,
-                plugins: [
-                  'advlist autolink lists link image charmap print preview anchor',
-                  'searchreplace visualblocks code fullscreen',
-                  'insertdatetime media table paste code help wordcount'
-                ],
-                toolbar:
-                  'undo redo | formatselect | bold italic backcolor | \
-                  alignleft aligncenter alignright alignjustify | \
-                  bullist numlist outdent indent | removeformat | help',
-              }}
-              onEditorChange={setBody}
-            />
+            <label className="block mb-2 font-medium">Body (HTML supported)</label>
+            <div className="bg-[#282a36] rounded-lg overflow-hidden min-h-[150px] mb-4">
+              <Editor
+                value={body}
+                onValueChange={setBody}
+                highlight={code => Prism.highlight(code, Prism.languages.markup, 'markup')}
+                padding={16}
+                style={{
+                  fontFamily: 'Fira Mono, Menlo, Monaco, Consolas, monospace',
+                  fontSize: 16,
+                  minHeight: 150,
+                  color: '#f8f8f2',
+                  background: '#282a36',
+                  borderRadius: '0.75rem',
+                  outline: 'none',
+                  border: 'none',
+                  width: '100%',
+                  resize: 'vertical',
+                }}
+                placeholder="Enter email body (HTML supported)..."
+              />
+            </div>
+            <div className="mt-2 text-xs text-neutral-400 select-none mb-2">
+              <span className="font-semibold">Preview (final email look):</span>
+            </div>
+            <div className="rounded-lg border border-neutral-800 bg-white overflow-x-auto" style={{ minHeight: 80, maxHeight: 240 }}>
+              <iframe
+                title="Template Preview"
+                style={{ width: '100%', height: 180, border: 'none', background: 'white', borderRadius: '0.75rem' }}
+                srcDoc={wrapWithBaseTheme(body)}
+                sandbox="allow-same-origin"
+              />
+            </div>
           </div>
         </div>
         <div className="flex justify-end gap-2 mt-6">
@@ -86,6 +145,7 @@ export function EmailTemplates() {
   const [editTemplate, setEditTemplate] = useState<any>(null)
   const [showComposer, setShowComposer] = useState(false)
   const [selectedTemplate, setSelectedTemplate] = useState<any>(null)
+  const [refreshFlag, setRefreshFlag] = useState(0);
 
   useEffect(() => {
     setLoading(true)
@@ -95,15 +155,15 @@ export function EmailTemplates() {
       })
       .catch(() => toast.error("Failed to load templates"))
       .finally(() => setLoading(false))
-  }, [])
+  }, [refreshFlag])
 
   const handleCreate = async (template: any) => {
     setLoading(true)
     try {
-      const res = await api.createTemplate(template)
-      setTemplates([res, ...templates])
-      toast.success("Template created")
+      await api.createTemplate(template)
       setShowModal(false)
+      setRefreshFlag(f => f + 1)
+      toast.success("Template created")
     } catch {
       toast.error("Failed to create template")
     } finally {
@@ -139,10 +199,10 @@ export function EmailTemplates() {
 
   const filteredTemplates = templates.filter((template) => {
     const matchesSearch =
-      template.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      template.subject.toLowerCase().includes(searchTerm.toLowerCase())
-    const matchesType = typeFilter === "all" || template.type === typeFilter
-    return matchesSearch && matchesType
+      (template.name && template.name.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (template.subject && template.subject.toLowerCase().includes(searchTerm.toLowerCase()));
+    const matchesType = typeFilter === "all" || template.type === typeFilter;
+    return matchesSearch && matchesType;
   })
 
   return (

@@ -29,4 +29,7 @@ router.post("/send-credentials", authenticate, controller.sendCredentials.bind(c
 router.get("/track/open/:logId", controller.trackOpen.bind(controller));
 router.get("/track/click/:logId", controller.trackClick.bind(controller));
 
+// Email Metrics
+router.get("/metrics", controller.getMetrics.bind(controller));
+
 export default router; 

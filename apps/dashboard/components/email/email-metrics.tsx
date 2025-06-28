@@ -25,11 +25,17 @@ export function EmailMetrics() {
   const [loading, setLoading] = useState(false)
 
   useEffect(() => {
-    setLoading(true)
-    api.getEmailMetrics()
-      .then(setMetrics)
-      .catch(() => toast.error("Failed to load metrics"))
-      .finally(() => setLoading(false))
+    let interval: any;
+    const fetchMetrics = () => {
+      setLoading(true)
+      api.getEmailMetrics()
+        .then(setMetrics)
+        .catch(() => toast.error("Failed to load metrics"))
+        .finally(() => setLoading(false))
+    };
+    fetchMetrics();
+    interval = setInterval(fetchMetrics, 10000); // Poll every 10 seconds
+    return () => clearInterval(interval);
   }, [])
 
   if (loading || !metrics) {
@@ -51,6 +57,10 @@ export function EmailMetrics() {
   return (
     <div className="space-y-6">
       {/* Overview Cards */}
+      <div className="flex items-center gap-2 mb-4">
+        <h2 className="text-xl font-semibold text-foreground">Email Metrics</h2>
+        <span className="inline-block bg-emerald-500/20 text-emerald-400 text-xs font-bold px-2 py-0.5 rounded">Live</span>
+      </div>
       <div className="grid gap-6 md:grid-cols-4">
         <Card className="card-gradient rounded-3xl border-border/40 shadow-xl">
           <CardHeader className="pb-2">

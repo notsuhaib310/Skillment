@@ -75,6 +75,8 @@ function getAuthHeaders(): Record<string, string> {
   return {} as Record<string, string>
 }
 
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api";
+
 export function EmailPage() {
   const [showComposer, setShowComposer] = useState(false)
   const [searchTerm, setSearchTerm] = useState("")
@@ -113,7 +115,7 @@ export function EmailPage() {
   // Fetch assessments when credentials modal opens
   useEffect(() => {
     if (showCredentialsModal) {
-      fetch("/api/assessments?limit=100", {
+      fetch(`${API_URL}/assessments?limit=100`, {
         credentials: "include",
         headers: getAuthHeaders(),
       })
@@ -126,7 +128,7 @@ export function EmailPage() {
   // Fetch candidates for selected assessment
   useEffect(() => {
     if (selectedAssessment) {
-      fetch(`/api/assessments/${selectedAssessment}`, {
+      fetch(`${API_URL}/assessments/${selectedAssessment}`, {
         credentials: "include",
         headers: getAuthHeaders(),
       })
@@ -141,7 +143,7 @@ export function EmailPage() {
   // Fetch candidate credentials for selected assessment
   useEffect(() => {
     if (selectedAssessment) {
-      fetch(`/api/assessments/${selectedAssessment}/candidates/credentials`, {
+      fetch(`${API_URL}/assessments/${selectedAssessment}/candidates/credentials`, {
         credentials: "include",
         headers: getAuthHeaders(),
       })
@@ -220,7 +222,7 @@ export function EmailPage() {
       await api.sendCredentials({ assessmentId: selectedAssessment, candidateIds: [candidateId] })
       toast.success("Credentials resent")
       // Optionally refetch credentials
-      fetch(`/api/assessments/${selectedAssessment}/candidates/credentials`, {
+      fetch(`${API_URL}/assessments/${selectedAssessment}/candidates/credentials`, {
         credentials: "include",
         headers: getAuthHeaders(),
       })
