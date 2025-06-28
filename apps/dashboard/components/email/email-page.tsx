@@ -25,6 +25,7 @@ import * as api from "@/lib/api/email"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import { Select as ShadSelect } from "@/components/ui/select"
 import { Table as ShadTable, TableBody as ShadTableBody, TableCell as ShadTableCell, TableHead as ShadTableHead, TableHeader as ShadTableHeader, TableRow as ShadTableRow } from "@/components/ui/table"
+import { getLogDetails } from "@/lib/api/email"
 
 const statusColors = {
   sent: "bg-blue-500/20 text-blue-400 border-blue-500/30",
@@ -68,6 +69,9 @@ export function EmailPage() {
   const [selectedAssessment, setSelectedAssessment] = useState<string>("")
   const [selectedCandidates, setSelectedCandidates] = useState<string[]>([])
   const [candidateCredentials, setCandidateCredentials] = useState<any[]>([])
+  const [viewEmailId, setViewEmailId] = useState<string | null>(null)
+  const [viewEmailData, setViewEmailData] = useState<any>(null)
+  const [viewEmailLoading, setViewEmailLoading] = useState(false)
 
   useEffect(() => {
     setLoading(true)
@@ -125,6 +129,19 @@ export function EmailPage() {
       setCandidateCredentials([])
     }
   }, [selectedAssessment, showCredentialsModal])
+
+  // Fetch email details when viewEmailId changes
+  useEffect(() => {
+    if (viewEmailId) {
+      setViewEmailLoading(true)
+      getLogDetails(viewEmailId)
+        .then(data => setViewEmailData(data))
+        .catch(() => toast.error("Failed to load email details"))
+        .finally(() => setViewEmailLoading(false))
+    } else {
+      setViewEmailData(null)
+    }
+  }, [viewEmailId])
 
   const handleSendEmail = async (data: any) => {
     setLoading(true)
@@ -364,8 +381,8 @@ export function EmailPage() {
                             </AvatarFallback>
                           </Avatar>
                           <div>
-                            <div className="font-medium text-foreground">{email.recipient}</div>
-                            <div className="text-sm text-muted-foreground">{email.recipientEmail}</div>
+                            <div className="font-medium text-foreground">{email.recipient || "Unknown"}</div>
+                            <div className="text-sm text-muted-foreground">{email.recipientEmail || "-"}</div>
                           </div>
                         </div>
                       </TableCell>
@@ -418,7 +435,7 @@ export function EmailPage() {
                             align="end"
                             className="rounded-2xl border-border/40 bg-card/80 backdrop-blur-xl"
                           >
-                            <DropdownMenuItem className="rounded-xl">
+                            <DropdownMenuItem className="rounded-xl" onClick={() => setViewEmailId(email.id)}>
                               <Eye className="mr-2 h-4 w-4" />
                               View Email
                             </DropdownMenuItem>
@@ -610,6 +627,56 @@ export function EmailPage() {
 
       {/* Email Composer */}
       <EmailComposer open={showComposer} onOpenChange={setShowComposer} onSend={handleSendEmail} onSaveDraft={handleSaveDraft} />
+
+      {/* View Email Dialog */}
+      {viewEmailId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
+          <div className="bg-neutral-900 border border-neutral-800 rounded-2xl shadow-2xl max-w-xl w-full p-8 relative text-white">
+            <button
+              onClick={() => setViewEmailId(null)}
+              className="absolute top-4 right-4 text-neutral-400 hover:text-white text-2xl font-bold focus:outline-none"
+              aria-label="Close"
+            >
+              &times;
+            </button>
+            <div className="space-y-4">
+              <div className="text-lg font-bold mb-2">Email Details</div>
+              <div>
+                <span className="font-semibold text-neutral-300">Subject:</span>
+                <span className="ml-2 text-white">{viewEmailData?.subject || <span className="text-neutral-500">-</span>}</span>
+              </div>
+              <div>
+                <span className="font-semibold text-neutral-300">Recipient:</span>
+                <span className="ml-2 text-white">{viewEmailData?.recipient || <span className="text-neutral-500">-</span>} {viewEmailData?.recipientEmail && <span className="text-neutral-400">({viewEmailData.recipientEmail})</span>}</span>
+              </div>
+              <div>
+                <span className="font-semibold text-neutral-300">Type:</span>
+                <span className="ml-2 text-white">{viewEmailData?.type || <span className="text-neutral-500">-</span>}</span>
+              </div>
+              <div>
+                <span className="font-semibold text-neutral-300">Status:</span>
+                <span className="ml-2 text-white">{viewEmailData?.status || <span className="text-neutral-500">-</span>}</span>
+              </div>
+              <div>
+                <span className="font-semibold text-neutral-300">Sent At:</span>
+                <span className="ml-2 text-white">{viewEmailData?.sentAt || <span className="text-neutral-500">-</span>}</span>
+              </div>
+              <div>
+                <span className="font-semibold text-neutral-300">Body:</span>
+                <div className="whitespace-pre-line border border-neutral-700 rounded-lg p-4 bg-neutral-800 mt-2 max-h-72 overflow-auto text-neutral-100">
+                  {viewEmailLoading ? (
+                    <div className="text-center text-neutral-400">Loading...</div>
+                  ) : viewEmailData?.body || viewEmailData?.html ? (
+                    <span dangerouslySetInnerHTML={{ __html: viewEmailData.body || viewEmailData.html }} />
+                  ) : (
+                    <span className="text-neutral-500">(No content)</span>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
