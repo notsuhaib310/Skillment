@@ -64,7 +64,7 @@ export default function CandidateLogin({ onSuccess }: CandidateLoginProps) {
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || "Login failed")
-      onSuccess(data.candidate)
+      onSuccess({ ...data.candidate, assessmentType })
     } catch (err: any) {
       setError(err.message)
     } finally {

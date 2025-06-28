@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Progress } from "@/components/ui/progress"
 import { Clock, Camera, AlertTriangle, Eye, Shield, ChevronRight, Mic } from "lucide-react"
+import { sendProctoringEvent } from "@/lib/proctoring"
 
 interface ProctoredExamProps {
   candidateData: any
@@ -181,6 +182,7 @@ export default function ProctoredExam({ candidateData, systemStatus, onComplete 
           e.preventDefault()
           e.stopPropagation()
           addViolation(`${e.key} key blocked (fullscreen exit attempt)`)
+          sendProctoringEvent("keyboard_violation", { key: e.key, reason: "Attempted to exit fullscreen" }, candidateData?.candidateId)
           return false
         }
       },
@@ -254,6 +256,7 @@ export default function ProctoredExam({ candidateData, systemStatus, onComplete 
     document.addEventListener("visibilitychange", () => {
       if (document.hidden) {
         addViolation("Tab switch detected - CRITICAL")
+        sendProctoringEvent("tab_switch", { reason: "Tab became hidden" }, candidateData?.candidateId)
         // Auto-submit after 2 tab switches
         if (violations >= 1) {
           submitExam(true, "Multiple tab switches detected")
@@ -265,6 +268,7 @@ export default function ProctoredExam({ candidateData, systemStatus, onComplete 
     document.addEventListener("fullscreenchange", () => {
       if (!document.fullscreenElement) {
         addViolation("Fullscreen exit detected")
+        sendProctoringEvent("fullscreen_exit", { reason: "User exited fullscreen" }, candidateData?.candidateId)
         // Instantly force back to fullscreen (no delay)
         document.documentElement.requestFullscreen().catch(() => {
           submitExam(true, "Fullscreen exit violation")
