@@ -9,7 +9,26 @@ export default function ThankYou() {
 
   useEffect(() => {
     // Enter fullscreen for thank you message
-    document.documentElement.requestFullscreen().catch(() => {})
+    document.documentElement.requestFullscreen().catch((error: any) => {
+      alert("Fullscreen required for thank you screen: " + (error?.message || error))
+    })
+    // Strict enforcement
+    const enforceFullscreen = () => {
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen().catch(() => {
+          alert("Fullscreen required for thank you screen. Please allow fullscreen mode.")
+        })
+      }
+    }
+    document.addEventListener("fullscreenchange", enforceFullscreen)
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape" || e.key === "F11") {
+        e.preventDefault()
+        e.stopPropagation()
+        alert(`${e.key} key blocked (fullscreen exit attempt). Fullscreen is required.`)
+        return false
+      }
+    }, true)
 
     // Countdown and auto-close
     const timer = setInterval(() => {

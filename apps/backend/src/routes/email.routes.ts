@@ -1,28 +1,35 @@
 import { Router } from "express";
 import { EmailController } from "../controllers/email.controller";
+import { authenticate } from "../middleware/authenticate";
 
 const router = Router();
 const controller = new EmailController();
 
+// Public test route
+router.get('/public-test', (req, res) => res.json({ ok: true }));
+
 // Templates CRUD
-router.get("/templates", controller.getTemplates.bind(controller));
-router.post("/templates", controller.createTemplate.bind(controller));
-router.put("/templates/:id", controller.updateTemplate.bind(controller));
-router.delete("/templates/:id", controller.deleteTemplate.bind(controller));
+router.get("/templates", (req, res, next) => { console.log("Public GET /templates hit"); next(); }, controller.getTemplates.bind(controller));
+router.post("/templates", authenticate, controller.createTemplate.bind(controller));
+router.put("/templates/:id", authenticate, controller.updateTemplate.bind(controller));
+router.delete("/templates/:id", authenticate, controller.deleteTemplate.bind(controller));
 
 // Email Logs
-router.get("/logs", controller.getLogs.bind(controller));
-router.get("/logs/:id", controller.getLogDetails.bind(controller));
+router.get("/logs", (req, res, next) => { console.log("Public GET /logs hit"); next(); }, controller.getLogs.bind(controller));
+router.get("/logs/:id", authenticate, controller.getLogDetails.bind(controller));
 
 // Send, Draft
-router.post("/send", controller.sendEmail.bind(controller));
-router.post("/draft", controller.saveDraft.bind(controller));
+router.post("/send", authenticate, controller.sendEmail.bind(controller));
+router.post("/draft", authenticate, controller.saveDraft.bind(controller));
 
 // Send Credentials
-router.post("/send-credentials", controller.sendCredentials.bind(controller));
+router.post("/send-credentials", authenticate, controller.sendCredentials.bind(controller));
 
 // Tracking
 router.get("/track/open/:logId", controller.trackOpen.bind(controller));
 router.get("/track/click/:logId", controller.trackClick.bind(controller));
+
+// Email Metrics
+router.get("/metrics", controller.getMetrics.bind(controller));
 
 export default router; 

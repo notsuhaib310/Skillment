@@ -707,6 +707,30 @@ export class AuthController {
       return res.status(500).json({ error: 'Failed to verify OTP' });
     }
   }
+
+  async candidateLogin(req: Request, res: Response) {
+    try {
+      const { candidateId, password } = req.body;
+      if (!candidateId || !password) {
+        return res.status(400).json({ error: 'Candidate ID and password are required' });
+      }
+      const credential = await prisma.credential.findUnique({ where: { candidateId } });
+      if (!credential) {
+        return res.status(401).json({ error: 'Invalid credentials' });
+      }
+      const valid = await bcrypt.compare(password, credential.passwordHash);
+      if (!valid) {
+        return res.status(401).json({ error: 'Invalid credentials' });
+      }
+      // Fetch candidate info
+      const candidate = await prisma.candidate.findUnique({ where: { id: candidateId } });
+      // Optionally generate a JWT for session (uncomment if needed)
+      // const token = jwt.sign({ candidateId }, JWT_SECRET, { expiresIn: '2h' });
+      return res.json({ success: true, candidate });
+    } catch (err) {
+      return res.status(500).json({ error: 'Server error' });
+    }
+  }
 }
 
 // Export singleton instance

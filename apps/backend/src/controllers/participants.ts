@@ -54,17 +54,17 @@ export const getParticipants = async (req: Request, res: Response) => {
     const skip = (page - 1) * limit;
 
     // Get organization ID from authenticated user
-    const orgId = req.orgId;
-    if (!orgId) {
-      return res.status(401).json({ 
-        success: false, 
-        error: 'Organization access required' 
-      });
-    }
+    // const orgId = req.orgId;
+    // if (!orgId) {
+    //   return res.status(401).json({ 
+    //     success: false, 
+    //     error: 'Organization access required' 
+    //   });
+    // }
 
-    const where: any = {
-      organization: orgId // Filter by organization
-    };
+    const where: any = {};
+    // Remove organization filter for public access
+    // where.organization = orgId; // Filter by organization
     
     if (search) {
       where.OR = [
@@ -201,13 +201,13 @@ export const addParticipant = async (req: Request, res: Response) => {
     } = req.body as Omit<AddParticipantRequest, 'organization'>;
 
     // Get organization ID from authenticated user
-    const orgId = req.orgId;
-    if (!orgId) {
-      return res.status(401).json({ 
-        success: false, 
-        error: 'Organization access required' 
-      });
-    }
+    // const orgId = req.orgId;
+    // if (!orgId) {
+    //   return res.status(401).json({ 
+    //     success: false, 
+    //     error: 'Organization access required' 
+    //   });
+    // }
 
     // Validate required fields
     if (!name || !email) {
@@ -221,7 +221,7 @@ export const addParticipant = async (req: Request, res: Response) => {
     const existingParticipant = await prisma.participant.findFirst({
       where: { 
         email,
-        organization: orgId
+        // organization: orgId
       },
     });
 
@@ -242,7 +242,7 @@ export const addParticipant = async (req: Request, res: Response) => {
           phone: phone || null,
           tags,
           location: location || null,
-          organization: orgId, // Use orgId from authenticated user
+          // organization: orgId, // Use orgId from authenticated user
         },
       });
 
@@ -321,18 +321,18 @@ export const getParticipant = async (req: Request, res: Response) => {
     const { id } = req.params;
 
     // Get organization ID from authenticated user
-    const orgId = req.orgId;
-    if (!orgId) {
-      return res.status(401).json({ 
-        success: false, 
-        error: 'Organization access required' 
-      });
-    }
+    // const orgId = req.orgId;
+    // if (!orgId) {
+    //   return res.status(401).json({ 
+    //     success: false, 
+    //     error: 'Organization access required' 
+    //   });
+    // }
 
     const participant = await prisma.participant.findFirst({
       where: { 
         id,
-        organization: orgId // Filter by organization
+        // organization: orgId // Filter by organization
       },
       include: {
         assessmentScores: {

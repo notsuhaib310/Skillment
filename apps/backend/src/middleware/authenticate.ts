@@ -21,7 +21,7 @@ declare global {
   }
 }
 
-export const authenticate = async (
+export const authenticateOld = async (
   req: Request,
   _res: Response,
   next: NextFunction
@@ -133,4 +133,6 @@ export const authenticate = async (
       next(new AppError(500, 'Internal server error'));
     }
   }
-}; 
+};
+
+export { authenticateOld as authenticate }; 

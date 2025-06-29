@@ -79,4 +79,46 @@ export class CandidateController {
       return res.status(500).json({ error: 'Failed to fetch candidates' });
     }
   }
+
+  // Candidate login
+  async loginCandidate(req, res) {
+    try {
+      const { candidateId, password } = req.body;
+      console.log('Login attempt:', { candidateId, password });
+      if (!candidateId || !password) {
+        return res.status(400).json({ error: 'Candidate ID and password are required' });
+      }
+      // Demo credential fallback
+      if (candidateId === 'demo' && password === 'demo1234') {
+        console.log('Demo login successful');
+        return res.json({ success: true, candidate: {
+          id: 'demo',
+          name: 'Demo Candidate',
+          email: 'demo@skillment.in',
+          assessmentId: 'demo-assessment',
+          status: 'invited',
+        }});
+      }
+      let credential = await prisma.credential.findUnique({ where: { candidateId } });
+      console.log('Lookup by candidateId:', !!credential);
+      if (!credential) {
+        return res.status(401).json({ error: 'Invalid credentials (no credential found for candidateId)' });
+      }
+      const valid = await bcrypt.compare(password, credential.passwordHash);
+      console.log('Password valid:', valid);
+      if (!valid) {
+        return res.status(401).json({ error: 'Invalid credentials (password mismatch)' });
+      }
+      // Fetch candidate info
+      const candidate = await prisma.candidate.findUnique({ where: { id: credential.candidateId } });
+      if (!candidate) {
+        console.log('Credential found but candidate missing:', credential.candidateId);
+        return res.status(401).json({ error: 'Invalid credentials (candidate missing)' });
+      }
+      return res.json({ success: true, candidate });
+    } catch (err) {
+      console.error('Login error:', err);
+      return res.status(500).json({ error: 'Server error' });
+    }
+  }
 } 

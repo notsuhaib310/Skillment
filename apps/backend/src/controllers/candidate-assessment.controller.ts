@@ -12,7 +12,7 @@ export const listAssignedAssessments = async (req: Request, res: Response) => {
     if (userId) where.userId = userId;
     const candidates = await prisma.candidate.findMany({
       where,
-      include: { assessment: true },
+      include: { assessment: { include: { questions: true } } },
       orderBy: { createdAt: 'desc' },
     });
     return res.json(candidates);

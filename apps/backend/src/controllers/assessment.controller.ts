@@ -6,6 +6,7 @@ import type {
   AssessmentListFilters,
   AssessmentStatus,
   AssessmentStats,
+  AssessmentType,
 } from '../types/assessment';
 
 const prisma = new PrismaClient();
@@ -71,6 +72,14 @@ export const createAssessment = async (req: Request, res: Response): Promise<Res
       tags: req.body.tags || [],
       createdBy: { connect: { id: req.user?.id } },
     });
+    // Require authentication for assessment creation
+    if (!req.user?.id) {
+      return res.status(401).json({ error: 'Authentication required to create assessment' });
+    }
+    if (!req.user.orgId) {
+      return res.status(400).json({ error: 'User must belong to an organization to create an assessment' });
+    }
+    const creatorId = req.user.id;
     const assessment = await prisma.assessment.create({
       data: {
         ...assessmentData,
@@ -99,7 +108,7 @@ export const createAssessment = async (req: Request, res: Response): Promise<Res
         dataRetention: req.body.dataRetention,
         autoDeleteAfter: req.body.autoDeleteAfter,
         tags: req.body.tags || [],
-        createdBy: { connect: { id: req.user?.id } },
+        createdBy: { connect: { id: creatorId } },
       },
       include: {
         createdBy: {
@@ -188,68 +197,49 @@ export const getAssessmentById = async (req: Request, res: Response): Promise<Re
 
 export const getAssessments = async (req: Request, res: Response) => {
   try {
-    // Get organization ID from authenticated user
+    // Get organization ID from authenticated user (optional)
     const orgId = req.orgId;
-    if (!orgId) {
-      return res.status(401).json({ error: 'Organization access required' });
-    }
-
-    const filters: AssessmentListFilters = {
+    console.log('getAssessments orgId:', orgId);
+    // Build where clause for organization filtering
+    let where = buildAssessmentWhere({
       search: req.query.search as string,
       status: req.query.status as AssessmentStatus,
-      type: req.query.type as any,
-      createdById: req.query.createdById as string,
-      page: req.query.page ? parseInt(req.query.page as string, 10) : 1,
-      limit: req.query.limit ? parseInt(req.query.limit as string, 10) : 10,
-    };
-
-    const where = buildAssessmentWhere(filters);
-    
-    // Add organization filter - only show assessments created by users in this organization
-    where.createdBy = {
-      orgId: orgId
-    };
-    
-    const skip = (filters.page! - 1) * filters.limit!;
-
-    const [assessments, total] = await Promise.all([
-      prisma.assessment.findMany({
-        where,
-        skip,
-        take: filters.limit,
-        orderBy: { createdAt: 'desc' },
-        include: {
-          createdBy: {
-            select: {
-              id: true,
-              firstName: true,
-              lastName: true,
-              email: true,
-            },
-          },
-          _count: {
-            select: {
-              candidates: true,
-              questions: true,
-            },
+      type: req.query.type as AssessmentType,
+    });
+    if (orgId) {
+      where = {
+        ...where,
+        createdBy: { orgId },
+      };
+    }
+    console.log('getAssessments where:', JSON.stringify(where));
+    const assessments = await prisma.assessment.findMany({
+      where,
+      include: {
+        createdBy: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+            orgId: true,
           },
         },
-      }),
-      prisma.assessment.count({ where }),
-    ]);
-
-    res.json({
-      data: assessments,
-      meta: {
-        total,
-        page: filters.page,
-        limit: filters.limit,
-        totalPages: Math.ceil(total / filters.limit!),
+        questions: true,
+        analytics: true,
+        _count: {
+          select: {
+            candidates: true,
+          },
+        },
       },
+      orderBy: { createdAt: 'desc' },
     });
+    console.log('getAssessments found:', assessments.length);
+    return res.json(assessments);
   } catch (error) {
     console.error('Error fetching assessments:', error);
-    res.status(500).json({ error: 'Failed to fetch assessments' });
+    return res.status(500).json({ error: 'Failed to fetch assessments' });
   }
 };
 
@@ -390,7 +380,6 @@ export const getCandidateCredentialsStatus = async (req: Request, res: Response)
     const logs = await prisma.emailLog.findMany({
       where: {
         candidateId: { in: candidates.map((c) => c.id) },
-        type: "send-credentials",
         status: { in: ["sent", "delivered", "opened", "clicked"] },
       },
       select: { candidateId: true },

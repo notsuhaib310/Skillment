@@ -8,6 +8,7 @@ import teamRoutes from "./routes/team"
 import assessmentRoutes from "./routes/assessment.routes"
 import emailRoutes from "./routes/email.routes"
 import { PrismaClient } from "@prisma/client"
+import proctoringRoutes from './routes/proctoring.routes'
 
 const app = express()
 const prisma = new PrismaClient()
@@ -36,7 +37,8 @@ app.use("/api/users", userRoutes)
 app.use("/api/participants", participantsRoutes)
 app.use("/api/team", teamRoutes)
 app.use("/api/assessments", assessmentRoutes)
-app.use("/api/email", emailRoutes)
+// app.use("/api/email", emailRoutes) // Removed to prevent double-mounting and global auth issues
+app.use('/api/proctoring', proctoringRoutes)
 
 // Error handling middleware
 app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {

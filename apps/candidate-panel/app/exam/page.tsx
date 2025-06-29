@@ -47,11 +47,28 @@ export default function ExamPage() {
     return null
   }
 
-  // Render different exam types based on assessment type
-  if (candidateData.assessmentType === "coding") {
-    return <CodingExam onComplete={handleExamComplete} candidateData={candidateData} />
+  if (!candidateData.assignedAssessment) {
+    return (
+      <div className="min-h-screen bg-[#0a0b0d] flex items-center justify-center">
+        <div className="text-white">No assessment assigned to your account.</div>
+      </div>
+    )
   }
 
-  // Default to MCQ exam
-  return <ProctoredExam onComplete={handleExamComplete} candidateData={candidateData} />
+  const assessmentType = candidateData.assignedAssessment.type;
+  const questions = candidateData.assignedAssessment.questions || [];
+  if (questions.length === 0) {
+    return (
+      <div className="min-h-screen bg-[#0a0b0d] flex items-center justify-center">
+        <div className="text-white">No questions found for this assessment.</div>
+      </div>
+    )
+  }
+
+  if (assessmentType === "coding") {
+    return <CodingExam onComplete={handleExamComplete} candidateData={candidateData} assessment={candidateData.assignedAssessment} />
+  }
+
+  // Default to MCQ/proctored exam
+  return <ProctoredExam onComplete={handleExamComplete} candidateData={candidateData} assessment={candidateData.assignedAssessment} />
 }

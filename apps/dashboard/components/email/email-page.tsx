@@ -25,6 +25,7 @@ import * as api from "@/lib/api/email"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import { Select as ShadSelect } from "@/components/ui/select"
 import { Table as ShadTable, TableBody as ShadTableBody, TableCell as ShadTableCell, TableHead as ShadTableHead, TableHeader as ShadTableHeader, TableRow as ShadTableRow } from "@/components/ui/table"
+import { getLogDetails } from "@/lib/api/email"
 
 const statusColors = {
   sent: "bg-blue-500/20 text-blue-400 border-blue-500/30",
@@ -43,6 +44,26 @@ const typeColors = {
   "follow-up": "bg-pink-500/20 text-pink-400 border-pink-500/30",
 }
 
+// Add TypeScript type for email log
+interface EmailLog {
+  id: string;
+  recipient?: string;
+  recipientEmail?: string;
+  to?: string;
+  toEmail?: string;
+  meta?: { name?: string; email?: string };
+  subject?: string;
+  template?: string;
+  type?: string;
+  status?: string;
+  sentAt?: string;
+  openedAt?: string;
+  clickedAt?: string;
+  body?: string;
+  html?: string;
+  [key: string]: any;
+}
+
 // Helper to get JWT token from localStorage
 function getAuthHeaders(): Record<string, string> {
   if (typeof window !== 'undefined') {
@@ -53,6 +74,8 @@ function getAuthHeaders(): Record<string, string> {
   }
   return {} as Record<string, string>
 }
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api";
 
 export function EmailPage() {
   const [showComposer, setShowComposer] = useState(false)
@@ -68,12 +91,21 @@ export function EmailPage() {
   const [selectedAssessment, setSelectedAssessment] = useState<string>("")
   const [selectedCandidates, setSelectedCandidates] = useState<string[]>([])
   const [candidateCredentials, setCandidateCredentials] = useState<any[]>([])
+  const [viewEmailId, setViewEmailId] = useState<string | null>(null)
+  const [viewEmailData, setViewEmailData] = useState<any>(null)
+  const [viewEmailLoading, setViewEmailLoading] = useState(false)
+
+  const recipientName = viewEmailData?.recipient || viewEmailData?.to || (viewEmailData?.meta && viewEmailData.meta.name) || "Unknown";
+  const recipientEmail = viewEmailData?.recipientEmail || viewEmailData?.toEmail || viewEmailData?.to || (viewEmailData?.meta && viewEmailData.meta.email) || "-";
 
   useEffect(() => {
     setLoading(true)
     api.getLogs()
       .then((data) => {
-        setSentEmails(data.filter((log: any) => log.status !== "draft"))
+        const sent = data.filter((log: any) => log.status !== "draft")
+        // Sort A-Z by subject
+        sent.sort((a: any, b: any) => a.subject.localeCompare(b.subject))
+        setSentEmails(sent)
         setDrafts(data.filter((log: any) => log.status === "draft"))
       })
       .catch(() => toast.error("Failed to load emails"))
@@ -83,9 +115,11 @@ export function EmailPage() {
   // Fetch assessments when credentials modal opens
   useEffect(() => {
     if (showCredentialsModal) {
-      fetch("/api/assessments?limit=100", {
+      const headers = getAuthHeaders();
+      console.log('Headers for /api/assessments fetch:', headers);
+      fetch(`${API_URL}/assessments?limit=100`, {
         credentials: "include",
-        headers: getAuthHeaders(),
+        headers,
       })
         .then(res => res.json())
         .then(data => setAssessments(data.data || []))
@@ -96,7 +130,7 @@ export function EmailPage() {
   // Fetch candidates for selected assessment
   useEffect(() => {
     if (selectedAssessment) {
-      fetch(`/api/assessments/${selectedAssessment}`, {
+      fetch(`${API_URL}/assessments/${selectedAssessment}`, {
         credentials: "include",
         headers: getAuthHeaders(),
       })
@@ -111,7 +145,7 @@ export function EmailPage() {
   // Fetch candidate credentials for selected assessment
   useEffect(() => {
     if (selectedAssessment) {
-      fetch(`/api/assessments/${selectedAssessment}/candidates/credentials`, {
+      fetch(`${API_URL}/assessments/${selectedAssessment}/candidates/credentials`, {
         credentials: "include",
         headers: getAuthHeaders(),
       })
@@ -122,6 +156,19 @@ export function EmailPage() {
       setCandidateCredentials([])
     }
   }, [selectedAssessment, showCredentialsModal])
+
+  // Fetch email details when viewEmailId changes
+  useEffect(() => {
+    if (viewEmailId) {
+      setViewEmailLoading(true)
+      getLogDetails(viewEmailId)
+        .then(data => setViewEmailData(data))
+        .catch(() => toast.error("Failed to load email details"))
+        .finally(() => setViewEmailLoading(false))
+    } else {
+      setViewEmailData(null)
+    }
+  }, [viewEmailId])
 
   const handleSendEmail = async (data: any) => {
     setLoading(true)
@@ -177,7 +224,7 @@ export function EmailPage() {
       await api.sendCredentials({ assessmentId: selectedAssessment, candidateIds: [candidateId] })
       toast.success("Credentials resent")
       // Optionally refetch credentials
-      fetch(`/api/assessments/${selectedAssessment}/candidates/credentials`, {
+      fetch(`${API_URL}/assessments/${selectedAssessment}/candidates/credentials`, {
         credentials: "include",
         headers: getAuthHeaders(),
       })
@@ -348,94 +395,102 @@ export function EmailPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredEmails.map((email) => (
-                    <TableRow key={email.id} className="border-border/40 hover:bg-accent/30">
-                      <TableCell>
-                        <div className="flex items-center gap-3">
-                          <Avatar className="h-8 w-8 rounded-2xl">
-                            <AvatarImage src="/placeholder.svg" />
-                            <AvatarFallback className="rounded-2xl bg-gradient-to-br from-primary to-orange-600 text-primary-foreground text-xs">
-                              {email.recipient
-                                .split(" ")
-                                .map((n: string) => n[0])
-                                .join("")}
-                            </AvatarFallback>
-                          </Avatar>
-                          <div>
-                            <div className="font-medium text-foreground">{email.recipient}</div>
-                            <div className="text-sm text-muted-foreground">{email.recipientEmail}</div>
+                  {filteredEmails.map((email: EmailLog) => {
+                    const recipientName = email.recipient || email.to || (email.meta && email.meta.name) || "Unknown";
+                    const recipientEmail = email.recipientEmail || email.toEmail || email.to || (email.meta && email.meta.email) || "-";
+                    const type = email.type || 'assessment-invite';
+                    // Google profile image if email is available
+                    const googleProfileImg = recipientEmail && recipientEmail !== '-' ? `https://www.google.com/s2/photos/profile/${encodeURIComponent(recipientEmail)}` : '/placeholder.svg';
+                    return (
+                      <TableRow key={email.id} className="border-border/40 hover:bg-accent/30">
+                        <TableCell>
+                          <div className="flex items-center gap-3">
+                            <Avatar className="h-8 w-8 rounded-2xl">
+                              <AvatarImage src={googleProfileImg} />
+                              <AvatarFallback className="rounded-2xl bg-gradient-to-br from-primary to-orange-600 text-primary-foreground text-xs">
+                                {(typeof recipientName === 'string' && recipientName.trim())
+                                  ? recipientName.split(" ").map((n: string) => n[0]).join("")
+                                  : "??"}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div>
+                              <div className="font-medium text-foreground">{recipientName}</div>
+                              <div className="text-sm text-muted-foreground">{recipientEmail}</div>
+                            </div>
                           </div>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="font-medium text-foreground max-w-64 truncate">{email.subject}</div>
-                        <div className="text-sm text-muted-foreground">{email.template}</div>
-                      </TableCell>
-                      <TableCell>
-                        <Badge
-                          className={`rounded-xl border ${typeColors[email.type as keyof typeof typeColors]} capitalize`}
-                        >
-                          {email.type.replace("-", " ")}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <Badge
-                          className={`rounded-xl border ${statusColors[email.status as keyof typeof statusColors]} capitalize`}
-                        >
-                          {email.status}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <div className="text-sm text-foreground">{email.sentAt}</div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          {email.openedAt && (
-                            <Badge variant="secondary" className="rounded-xl text-xs">
-                              <Eye className="mr-1 h-3 w-3" />
-                              Opened
-                            </Badge>
-                          )}
-                          {email.clickedAt && (
-                            <Badge variant="secondary" className="rounded-xl text-xs">
-                              Clicked
-                            </Badge>
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-right pr-6">
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-xl hover:bg-accent/80">
-                              <MoreHorizontal className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent
-                            align="end"
-                            className="rounded-2xl border-border/40 bg-card/80 backdrop-blur-xl"
+                        </TableCell>
+                        <TableCell>
+                          <div className="font-medium text-foreground max-w-64 truncate">{email.subject}</div>
+                          <div className="text-sm text-muted-foreground">{email.template}</div>
+                        </TableCell>
+                        <TableCell>
+                          <Badge
+                            className={`rounded-xl border ${typeColors[type as keyof typeof typeColors] || typeColors['assessment-invite']} capitalize`}
                           >
-                            <DropdownMenuItem className="rounded-xl">
-                              <Eye className="mr-2 h-4 w-4" />
-                              View Email
-                            </DropdownMenuItem>
-                            <DropdownMenuItem className="rounded-xl">
-                              <Copy className="mr-2 h-4 w-4" />
-                              Duplicate
-                            </DropdownMenuItem>
-                            <DropdownMenuItem className="rounded-xl">
-                              <Send className="mr-2 h-4 w-4" />
-                              Resend
-                            </DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem className="rounded-xl text-red-400 focus:text-red-300">
-                              <Trash2 className="mr-2 h-4 w-4" />
-                              Delete
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                            {(typeof type === 'string' && type)
+                              ? type.replace(/-/g, " ")
+                              : "Assessment Invite"}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <Badge
+                            className={`rounded-xl border ${statusColors[email.status as keyof typeof statusColors]} capitalize`}
+                          >
+                            {email.status}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <div className="text-sm text-foreground">{email.sentAt}</div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            {email.openedAt && (
+                              <Badge variant="secondary" className="rounded-xl text-xs">
+                                <Eye className="mr-1 h-3 w-3" />
+                                Opened
+                              </Badge>
+                            )}
+                            {email.clickedAt && (
+                              <Badge variant="secondary" className="rounded-xl text-xs">
+                                Clicked
+                              </Badge>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-right pr-6">
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="icon" className="h-8 w-8 rounded-xl hover:bg-accent/80">
+                                <MoreHorizontal className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent
+                              align="end"
+                              className="rounded-2xl border-border/40 bg-card/80 backdrop-blur-xl"
+                            >
+                              <DropdownMenuItem className="rounded-xl" onClick={() => setViewEmailId(email.id)}>
+                                <Eye className="mr-2 h-4 w-4" />
+                                View Email
+                              </DropdownMenuItem>
+                              <DropdownMenuItem className="rounded-xl">
+                                <Copy className="mr-2 h-4 w-4" />
+                                Duplicate
+                              </DropdownMenuItem>
+                              <DropdownMenuItem className="rounded-xl">
+                                <Send className="mr-2 h-4 w-4" />
+                                Resend
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem className="rounded-xl text-red-400 focus:text-red-300">
+                                <Trash2 className="mr-2 h-4 w-4" />
+                                Delete
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
             </CardContent>
@@ -606,6 +661,56 @@ export function EmailPage() {
 
       {/* Email Composer */}
       <EmailComposer open={showComposer} onOpenChange={setShowComposer} onSend={handleSendEmail} onSaveDraft={handleSaveDraft} />
+
+      {/* View Email Dialog */}
+      {viewEmailId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
+          <div className="bg-neutral-900 border border-neutral-800 rounded-2xl shadow-2xl max-w-xl w-full p-8 relative text-white">
+            <button
+              onClick={() => setViewEmailId(null)}
+              className="absolute top-4 right-4 text-neutral-400 hover:text-white text-2xl font-bold focus:outline-none"
+              aria-label="Close"
+            >
+              &times;
+            </button>
+            <div className="space-y-4">
+              <div className="text-lg font-bold mb-2">Email Details</div>
+              <div>
+                <span className="font-semibold text-neutral-300">Subject:</span>
+                <span className="ml-2 text-white">{viewEmailData?.subject || <span className="text-neutral-500">-</span>}</span>
+              </div>
+              <div>
+                <span className="font-semibold text-neutral-300">Recipient:</span>
+                <span className="ml-2 text-white">{recipientName} <span className="text-neutral-400">({recipientEmail})</span></span>
+              </div>
+              <div>
+                <span className="font-semibold text-neutral-300">Type:</span>
+                <span className="ml-2 text-white">{(typeof viewEmailData?.type === 'string' && viewEmailData.type) ? viewEmailData.type.replace(/-/g, ' ') : 'Assessment Invite'}</span>
+              </div>
+              <div>
+                <span className="font-semibold text-neutral-300">Status:</span>
+                <span className="ml-2 text-white">{viewEmailData?.status || <span className="text-neutral-500">-</span>}</span>
+              </div>
+              <div>
+                <span className="font-semibold text-neutral-300">Sent At:</span>
+                <span className="ml-2 text-white">{viewEmailData?.sentAt || <span className="text-neutral-500">-</span>}</span>
+              </div>
+              <div>
+                <span className="font-semibold text-neutral-300">Body:</span>
+                <div className="whitespace-pre-line border border-neutral-700 rounded-lg p-4 bg-neutral-800 mt-2 max-h-72 overflow-auto text-neutral-100">
+                  {viewEmailLoading ? (
+                    <div className="text-center text-neutral-400">Loading...</div>
+                  ) : viewEmailData?.body || viewEmailData?.html ? (
+                    <span dangerouslySetInnerHTML={{ __html: viewEmailData.body || viewEmailData.html }} />
+                  ) : (
+                    <span className="text-neutral-500">(No content)</span>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

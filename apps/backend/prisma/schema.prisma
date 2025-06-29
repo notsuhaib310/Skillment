@@ -196,6 +196,7 @@ model Candidate {
   updatedAt     DateTime     @updatedAt
   allottedBy    String?
   allottedAt    DateTime?
+  password      String?      // <-- Add this line for demo/testing only
   assessment    Assessment   @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
   user          User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
   

@@ -100,41 +100,43 @@ export class EmailController {
       for (const email of recipients) {
         const renderedBody = template ? this.renderTemplate(template.body, data || {}) : body;
         const renderedSubject = template ? this.renderTemplate(template.subject, data || {}) : subject;
+        // 1. Create log entry first to get logId
+        const log = await prisma.emailLog.create({
+          data: {
+            to: email,
+            candidateId: null,
+            assessmentId: assessmentId || null,
+            templateId: templateId || null,
+            subject: renderedSubject,
+            body: renderedBody,
+            status: "sent",
+            sentAt: new Date(),
+            createdById: req.user?.id || "system",
+          },
+        });
+        // 2. Inject tracking pixel and rewrite links
+        let htmlWithTracking = renderedBody;
+        // Add open tracking pixel
+        htmlWithTracking += `<img src=\"http://localhost:5000/api/email/track/open/${log.id}\" width=\"1\" height=\"1\" style=\"display:none;\" alt=\"\" />`;
+        // Rewrite links for click tracking
+        htmlWithTracking = htmlWithTracking.replace(/<a\s+([^>]*?)href=["']([^"']+)["']([^>]*)>/gi, (match, pre, href, post) => {
+          // Only rewrite http/https links
+          if (!href.startsWith('http')) return match;
+          const encoded = encodeURIComponent(href);
+          return `<a ${pre}href=\"http://localhost:5000/api/email/track/click/${log.id}?redirect=${encoded}\"${post}>`;
+        });
         try {
           await transporter.sendMail({
             from: FROM_EMAIL,
             to: email,
             subject: renderedSubject,
-            html: renderedBody,
+            html: htmlWithTracking,
           });
-          await prisma.emailLog.create({
-            data: {
-              to: email,
-              candidateId: null,
-              assessmentId: assessmentId || null,
-              templateId: templateId || null,
-              subject: renderedSubject,
-              body: renderedBody,
-              status: "sent",
-              sentAt: new Date(),
-              createdById: req.user?.id || "system",
-            },
-          });
+          // Optionally update log with final HTML
+          await prisma.emailLog.update({ where: { id: log.id }, data: { body: htmlWithTracking } });
           results.push({ email, status: "sent" });
         } catch (err) {
-          await prisma.emailLog.create({
-            data: {
-              to: email,
-              candidateId: null,
-              assessmentId: assessmentId || null,
-              templateId: templateId || null,
-              subject: renderedSubject,
-              body: renderedBody,
-              status: "failed",
-              error: String(err),
-              createdById: req.user?.id || "system",
-            },
-          });
+          await prisma.emailLog.update({ where: { id: log.id }, data: { status: "failed", error: String(err) } });
           results.push({ email, status: "failed", error: String(err) });
         }
       }

@@ -15,6 +15,9 @@ export const apiCall = async (endpoint: string, options: RequestInit = {}) => {
     } as HeadersInit,
   }
 
+  // Debug log for Authorization header
+  console.log('API Request:', url, 'Authorization:', config.headers && (config.headers as any).Authorization)
+
   const response = await fetch(url, config)
   
   if (!response.ok) {
