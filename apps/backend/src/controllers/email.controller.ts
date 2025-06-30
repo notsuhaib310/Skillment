@@ -65,10 +65,15 @@ export class EmailController {
   // --- Email Logs ---
   async getLogs(req: Request, res: Response) {
     try {
-      const logs = await prisma.emailLog.findMany({ orderBy: { createdAt: "desc" } });
+      console.log("Fetching email logs...");
+      const logs = await prisma.emailLog.findMany({ 
+        orderBy: { createdAt: "desc" }
+      });
+      console.log(`Found ${logs.length} email logs`);
       res.json(logs);
     } catch (error) {
-      res.status(500).json({ error: "Failed to fetch logs" });
+      console.error("Error fetching email logs:", error);
+      res.status(500).json({ error: "Failed to fetch logs", details: error instanceof Error ? error.message : "Unknown error" });
     }
   }
   async getLogDetails(req: Request, res: Response) {

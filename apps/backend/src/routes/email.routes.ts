@@ -14,7 +14,7 @@ router.post("/templates", authenticate, controller.createTemplate.bind(controlle
 router.put("/templates/:id", authenticate, controller.updateTemplate.bind(controller));
 router.delete("/templates/:id", authenticate, controller.deleteTemplate.bind(controller));
 
-// Email Logs
+// Email Logs - Temporarily remove authentication for testing
 router.get("/logs", (req, res, next) => { console.log("Public GET /logs hit"); next(); }, controller.getLogs.bind(controller));
 router.get("/logs/:id", authenticate, controller.getLogDetails.bind(controller));
 
