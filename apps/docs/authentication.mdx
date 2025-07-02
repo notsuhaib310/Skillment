@@ -1,0 +1,413 @@
+---
+title: 'Authentication'
+description: 'Learn how authentication works in Skillment for both users and API access'
+---
+
+## Overview
+
+Skillment uses a multi-layered authentication system to ensure secure access to both the web platform and API endpoints. This guide covers user authentication, API authentication, and best practices for maintaining security.
+
+## User Authentication
+
+### Registration and Login
+
+Users can authenticate through multiple methods:
+
+<Tabs>
+  <Tab title="Email/Password">
+    ```json Registration Request
+    {
+      "email": "user@example.com",
+      "password": "SecurePass123!",
+      "firstName": "John",
+      "lastName": "Doe",
+      "phone": "+1234567890",
+      "termsAccepted": true,
+      "newsletterOptIn": false
+    }
+    ```
+  </Tab>
+  <Tab title="Organization Invitation">
+    ```json Invitation Flow
+    {
+      "email": "user@example.com",
+      "organizationId": "org_123",
+      "role": "member",
+      "invitedBy": "admin_user_id",
+      "permissions": {
+        "assessments": ["read", "create"],
+        "candidates": ["read"],
+        "analytics": ["read"]
+      }
+    }
+    ```
+  </Tab>
+</Tabs>
+
+### Session Management
+
+Skillment uses JWT tokens for session management:
+
+```javascript Session Structure
+{
+  "id": "session_abc123",
+  "userId": "user_xyz789",
+  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "expiresAt": "2024-12-31T23:59:59Z",
+  "createdAt": "2024-01-01T00:00:00Z"
+}
+```
+
+<Warning>
+  Sessions expire after 24 hours of inactivity. Users will be automatically logged out and redirected to the login page.
+</Warning>
+
+## API Authentication
+
+### Getting Started
+
+All API requests require authentication using JWT tokens:
+
+```bash cURL Example
+curl -H "Authorization: Bearer your_jwt_token" \
+     -H "Content-Type: application/json" \
+     https://api.skillment.com/assessments
+```
+
+### Authentication Flow
+
+<Steps>
+  <Step title="Login">
+    Send credentials to receive a JWT token
+    ```javascript
+    POST /auth/login
+    {
+      "email": "user@example.com",
+      "password": "password123"
+    }
+    ```
+  </Step>
+  <Step title="Receive Token">
+    Store the returned JWT token securely
+    ```javascript
+    {
+      "success": true,
+      "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+      "user": {
+        "id": "user_123",
+        "email": "user@example.com",
+        "organization": "org_456"
+      }
+    }
+    ```
+  </Step>
+  <Step title="Make Authenticated Requests">
+    Include the token in the Authorization header
+    ```javascript
+    headers: {
+      'Authorization': 'Bearer ' + token,
+      'Content-Type': 'application/json'
+    }
+    ```
+  </Step>
+</Steps>
+
+## Organization-Based Access
+
+### Multi-Tenant Security
+
+Skillment enforces organization-level isolation:
+
+```javascript Organization Context
+{
+  "user": {
+    "id": "user_123",
+    "email": "john@acme.com",
+    "orgId": "org_acme",
+    "role": "admin"
+  },
+  "organization": {
+    "id": "org_acme",
+    "name": "acme-corp",
+    "plan": "elite",
+    "permissions": ["all"]
+  }
+}
+```
+
+### Role-Based Permissions
+
+Different roles have different access levels:
+
+<AccordionGroup>
+  <Accordion title="Admin">
+    **Full Access**
+    - Create, edit, delete assessments
+    - Manage team members and permissions
+    - Access all analytics and reports
+    - Configure organization settings
+    - Manage billing and subscriptions
+  </Accordion>
+
+  <Accordion title="Member">
+    **Standard Access**
+    - Create and edit own assessments
+    - View assigned assessments
+    - Access basic analytics
+    - Invite candidates to own assessments
+  </Accordion>
+
+  <Accordion title="Viewer">
+    **Read-Only Access**
+    - View assessments (no editing)
+    - View analytics and reports
+    - Cannot create or invite candidates
+    - Cannot access organization settings
+  </Accordion>
+</AccordionGroup>
+
+## Candidate Authentication
+
+### Assessment Access
+
+Candidates receive unique credentials for each assessment:
+
+```json Candidate Credentials
+{
+  "candidateId": "candidate_123",
+  "assessmentId": "assessment_456",
+  "email": "candidate@example.com",
+  "password": "temp_secure_123",
+  "accessUrl": "https://assess.skillment.com/take/assessment_456",
+  "expiresAt": "2024-12-31T23:59:59Z"
+}
+```
+
+### Secure Assessment Environment
+
+During assessments, additional security measures are enforced:
+
+<CardGroup cols={2}>
+  <Card title="Session Validation" icon="shield-check">
+    Continuous validation of candidate session integrity
+  </Card>
+  <Card title="Environment Checks" icon="desktop">
+    Browser capability and security verification
+  </Card>
+  <Card title="Proctoring Auth" icon="video">
+    Camera and microphone permission validation
+  </Card>
+  <Card title="Activity Monitoring" icon="eye">
+    Real-time monitoring of suspicious activities
+  </Card>
+</CardGroup>
+
+## Security Best Practices
+
+### For Developers
+
+<CodeGroup>
+
+```javascript Token Storage
+// ✅ Secure storage
+localStorage.setItem('skillment_token', token);
+
+// ❌ Avoid storing in cookies without security flags
+document.cookie = `token=${token}`;
+
+// ✅ Use HTTP-only cookies when possible
+// Set server-side with httpOnly, secure, sameSite flags
+```
+
+```javascript Token Validation
+// ✅ Validate token before requests
+function isTokenValid(token) {
+  try {
+    const payload = jwt.decode(token);
+    return payload.exp > Date.now() / 1000;
+  } catch (error) {
+    return false;
+  }
+}
+
+// ✅ Handle token expiration
+if (!isTokenValid(token)) {
+  // Redirect to login or refresh token
+  redirectToLogin();
+}
+```
+
+</CodeGroup>
+
+### For Organizations
+
+<Tabs>
+  <Tab title="Password Policies">
+    Enforce strong password requirements:
+    - Minimum 8 characters
+    - Include uppercase, lowercase, numbers
+    - Special characters recommended
+    - Regular password rotation
+  </Tab>
+  <Tab title="Two-Factor Authentication">
+    ```json 2FA Setup
+    {
+      "enabled": true,
+      "method": "totp",
+      "backupCodes": ["abc123", "def456"],
+      "enforced": false
+    }
+    ```
+  </Tab>
+  <Tab title="Session Management">
+    Configure session policies:
+    - Maximum session duration
+    - Concurrent session limits
+    - Automatic logout on inactivity
+    - Device-based restrictions
+  </Tab>
+</Tabs>
+
+## API Rate Limiting
+
+To ensure fair usage and prevent abuse:
+
+```http Rate Limit Headers
+HTTP/1.1 200 OK
+X-RateLimit-Limit: 1000
+X-RateLimit-Remaining: 999
+X-RateLimit-Reset: 1640995200
+```
+
+<Note>
+  **Rate Limits by Plan:**
+  - Free: 100 requests/hour
+  - Elite: 10,000 requests/hour
+  - Enterprise: Unlimited
+</Note>
+
+## Error Handling
+
+### Authentication Errors
+
+Common authentication error responses:
+
+<CodeGroup>
+
+```json 401 Unauthorized
+{
+  "error": "unauthorized",
+  "message": "Invalid or expired token",
+  "code": "TOKEN_EXPIRED"
+}
+```
+
+```json 403 Forbidden
+{
+  "error": "forbidden",
+  "message": "Insufficient permissions",
+  "code": "PERMISSION_DENIED",
+  "requiredRole": "admin"
+}
+```
+
+```json 429 Rate Limited
+{
+  "error": "rate_limited",
+  "message": "Too many requests",
+  "code": "RATE_LIMIT_EXCEEDED",
+  "retryAfter": 3600
+}
+```
+
+</CodeGroup>
+
+### Handling in Your Application
+
+```javascript Error Handling Example
+async function makeAuthenticatedRequest(endpoint) {
+  try {
+    const response = await fetch(endpoint, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    if (response.status === 401) {
+      // Token expired, redirect to login
+      window.location.href = '/login';
+      return;
+    }
+
+    if (response.status === 403) {
+      // Insufficient permissions
+      throw new Error('You do not have permission to access this resource');
+    }
+
+    if (response.status === 429) {
+      // Rate limited
+      const retryAfter = response.headers.get('X-RateLimit-Reset');
+      throw new Error(`Rate limited. Try again in ${retryAfter} seconds`);
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error('Request failed:', error);
+    throw error;
+  }
+}
+```
+
+## Testing Authentication
+
+### Development Environment
+
+For testing purposes, you can use these test credentials:
+
+```bash Development Testing
+# Login with test credentials
+curl -X POST https://api-dev.skillment.com/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "test@skillment.com",
+    "password": "TestPassword123!"
+  }'
+```
+
+<Warning>
+  Test credentials are only available in development environments and will not work in production.
+</Warning>
+
+## Need Help?
+
+<CardGroup cols={2}>
+  <Card
+    title="API Reference"
+    icon="book"
+    href="/api-reference/authentication"
+  >
+    Detailed API authentication documentation
+  </Card>
+  <Card
+    title="Security Guide"
+    icon="shield"
+    href="/guides/security-best-practices"
+  >
+    Comprehensive security guidelines
+  </Card>
+  <Card
+    title="Integration Examples"
+    icon="code"
+    href="/examples/api-integration"
+  >
+    Code examples for common scenarios
+  </Card>
+  <Card
+    title="Support"
+    icon="life-buoy"
+    href="/support/contact"
+  >
+    Get help from our support team
+  </Card>
+</CardGroup>

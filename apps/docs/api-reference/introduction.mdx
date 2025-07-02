@@ -1,0 +1,489 @@
+---
+title: 'API Introduction'
+description: 'Get started with the Skillment REST API'
+---
+
+## Welcome to Skillment API
+
+The Skillment API is a RESTful API that allows you to integrate assessment capabilities into your applications. With our comprehensive API, you can create assessments, manage candidates, monitor progress, and access detailed analytics programmatically.
+
+<CardGroup cols={2}>
+  <Card
+    title="Authentication"
+    icon="key"
+    href="/api-reference/authentication"
+  >
+    Learn how to authenticate with the API
+  </Card>
+  <Card
+    title="Quickstart"
+    icon="rocket"
+    href="/quickstart"
+  >
+    Get up and running in minutes
+  </Card>
+  <Card
+    title="Code Examples"
+    icon="code"
+    href="/examples"
+  >
+    See the API in action with real examples
+  </Card>
+  <Card
+    title="SDKs"
+    icon="package"
+    href="/api-reference/sdks"
+  >
+    Use our official SDKs and libraries
+  </Card>
+</CardGroup>
+
+## Base URL
+
+All API requests should be made to:
+
+```
+https://api.skillment.com/v1
+```
+
+For development and testing:
+
+```
+https://api-dev.skillment.com/v1
+```
+
+## Authentication
+
+The Skillment API uses JWT tokens for authentication. Include your token in the Authorization header:
+
+```bash cURL Example
+curl -H "Authorization: Bearer your_jwt_token" \
+     -H "Content-Type: application/json" \
+     https://api.skillment.com/v1/assessments
+```
+
+## Request Format
+
+### HTTP Methods
+
+The API uses standard HTTP methods:
+
+- `GET` - Retrieve data
+- `POST` - Create new resources
+- `PUT` - Update existing resources
+- `DELETE` - Remove resources
+
+### Content Type
+
+All requests should include the `Content-Type` header:
+
+```
+Content-Type: application/json
+```
+
+### Request Body
+
+Request bodies should be valid JSON:
+
+```json Example Request
+{
+  "title": "Frontend Developer Assessment",
+  "description": "Comprehensive React evaluation",
+  "duration": 90,
+  "totalMarks": 100
+}
+```
+
+## Response Format
+
+### Success Response
+
+Successful requests return a 2xx status code with JSON data:
+
+```json Success Response
+{
+  "success": true,
+  "data": {
+    "id": "assessment_abc123",
+    "title": "Frontend Developer Assessment",
+    "status": "draft",
+    "createdAt": "2024-01-01T12:00:00Z"
+  },
+  "meta": {
+    "timestamp": "2024-01-01T12:00:00Z",
+    "version": "v1"
+  }
+}
+```
+
+### Error Response
+
+Failed requests return a 4xx or 5xx status code with error details:
+
+```json Error Response
+{
+  "success": false,
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "message": "Invalid assessment duration",
+    "details": {
+      "field": "duration",
+      "reason": "Duration must be between 1 and 300 minutes"
+    }
+  },
+  "meta": {
+    "timestamp": "2024-01-01T12:00:00Z",
+    "version": "v1"
+  }
+}
+```
+
+## Status Codes
+
+Common HTTP status codes used by the API:
+
+<AccordionGroup>
+  <Accordion title="2xx Success">
+    - `200 OK` - Request successful
+    - `201 Created` - Resource created successfully
+    - `204 No Content` - Request successful, no content returned
+  </Accordion>
+
+  <Accordion title="4xx Client Errors">
+    - `400 Bad Request` - Invalid request format or parameters
+    - `401 Unauthorized` - Authentication required or invalid
+    - `403 Forbidden` - Insufficient permissions
+    - `404 Not Found` - Resource not found
+    - `422 Unprocessable Entity` - Validation errors
+    - `429 Too Many Requests` - Rate limit exceeded
+  </Accordion>
+
+  <Accordion title="5xx Server Errors">
+    - `500 Internal Server Error` - Unexpected server error
+    - `502 Bad Gateway` - Upstream service error
+    - `503 Service Unavailable` - Service temporarily unavailable
+  </Accordion>
+</AccordionGroup>
+
+## Rate Limiting
+
+API requests are rate limited to ensure fair usage:
+
+```http Rate Limit Headers
+HTTP/1.1 200 OK
+X-RateLimit-Limit: 1000
+X-RateLimit-Remaining: 999
+X-RateLimit-Reset: 1640995200
+```
+
+**Rate Limits by Plan:**
+- Free: 100 requests/hour
+- Elite: 10,000 requests/hour
+- Enterprise: Unlimited
+
+## Pagination
+
+List endpoints support pagination using cursor-based pagination:
+
+```json Paginated Response
+{
+  "success": true,
+  "data": [
+    {
+      "id": "assessment_1",
+      "title": "Assessment 1"
+    }
+  ],
+  "pagination": {
+    "hasNext": true,
+    "hasPrevious": false,
+    "nextCursor": "cursor_abc123",
+    "previousCursor": null,
+    "totalCount": 150
+  }
+}
+```
+
+### Pagination Parameters
+
+- `limit` - Number of items per page (max 100, default 20)
+- `cursor` - Cursor for the next page
+- `order` - Sort order (`asc` or `desc`, default `desc`)
+
+```bash Pagination Example
+curl "https://api.skillment.com/v1/assessments?limit=50&cursor=cursor_abc123"
+```
+
+## Filtering and Sorting
+
+Most list endpoints support filtering and sorting:
+
+### Filtering
+
+```bash Filter Examples
+# Filter by status
+curl "https://api.skillment.com/v1/assessments?status=published"
+
+# Filter by date range
+curl "https://api.skillment.com/v1/assessments?createdAfter=2024-01-01&createdBefore=2024-12-31"
+
+# Filter by tags
+curl "https://api.skillment.com/v1/assessments?tags=react,javascript"
+```
+
+### Sorting
+
+```bash Sort Examples
+# Sort by creation date (descending)
+curl "https://api.skillment.com/v1/assessments?sortBy=createdAt&order=desc"
+
+# Sort by title (ascending)
+curl "https://api.skillment.com/v1/assessments?sortBy=title&order=asc"
+```
+
+## Webhooks
+
+Skillment supports webhooks for real-time notifications:
+
+```json Webhook Configuration
+{
+  "url": "https://your-app.com/webhooks/skillment",
+  "events": [
+    "assessment.completed",
+    "candidate.invited",
+    "proctoring.alert"
+  ],
+  "secret": "your_webhook_secret"
+}
+```
+
+### Webhook Events
+
+Common webhook events:
+
+<Tabs>
+  <Tab title="Assessment Events">
+    ```json
+    {
+      "event": "assessment.completed",
+      "data": {
+        "assessmentId": "assessment_123",
+        "candidateId": "candidate_456",
+        "score": 85,
+        "completedAt": "2024-01-01T15:30:00Z"
+      }
+    }
+    ```
+  </Tab>
+  <Tab title="Candidate Events">
+    ```json
+    {
+      "event": "candidate.invited",
+      "data": {
+        "candidateId": "candidate_123",
+        "assessmentId": "assessment_456",
+        "email": "candidate@example.com",
+        "invitedAt": "2024-01-01T10:00:00Z"
+      }
+    }
+    ```
+  </Tab>
+  <Tab title="Proctoring Events">
+    ```json
+    {
+      "event": "proctoring.alert",
+      "data": {
+        "candidateId": "candidate_123",
+        "type": "multiple_faces",
+        "severity": "high",
+        "timestamp": "2024-01-01T14:30:00Z"
+      }
+    }
+    ```
+  </Tab>
+</Tabs>
+
+## Error Handling
+
+### Common Error Codes
+
+<CodeGroup>
+
+```json Validation Error
+{
+  "success": false,
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "message": "Validation failed",
+    "details": [
+      {
+        "field": "duration",
+        "message": "Duration must be between 1 and 300 minutes"
+      },
+      {
+        "field": "title",
+        "message": "Title is required"
+      }
+    ]
+  }
+}
+```
+
+```json Authentication Error
+{
+  "success": false,
+  "error": {
+    "code": "UNAUTHORIZED",
+    "message": "Invalid or expired token"
+  }
+}
+```
+
+```json Permission Error
+{
+  "success": false,
+  "error": {
+    "code": "FORBIDDEN",
+    "message": "Insufficient permissions",
+    "requiredRole": "admin"
+  }
+}
+```
+
+```json Rate Limit Error
+{
+  "success": false,
+  "error": {
+    "code": "RATE_LIMIT_EXCEEDED",
+    "message": "Too many requests",
+    "retryAfter": 3600
+  }
+}
+```
+
+</CodeGroup>
+
+## SDK Examples
+
+### JavaScript/Node.js
+
+```javascript
+import { SkillmentAPI } from '@skillment/api';
+
+const skillment = new SkillmentAPI({
+  apiKey: 'your_api_key',
+  baseURL: 'https://api.skillment.com/v1'
+});
+
+// Create assessment
+const assessment = await skillment.assessments.create({
+  title: 'Frontend Developer Assessment',
+  duration: 90,
+  questions: questionIds
+});
+
+// Invite candidates
+await skillment.candidates.invite({
+  assessmentId: assessment.id,
+  candidates: [
+    { name: 'John Doe', email: 'john@example.com' }
+  ]
+});
+```
+
+### Python
+
+```python
+from skillment import SkillmentAPI
+
+skillment = SkillmentAPI(
+    api_key='your_api_key',
+    base_url='https://api.skillment.com/v1'
+)
+
+# Create assessment
+assessment = skillment.assessments.create({
+    'title': 'Frontend Developer Assessment',
+    'duration': 90,
+    'questions': question_ids
+})
+
+# Invite candidates
+skillment.candidates.invite({
+    'assessment_id': assessment['id'],
+    'candidates': [
+        {'name': 'John Doe', 'email': 'john@example.com'}
+    ]
+})
+```
+
+### cURL
+
+```bash
+# Create assessment
+curl -X POST https://api.skillment.com/v1/assessments \
+  -H "Authorization: Bearer your_jwt_token" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "title": "Frontend Developer Assessment",
+    "duration": 90,
+    "questions": ["q1", "q2", "q3"]
+  }'
+
+# Invite candidates
+curl -X POST https://api.skillment.com/v1/candidates/invite \
+  -H "Authorization: Bearer your_jwt_token" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "assessmentId": "assessment_123",
+    "candidates": [
+      {"name": "John Doe", "email": "john@example.com"}
+    ]
+  }'
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card
+    title="Authentication Guide"
+    icon="shield-check"
+    href="/api-reference/authentication"
+  >
+    Learn how to authenticate your API requests
+  </Card>
+  <Card
+    title="Create Your First Assessment"
+    icon="plus"
+    href="/api-reference/assessments/create-assessment"
+  >
+    Start by creating an assessment via API
+  </Card>
+  <Card
+    title="Webhook Setup"
+    icon="webhook"
+    href="/api-reference/webhooks"
+  >
+    Configure webhooks for real-time updates
+  </Card>
+  <Card
+    title="Code Examples"
+    icon="code"
+    href="/examples"
+  >
+    See complete integration examples
+  </Card>
+</CardGroup>
+
+## Support
+
+Need help with the API? We're here to assist:
+
+- **Documentation**: Comprehensive guides and reference
+- **Email Support**: [api-support@skillment.com](mailto:api-support@skillment.com)
+- **Community**: Join our [Discord](https://discord.gg/skillment)
+- **Status Page**: [status.skillment.com](https://status.skillment.com)
+
+<Note>
+  The Skillment API is continuously evolving. Check our [changelog](https://api.skillment.com/changelog) for the latest updates and new features.
+</Note>
