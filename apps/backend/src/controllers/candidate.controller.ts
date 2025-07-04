@@ -59,7 +59,7 @@ export class CandidateController {
         // Create credential
         await prisma.credential.create({
           data: {
-            candidateId: candidate.id,
+            candidateId: candidateId, // Store the display ID (CAND123456), not the database ID
             email: email,
             passwordHash: hashedPassword
           }
@@ -391,7 +391,28 @@ export class CandidateController {
           orderBy: { createdAt: 'desc' }
         });
       }
-      return res.json(candidates);
+
+      // Get credential information for each candidate
+      const candidatesWithCredentials = await Promise.all(
+        candidates.map(async (candidate) => {
+          // Find credential where the candidateId field matches the candidate's database ID
+          const credential = await prisma.credential.findFirst({
+            where: { 
+              email: candidate.email,
+              // Note: The candidateId in credential table is actually the display ID (CAND123456)
+              // We need to find by email since that's the reliable link
+            }
+          });
+          
+          return {
+            ...candidate,
+            loginId: credential?.candidateId || 'N/A', // This is the display ID like CAND123456
+            hasCredentials: !!credential
+          };
+        })
+      );
+
+      return res.json(candidatesWithCredentials);
     } catch (error) {
       return res.status(500).json({ error: 'Failed to fetch candidates' });
     }

@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { 
   ArrowLeft,
   Users, 
@@ -18,7 +19,12 @@ import {
   BarChart3,
   CheckCircle,
   XCircle,
-  AlertTriangle
+  AlertTriangle,
+  User,
+  Calendar,
+  Timer,
+  Award,
+  Send
 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { CandidateAllocation } from "@/components/assessments/candidate-allocation"
@@ -54,6 +60,9 @@ export default function CandidatesPage() {
   const [assessments, setAssessments] = useState<Assessment[]>([])
   const [selectedAssessment, setSelectedAssessment] = useState<string>("")
   const [loading, setLoading] = useState(true)
+  const [selectedCandidate, setSelectedCandidate] = useState<Candidate | null>(null)
+  const [isDetailsOpen, setIsDetailsOpen] = useState(false)
+  const [isResending, setIsResending] = useState<string | null>(null)
   const router = useRouter()
   const searchParams = useSearchParams()
   const { toast } = useToast()
@@ -157,27 +166,28 @@ export default function CandidatesPage() {
   }
 
   const viewCandidateDetails = (candidate: Candidate) => {
-    const currentAssessment = Array.isArray(assessments) ? assessments.find(a => a.id === selectedAssessment) : null
-    toast({
-      title: "Candidate Details",
-      description: `Name: ${candidate.name}\nEmail: ${candidate.email}\nStatus: ${candidate.status}\nScore: ${candidate.score || 'N/A'}/${currentAssessment?.totalMarks || 'N/A'}\nTime Spent: ${candidate.timeSpent ? Math.round(candidate.timeSpent / 60) + 'm' : 'N/A'}`,
-    })
+    setSelectedCandidate(candidate)
+    setIsDetailsOpen(true)
   }
 
   const resendEmail = async (candidate: Candidate) => {
+    setIsResending(candidate.id)
     try {
       const { candidatesApi } = await import("@/lib/api")
       await candidatesApi.sendEmail(candidate.id)
       toast({
-        title: "Email Sent",
-        description: `Credentials email sent to ${candidate.email}`,
+        title: "Email Sent Successfully",
+        description: `New credentials have been sent to ${candidate.email}`,
       })
     } catch (error: any) {
+      console.error('Error resending email:', error)
       toast({
         title: "Email Failed",
-        description: error.message,
+        description: error.message || "Failed to send email. Please try again.",
         variant: "destructive",
       })
+    } finally {
+      setIsResending(null)
     }
   }
 
@@ -388,7 +398,7 @@ export default function CandidatesPage() {
                             <Button 
                               size="sm" 
                               variant="ghost" 
-                              className="rounded-xl"
+                              className="rounded-xl hover:bg-blue-500/10 hover:text-blue-400"
                               onClick={() => viewCandidateDetails(candidate)}
                               title="View Details"
                             >
@@ -397,11 +407,16 @@ export default function CandidatesPage() {
                             <Button 
                               size="sm" 
                               variant="ghost" 
-                              className="rounded-xl"
+                              className="rounded-xl hover:bg-green-500/10 hover:text-green-400"
                               onClick={() => resendEmail(candidate)}
-                              title="Resend Email"
+                              disabled={isResending === candidate.id}
+                              title="Resend Credentials Email"
                             >
-                              <Mail className="h-4 w-4" />
+                              {isResending === candidate.id ? (
+                                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current" />
+                              ) : (
+                                <Send className="h-4 w-4" />
+                              )}
                             </Button>
                           </div>
                         </TableCell>
@@ -414,6 +429,147 @@ export default function CandidatesPage() {
           </Card>
         </>
       )}
+
+      {/* Candidate Details Modal */}
+      <Dialog open={isDetailsOpen} onOpenChange={setIsDetailsOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <User className="h-5 w-5" />
+              Candidate Details
+            </DialogTitle>
+          </DialogHeader>
+          {selectedCandidate && (
+            <div className="space-y-6">
+              {/* Basic Information */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-muted-foreground">Name</label>
+                  <p className="text-lg font-semibold">{selectedCandidate.name}</p>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-muted-foreground">Email</label>
+                  <p className="text-lg">{selectedCandidate.email}</p>
+                </div>
+              </div>
+
+              {/* Status and Assessment */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-muted-foreground">Status</label>
+                  <div className="flex items-center gap-2">
+                    {getStatusIcon(selectedCandidate.status)}
+                    <Badge className={`rounded-xl border ${getStatusColor(selectedCandidate.status)}`}>
+                      {selectedCandidate.status}
+                    </Badge>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-muted-foreground">Assessment</label>
+                  <p className="text-lg">{currentAssessment?.title}</p>
+                </div>
+              </div>
+
+              {/* Performance Metrics */}
+              <div className="grid grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-muted-foreground flex items-center gap-1">
+                    <Award className="h-4 w-4" />
+                    Score
+                  </label>
+                  <p className="text-2xl font-bold">
+                    {selectedCandidate.score !== null && selectedCandidate.score !== undefined
+                      ? `${selectedCandidate.score}/${currentAssessment?.totalMarks}`
+                      : "Not Available"}
+                  </p>
+                  {selectedCandidate.score !== null && selectedCandidate.score !== undefined && currentAssessment?.totalMarks && (
+                    <p className="text-sm text-muted-foreground">
+                      {Math.round((selectedCandidate.score / currentAssessment.totalMarks) * 100)}% Score
+                    </p>
+                  )}
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-muted-foreground flex items-center gap-1">
+                    <Timer className="h-4 w-4" />
+                    Time Spent
+                  </label>
+                  <p className="text-2xl font-bold">
+                    {selectedCandidate.timeSpent ? `${Math.round(selectedCandidate.timeSpent / 60)}m` : "N/A"}
+                  </p>
+                  {selectedCandidate.timeSpent && currentAssessment?.duration && (
+                    <p className="text-sm text-muted-foreground">
+                      {Math.round((selectedCandidate.timeSpent / 60 / currentAssessment.duration) * 100)}% of allotted time
+                    </p>
+                  )}
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-muted-foreground flex items-center gap-1">
+                    <Clock className="h-4 w-4" />
+                    Duration
+                  </label>
+                  <p className="text-2xl font-bold">{currentAssessment?.duration}m</p>
+                  <p className="text-sm text-muted-foreground">Allotted Time</p>
+                </div>
+              </div>
+
+              {/* Timestamps */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-muted-foreground flex items-center gap-1">
+                    <Calendar className="h-4 w-4" />
+                    Started At
+                  </label>
+                  <p className="text-lg">
+                    {selectedCandidate.startedAt 
+                      ? new Date(selectedCandidate.startedAt).toLocaleString()
+                      : "Not Started"}
+                  </p>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-muted-foreground flex items-center gap-1">
+                    <CheckCircle className="h-4 w-4" />
+                    Submitted At
+                  </label>
+                  <p className="text-lg">
+                    {selectedCandidate.submittedAt 
+                      ? new Date(selectedCandidate.submittedAt).toLocaleString()
+                      : "Not Submitted"}
+                  </p>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex items-center gap-3 pt-4 border-t">
+                <Button 
+                  onClick={() => resendEmail(selectedCandidate)}
+                  disabled={isResending === selectedCandidate.id}
+                  className="rounded-xl"
+                  variant="outline"
+                >
+                  {isResending === selectedCandidate.id ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current mr-2" />
+                      Sending...
+                    </>
+                  ) : (
+                    <>
+                      <Send className="mr-2 h-4 w-4" />
+                      Resend Credentials
+                    </>
+                  )}
+                </Button>
+                <Button 
+                  onClick={() => setIsDetailsOpen(false)}
+                  variant="ghost"
+                  className="rounded-xl"
+                >
+                  Close
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
