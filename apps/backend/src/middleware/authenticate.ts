@@ -27,24 +27,39 @@ export const authenticateOld = async (
   next: NextFunction
 ) => {
   try {
+    console.log('=== AUTHENTICATE MIDDLEWARE DEBUG ===');
+    console.log('Request URL:', req.url);
+    console.log('Request headers:', req.headers);
+    
     // Get token from Authorization header
     const authHeader = req.headers.authorization;
+    console.log('Auth header:', authHeader);
+    
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      console.log('No valid auth header found');
       throw new AppError(401, 'No token provided');
     }
 
     const token = authHeader.split(' ')[1];
+    console.log('Extracted token:', token ? `${token.substring(0, 20)}...` : 'None');
+    console.log('Token length:', token ? token.length : 0);
+    console.log('Token has dots:', token ? token.includes('.') : false);
+    
     if (!token) {
+      console.log('Token is empty after extraction');
       throw new AppError(401, 'No token provided');
     }
 
     try {
+      console.log('Attempting to verify JWT token...');
       // Verify JWT token
       const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-super-secret-jwt-key-change-in-production') as {
         userId: string;
         orgId: string;
         orgName: string;
       };
+      
+      console.log('JWT decoded successfully:', { userId: decoded.userId, orgId: decoded.orgId, orgName: decoded.orgName });
 
       // Verify session in database
       const session = await prisma.session.findFirst({

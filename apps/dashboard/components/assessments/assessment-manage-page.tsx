@@ -87,10 +87,8 @@ export function AssessmentManagePage({ assessmentId }: AssessmentManagePageProps
   const loadCandidates = async () => {
     setCandidatesLoading(true)
     try {
-      const response = await fetch(`http://localhost:5000/api/admin/candidates?assessmentId=${assessmentId}`, {
-        credentials: 'include',
-      })
-      const data = await response.json()
+      const { candidatesApi } = await import("@/lib/api")
+      const data = await candidatesApi.getByAssessment(assessmentId)
       setCandidates(data)
     } catch (error: any) {
       toast({

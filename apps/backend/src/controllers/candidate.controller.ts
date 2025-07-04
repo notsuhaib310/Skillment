@@ -65,6 +65,35 @@ export class CandidateController {
           }
         });
 
+        // Create participant entry
+        try {
+          await prisma.participant.create({
+            data: {
+              name: name,
+              email: email,
+              tags: [`Assessment: ${assessment.title}`],
+              organization: req.user?.orgId || 'default', // Add organization
+            }
+          });
+        } catch (participantError) {
+          // If participant already exists, update their tags
+          const existingParticipant = await prisma.participant.findFirst({
+            where: { email: email }
+          });
+
+          if (existingParticipant) {
+            const newTags = [...existingParticipant.tags];
+            const assessmentTag = `Assessment: ${assessment.title}`;
+            if (!newTags.includes(assessmentTag)) {
+              newTags.push(assessmentTag);
+              await prisma.participant.update({
+                where: { id: existingParticipant.id },
+                data: { tags: newTags }
+              });
+            }
+          }
+        }
+
         // Send email with credentials
         try {
           await emailService.sendCandidateCredentialEmail(
@@ -99,7 +128,14 @@ export class CandidateController {
             password: password // Only for response, not stored
           });
         } catch (emailError) {
+          console.error('Email sending failed:', emailError);
           // Continue with other candidates even if email fails
+          createdCandidates.push({
+            ...candidate,
+            candidateId: candidateId,
+            password: password,
+            emailError: 'Failed to send email'
+          });
         }
       }
 
@@ -109,6 +145,7 @@ export class CandidateController {
         candidates: createdCandidates
       });
     } catch (error) {
+      console.error('Candidate allocation error:', error);
       return res.status(500).json({ error: 'Failed to allocate candidates' });
     }
   }

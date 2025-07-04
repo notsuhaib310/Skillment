@@ -19,6 +19,7 @@ import {
   Send
 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
+import { assessmentsApi } from "@/lib/api/api"
 
 interface CandidateCredential {
   candidateId: string
@@ -67,13 +68,7 @@ export default function CredentialsPage() {
 
   const loadAssessments = async () => {
     try {
-      const response = await fetch('http://localhost:5000/api/admin/assessments', {
-        credentials: 'include',
-      })
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`)
-      }
-      const data = await response.json()
+      const data = await assessmentsApi.getAll()
       setAssessments(Array.isArray(data) ? data : [])
     } catch (error: any) {
       console.error('Error loading assessments:', error)

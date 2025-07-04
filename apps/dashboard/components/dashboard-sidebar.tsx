@@ -2,7 +2,7 @@
 
 import { usePathname } from "next/navigation"
 import Link from "next/link"
-import { Users, FileText, Calendar, Mail, TrendingUp, Bot, Settings, HelpCircle, LayoutDashboard, UserPlus } from "lucide-react"
+import { Users, FileText, Calendar, Mail, TrendingUp, Bot, Settings, HelpCircle, LayoutDashboard, UserPlus, Plus, Key, BarChart3, Shield } from "lucide-react"
 import {
   Sidebar,
   SidebarContent,
@@ -39,10 +39,40 @@ const menuSections = [
     label: "Assessments",
     items: [
       {
-        title: "Assessment Management",
+        title: "All Assessments",
         icon: FileText,
-        href: "/dashboard/assessment-manage",
+        href: "/dashboard/assessments",
       },
+      {
+        title: "Create Assessment",
+        icon: Plus,
+        href: "/dashboard/assessments/create",
+      },
+      {
+        title: "Candidate Management",
+        icon: Users,
+        href: "/dashboard/assessments/candidates",
+      },
+      {
+        title: "Credentials",
+        icon: Key,
+        href: "/dashboard/assessments/credentials",
+      },
+      {
+        title: "Results & Analytics",
+        icon: BarChart3,
+        href: "/dashboard/assessments/results",
+      },
+      {
+        title: "Proctoring",
+        icon: Shield,
+        href: "/dashboard/assessments/proctoring",
+      },
+    ],
+  },
+  {
+    label: "Events",
+    items: [
       {
         title: "Events & Interviews",
         icon: Calendar,

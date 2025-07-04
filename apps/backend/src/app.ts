@@ -41,7 +41,11 @@ app.use("/api/participants", participantsRoutes)
 app.use("/api/team", teamRoutes)
 app.use("/api/assessments", assessmentRoutes)
 app.use("/api/candidates", candidatePublicRoutes) // Public candidate routes (login, assessment)
+
+console.log('Mounting admin candidate routes at /api/admin/candidates');
 app.use("/api/admin/candidates", candidateRoutes) // Protected candidate routes (allocation, management)
+console.log('Admin candidate routes mounted successfully');
+
 // app.use("/api/email", emailRoutes) // Removed to prevent double-mounting and global auth issues
 app.use('/api/proctoring', proctoringRoutes)
 
