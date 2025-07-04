@@ -1083,7 +1083,9 @@ class EmailService {
     // 1. Check for existing credential
     let credential = await prisma.credential.findUnique({ where: { candidateId: candidate.id } });
     let generatedPassword = password;
+    
     if (!credential) {
+      // Create new credential
       generatedPassword = generatedPassword || Math.random().toString(36).slice(-10);
       const hash = await bcrypt.hash(generatedPassword, 10);
       credential = await prisma.credential.create({
@@ -1094,8 +1096,18 @@ class EmailService {
         },
       });
     } else {
-      // If credential exists, do not overwrite password, but send placeholder
-      generatedPassword = "(already set)";
+      // If credential exists and no password provided, generate new one for resending
+      if (!password) {
+        generatedPassword = Math.random().toString(36).slice(-10);
+        const hash = await bcrypt.hash(generatedPassword, 10);
+        credential = await prisma.credential.update({
+          where: { candidateId: candidate.id },
+          data: { passwordHash: hash },
+        });
+      } else {
+        // Use provided password
+        generatedPassword = password;
+      }
     }
     
     // 2. Fetch template
