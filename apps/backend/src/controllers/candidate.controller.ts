@@ -404,9 +404,11 @@ export class CandidateController {
             }
           });
           
+          console.log(`Candidate ${candidate.email} - DB ID: ${candidate.id}, Credential ID: ${credential?.candidateId || 'NOT FOUND'}`);
+          
           return {
             ...candidate,
-            loginId: credential?.candidateId || 'N/A', // This is the display ID like CAND123456
+            loginId: credential?.candidateId || null, // This should be the CAND123456 format
             hasCredentials: !!credential
           };
         })
@@ -479,6 +481,43 @@ export class CandidateController {
       return res.json({ success: true, candidate });
     } catch (err) {
       return res.status(500).json({ error: 'Server error' });
+    }
+  }
+
+  // Fix credentials that have database IDs instead of CAND format
+  async fixCredentialIds(req, res) {
+    try {
+      console.log('Starting credential ID fix...');
+      
+      // Get all credentials
+      const credentials = await prisma.credential.findMany();
+      let fixedCount = 0;
+      
+      for (const credential of credentials) {
+        // Check if candidateId is in database ID format (not CAND format)
+        if (!credential.candidateId.startsWith('CAND')) {
+          // Generate a new CAND format ID
+          const newCandidateId = `CAND${Date.now()}${Math.random().toString(36).substr(2, 4).toUpperCase()}`;
+          
+          // Update the credential
+          await prisma.credential.update({
+            where: { id: credential.id },
+            data: { candidateId: newCandidateId }
+          });
+          
+          console.log(`Fixed credential for ${credential.email}: ${credential.candidateId} -> ${newCandidateId}`);
+          fixedCount++;
+        }
+      }
+      
+      return res.json({ 
+        success: true, 
+        message: `Fixed ${fixedCount} credentials`,
+        fixedCount 
+      });
+    } catch (error) {
+      console.error('Fix credentials error:', error);
+      return res.status(500).json({ error: 'Failed to fix credentials' });
     }
   }
 

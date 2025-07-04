@@ -55,6 +55,11 @@ router.post('/test-email', (req, res) => {
   return candidateController.testEmail(req, res);
 });
 
+router.post('/fix-credential-ids', (req, res) => {
+  console.log('Fixing credential IDs');
+  return candidateController.fixCredentialIds(req, res);
+});
+
 console.log('Candidate routes setup complete');
 
 export default router; 

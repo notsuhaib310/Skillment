@@ -31,7 +31,7 @@ interface CandidateCredential {
   credentialExists: boolean
   credentialSent: boolean
   lastSentAt: string | null
-  loginId: string | null
+  candidateLoginId: string | null // This is the CAND123456 format
 }
 
 interface Assessment {
@@ -50,6 +50,7 @@ export default function CredentialsPage() {
   const [credentialsLoading, setCredentialsLoading] = useState(false)
   const [resendingCredentials, setResendingCredentials] = useState<string | null>(null)
   const [bulkSending, setBulkSending] = useState(false)
+  const [fixingIds, setFixingIds] = useState(false)
   const router = useRouter()
   const searchParams = useSearchParams()
   const { toast } = useToast()
@@ -109,7 +110,7 @@ export default function CredentialsPage() {
         credentialExists: candidate.hasCredentials || false,
         credentialSent: candidate.hasCredentials || false,
         lastSentAt: candidate.updatedAt,
-        loginId: candidate.loginId || null
+        candidateLoginId: candidate.loginId || null
       }))
       
       setCandidateCredentials(credentialsData)
@@ -214,6 +215,29 @@ export default function CredentialsPage() {
       })
     } finally {
       setBulkSending(false)
+    }
+  }
+
+  const fixCredentialIds = async () => {
+    setFixingIds(true)
+    try {
+      const { candidatesApi } = await import("@/lib/api")
+      const result = await candidatesApi.fixCredentialIds()
+      
+      toast({
+        title: "Credential IDs Fixed",
+        description: `Fixed ${result.fixedCount} credential IDs to CAND format`,
+      })
+      // Reload credentials to see the fixed IDs
+      loadCandidateCredentials()
+    } catch (error: any) {
+      toast({
+        title: "Fix Failed",
+        description: error.message,
+        variant: "destructive",
+      })
+    } finally {
+      setFixingIds(false)
     }
   }
 
@@ -381,6 +405,24 @@ export default function CredentialsPage() {
                       )}
                     </Button>
                   )}
+                  <Button
+                    onClick={fixCredentialIds}
+                    disabled={fixingIds}
+                    variant="outline"
+                    className="rounded-xl border-orange-200 text-orange-700 hover:bg-orange-50"
+                  >
+                    {fixingIds ? (
+                      <>
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current mr-2" />
+                        Fixing...
+                      </>
+                    ) : (
+                      <>
+                        <RefreshCw className="mr-2 h-4 w-4" />
+                        Fix IDs
+                      </>
+                    )}
+                  </Button>
                   <Button onClick={loadCandidateCredentials} variant="outline" className="rounded-xl">
                     <RefreshCw className="mr-2 h-4 w-4" />
                     Refresh
@@ -411,7 +453,7 @@ export default function CredentialsPage() {
                     <TableRow>
                       <TableHead>Name</TableHead>
                       <TableHead>Email</TableHead>
-                      <TableHead>Login ID</TableHead>
+                      <TableHead>Candidate ID</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead>Credentials Sent</TableHead>
                       <TableHead>Last Sent</TableHead>
@@ -424,15 +466,15 @@ export default function CredentialsPage() {
                         <TableCell className="font-medium">{credential.name}</TableCell>
                         <TableCell>{credential.email}</TableCell>
                         <TableCell>
-                          {credential.loginId ? (
+                          {credential.candidateLoginId ? (
                             <div className="flex items-center gap-2">
                               <Badge variant="outline" className="font-mono">
-                                {credential.loginId}
+                                {credential.candidateLoginId}
                               </Badge>
                               <Button
                                 size="sm"
                                 variant="ghost"
-                                onClick={() => copyToClipboard(credential.loginId!, 'Login ID')}
+                                onClick={() => copyToClipboard(credential.candidateLoginId!, 'Candidate ID')}
                                 className="h-6 w-6 p-0"
                               >
                                 <Copy className="h-3 w-3" />

@@ -155,6 +155,7 @@ export const candidatesApi = {
   startAssessment: (id: string) => apiPost(`/admin/candidates/${id}/start`),
   sendEmail: (id: string) => apiPost(`/admin/candidates/${id}/send-email`),
   resetPassword: (id: string) => apiPost(`/admin/candidates/${id}/reset-password`),
+  fixCredentialIds: () => apiPost('/admin/candidates/fix-credential-ids'),
 }
 
 // API endpoints for attempt flows
