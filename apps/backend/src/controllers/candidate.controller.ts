@@ -310,7 +310,10 @@ export class CandidateController {
       
       console.log('Resending email with credential ID:', displayCandidateId, 'for candidate:', candidate.email);
       
-      // Send credential email
+      // Generate a new password for resending (since we can't decrypt the stored hash)
+      const newPassword = Math.random().toString(36).slice(-10);
+      
+      // Send credential email with the new password
       await emailService.sendCandidateCredentialEmail(
         {
           id: candidate.id,
@@ -318,12 +321,12 @@ export class CandidateController {
           email: candidate.email,
           assessmentId: candidate.assessmentId
         },
-        undefined, // Don't send password, use existing - will generate new password
+        newPassword, // Send new password for resending
         displayCandidateId,
         candidate.assessment?.title || 'Assessment'
       );
       
-      return res.json({ success: true, message: 'Credential email sent successfully' });
+      return res.json({ success: true, message: 'New credentials sent successfully' });
     } catch (error) {
       console.error('Error sending candidate email:', error);
       return res.status(500).json({ error: 'Failed to send email' });
