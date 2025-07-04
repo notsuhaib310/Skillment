@@ -288,18 +288,42 @@ export class CandidateController {
   async sendEmailToCandidate(req, res) {
     try {
       const { id } = req.params;
-      const candidate = await prisma.candidate.findUnique({ where: { id } });
-      if (!candidate) return res.status(404).json({ error: 'Candidate not found' });
-      await emailService.sendWelcomeEmail({
-        email: candidate.email,
-        firstName: candidate.name.split(' ')[0] || candidate.name,
-        lastName: candidate.name.split(' ').slice(1).join(' '),
-        organizationName: '',
-        loginUrl: '',
-        plan: '',
+      const candidate = await prisma.candidate.findUnique({ 
+        where: { id },
+        include: {
+          assessment: true
+        }
       });
-      return res.json({ success: true });
+      if (!candidate) return res.status(404).json({ error: 'Candidate not found' });
+      
+      // Get the credential for this candidate
+      const credential = await prisma.credential.findUnique({
+        where: { candidateId: candidate.id }
+      });
+      
+      if (!credential) {
+        return res.status(404).json({ error: 'Candidate credentials not found' });
+      }
+      
+      // Generate a new candidate ID for display (you might want to store this)
+      const displayCandidateId = `CAND${Date.now()}${Math.random().toString(36).substr(2, 4).toUpperCase()}`;
+      
+      // Send credential email
+      await emailService.sendCandidateCredentialEmail(
+        {
+          id: candidate.id,
+          name: candidate.name,
+          email: candidate.email,
+          assessmentId: candidate.assessmentId
+        },
+        undefined, // Don't send password, use existing
+        displayCandidateId,
+        candidate.assessment?.title || 'Assessment'
+      );
+      
+      return res.json({ success: true, message: 'Credential email sent successfully' });
     } catch (error) {
+      console.error('Error sending candidate email:', error);
       return res.status(500).json({ error: 'Failed to send email' });
     }
   }

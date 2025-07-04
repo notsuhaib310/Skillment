@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
-import { Plus, X, Mail, Users, Send, Check, AlertCircle, Upload, Download, Copy, FileText } from "lucide-react"
+import { Plus, X, Mail, Users, Send, Check, AlertCircle, Upload, Download, Copy, FileText, Eye } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import {
@@ -315,6 +315,32 @@ export function CandidateAllocation({ assessmentId, assessmentTitle, onSuccess }
         description: "Login credentials copied to clipboard",
       })
     })
+  }
+
+  const [selectedCandidate, setSelectedCandidate] = useState<any>(null)
+  const [showSingleCandidateDetails, setShowSingleCandidateDetails] = useState(false)
+
+  const viewCandidateDetails = (result: any) => {
+    // Set the single candidate as if it's the allocation result
+    setAllocationResults([result])
+    setShowSingleCandidateDetails(true)
+  }
+
+  const resendEmail = async (result: any) => {
+    try {
+      const { candidatesApi } = await import("@/lib/api")
+      await candidatesApi.sendEmail(result.id)
+      toast({
+        title: "Email Sent",
+        description: `Credentials email sent to ${result.email}`,
+      })
+    } catch (error: any) {
+      toast({
+        title: "Email Failed",
+        description: error.message,
+        variant: "destructive",
+      })
+    }
   }
 
   const exportResults = () => {
@@ -881,13 +907,24 @@ export function CandidateAllocation({ assessmentId, assessmentTitle, onSuccess }
         ) : (
           // Results View
           <div className="space-y-6">
-            <Alert>
-              <Check className="h-4 w-4" />
-              <AlertDescription>
-                Successfully allocated {allocationResults.length} candidates, created participants, and sent login credentials!
-                You can now view these candidates in the Participants section.
-              </AlertDescription>
-            </Alert>
+            {!showSingleCandidateDetails && (
+              <Alert>
+                <Check className="h-4 w-4" />
+                <AlertDescription>
+                  Successfully allocated {allocationResults.length} candidates, created participants, and sent login credentials!
+                  You can now view these candidates in the Participants section.
+                </AlertDescription>
+              </Alert>
+            )}
+            
+            {showSingleCandidateDetails && (
+              <Alert>
+                <Eye className="h-4 w-4" />
+                <AlertDescription>
+                  Viewing candidate details. You can copy credentials or resend the email from here.
+                </AlertDescription>
+              </Alert>
+            )}
 
             <Card>
               <CardHeader className="flex flex-row items-center justify-between">
@@ -932,14 +969,35 @@ export function CandidateAllocation({ assessmentId, assessmentTitle, onSuccess }
                             </Badge>
                           </TableCell>
                           <TableCell>
-                            <Button
-                              onClick={() => copyCredentials(result.candidateId, result.password)}
-                              variant="ghost"
-                              size="sm"
-                              className="rounded-xl"
-                            >
-                              <Copy className="h-4 w-4" />
-                            </Button>
+                            <div className="flex items-center gap-2">
+                              <Button
+                                onClick={() => viewCandidateDetails(result)}
+                                variant="ghost"
+                                size="sm"
+                                className="rounded-xl"
+                                title="View Details"
+                              >
+                                <Eye className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                onClick={() => resendEmail(result)}
+                                variant="ghost"
+                                size="sm"
+                                className="rounded-xl"
+                                title="Resend Email"
+                              >
+                                <Mail className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                onClick={() => copyCredentials(result.candidateId, result.password)}
+                                variant="ghost"
+                                size="sm"
+                                className="rounded-xl"
+                                title="Copy Credentials"
+                              >
+                                <Copy className="h-4 w-4" />
+                              </Button>
+                            </div>
                           </TableCell>
                         </TableRow>
                       ))}
@@ -950,30 +1008,47 @@ export function CandidateAllocation({ assessmentId, assessmentTitle, onSuccess }
             </Card>
 
             <div className="flex justify-end gap-3">
-              <Button
-                onClick={() => {
-                  setShowResults(false)
-                  setAllocationResults([])
-                }}
-                variant="outline"
-                className="rounded-xl"
-              >
-                Allocate More
-              </Button>
-              <Button
-                onClick={() => {
-                  setShowResults(false)
-                  setAllocationResults([])
-                  setOpen(false)
-                }}
-                className="rounded-xl"
-              >
-                Close
-              </Button>
+              {showSingleCandidateDetails ? (
+                <Button
+                  onClick={() => {
+                    setShowSingleCandidateDetails(false)
+                    setShowResults(false)
+                    setAllocationResults([])
+                  }}
+                  className="rounded-xl"
+                >
+                  Back to List
+                </Button>
+              ) : (
+                <>
+                  <Button
+                    onClick={() => {
+                      setShowResults(false)
+                      setAllocationResults([])
+                    }}
+                    variant="outline"
+                    className="rounded-xl"
+                  >
+                    Allocate More
+                  </Button>
+                  <Button
+                    onClick={() => {
+                      setShowResults(false)
+                      setAllocationResults([])
+                      setOpen(false)
+                    }}
+                    className="rounded-xl"
+                  >
+                    Close
+                  </Button>
+                </>
+              )}
             </div>
           </div>
         )}
       </DialogContent>
+
+
     </Dialog>
   )
 }
