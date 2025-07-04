@@ -510,17 +510,17 @@ export function ParticipantsPage() {
                 })
                 .slice(0, 5)
                 .map((participant) => (
-                  <div key={participant.id} className="flex items-center justify-between p-3 rounded-xl bg-blue-50/50 border border-blue-200/50">
-                    <div className="flex items-center gap-3">
-                      <Avatar className="h-8 w-8 rounded-2xl">
+                  <div key={participant.id} className="flex items-center justify-between p-4 rounded-3xl bg-accent/20 border border-border/40 hover:bg-accent/30 transition-all duration-200">
+                    <div className="flex items-center gap-4">
+                      <Avatar className="h-10 w-10 rounded-3xl ring-2 ring-border/40">
                         <AvatarImage src={participant.avatar || "/placeholder.svg"} />
-                        <AvatarFallback className="rounded-2xl bg-gradient-to-br from-blue-500 to-blue-600 text-white text-sm">
+                        <AvatarFallback className="rounded-3xl bg-gradient-to-br from-primary to-orange-600 text-primary-foreground font-semibold">
                           {participant.name.split(" ").map((n) => n[0]).join("")}
                         </AvatarFallback>
                       </Avatar>
                       <div>
-                        <p className="font-medium text-sm">{participant.name}</p>
-                        <p className="text-xs text-muted-foreground">{participant.email}</p>
+                        <p className="font-semibold text-foreground">{participant.name}</p>
+                        <p className="text-sm text-muted-foreground">{participant.email}</p>
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
@@ -528,11 +528,11 @@ export function ParticipantsPage() {
                         .filter(tag => tag.includes('Assessment:'))
                         .slice(0, 1)
                         .map((tag) => (
-                          <Badge key={tag} variant="secondary" className="text-xs">
-                            {tag.replace('Assessment: ', '')}
+                          <Badge key={tag} className="rounded-2xl bg-blue-500/20 text-blue-400 border-blue-500/30 badge-professional">
+                            🎯 {tag.replace('Assessment: ', '')}
                           </Badge>
                         ))}
-                      <Badge variant="outline" className="text-xs text-blue-600">
+                      <Badge className="rounded-2xl bg-green-500/20 text-green-400 border-green-500/30 animate-pulse badge-professional">
                         New
                       </Badge>
                     </div>
