@@ -1049,7 +1049,12 @@ class EmailService {
    * Sends credentials to a candidate, generates and stores password if needed, logs the email.
    * Returns the password sent.
    */
-  async sendCandidateCredentialEmail(candidate: { id: string, name: string, email: string, assessmentId?: string }, password?: string): Promise<string> {
+  async sendCandidateCredentialEmail(
+    candidate: { id: string, name: string, email: string, assessmentId?: string }, 
+    password?: string, 
+    candidateId?: string, 
+    assessmentTitle?: string
+  ): Promise<string> {
     // 1. Check for existing credential
     let credential = await prisma.credential.findUnique({ where: { candidateId: candidate.id } });
     let generatedPassword = password;
@@ -1067,25 +1072,194 @@ class EmailService {
       // If credential exists, do not overwrite password, but send placeholder
       generatedPassword = "(already set)";
     }
+    
     // 2. Fetch template
     const template = await prisma.emailTemplate.findFirst({ where: { name: "Send Credentials" } });
-    const LOGIN_LINK = process.env.CANDIDATE_LOGIN_LINK || "https://candidate.skillment.in/login";
+    const LOGIN_LINK = process.env.CANDIDATE_LOGIN_LINK || "http://localhost:3002/login";
+    
     const emailData = {
       name: candidate.name,
       email: candidate.email,
+      candidateId: candidateId || candidate.id,
       password: generatedPassword,
+      assessmentTitle: assessmentTitle || 'Assessment',
       login_link: LOGIN_LINK,
     };
-    const renderTemplate = (tpl: string, data: Record<string, string>) => tpl.replace(/\{(.*?)\}/g, (_, key) => data[key] || '');
-    const subject = template ? renderTemplate(template.subject, emailData) : "Your Skillment Login Credentials";
-    const body = template ? renderTemplate(template.body, emailData) :
-      `<p>Hello ${candidate.name},</p><p>Your Candidate ID: <b>${candidate.id}</b><br/>Password: <b>${generatedPassword}</b><br/><a href="${LOGIN_LINK}">Login here</a></p>`;
+    
+    const renderTemplate = (tpl: string, data: Record<string, string>) => 
+      tpl.replace(/\{(.*?)\}/g, (_, key) => data[key] || '');
+    
+    const subject = template ? renderTemplate(template.subject, emailData) : 
+      `Assessment Invitation - ${assessmentTitle || 'Your Assessment'}`;
+    
+    const body = template ? renderTemplate(template.body, emailData) : `
+      <!DOCTYPE html>
+      <html lang="en">
+      <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Assessment Invitation</title>
+        <style>
+          body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+            background: #f8fafc;
+            margin: 0;
+            padding: 20px;
+            color: #0f172a;
+          }
+          .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05);
+            overflow: hidden;
+            border: 1px solid #e2e8f0;
+          }
+          .header {
+            background: linear-gradient(135deg, #ff4d00 0%, #ff6b35 100%);
+            color: white;
+            padding: 40px 30px;
+            text-align: center;
+          }
+          .header h1 {
+            margin: 0;
+            font-size: 28px;
+            font-weight: 700;
+          }
+          .header p {
+            margin: 8px 0 0;
+            font-size: 16px;
+            opacity: 0.9;
+          }
+          .content {
+            padding: 40px 30px;
+          }
+          .content h2 {
+            color: #0f172a;
+            font-size: 22px;
+            margin-bottom: 16px;
+          }
+          .content p {
+            color: #475569;
+            line-height: 1.6;
+            margin-bottom: 16px;
+          }
+          .credentials {
+            background: #f8fafc;
+            padding: 24px;
+            border-radius: 12px;
+            margin: 24px 0;
+            border: 1px solid #e2e8f0;
+          }
+          .credentials h3 {
+            color: #0f172a;
+            margin-bottom: 16px;
+            font-size: 18px;
+          }
+          .credential-item {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 12px;
+            padding: 12px 0;
+            border-bottom: 1px solid #e2e8f0;
+          }
+          .credential-item:last-child {
+            border-bottom: none;
+          }
+          .credential-label {
+            font-weight: 600;
+            color: #64748b;
+          }
+          .credential-value {
+            font-weight: 700;
+            color: #0f172a;
+            font-family: monospace;
+            background: #f1f5f9;
+            padding: 4px 8px;
+            border-radius: 6px;
+          }
+          .cta-button {
+            display: inline-block;
+            background: linear-gradient(135deg, #ff4d00 0%, #ff6b35 100%);
+            color: white;
+            padding: 16px 32px;
+            border-radius: 12px;
+            text-decoration: none;
+            font-weight: 600;
+            margin-top: 24px;
+            transition: all 0.2s ease;
+          }
+          .cta-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(255, 77, 0, 0.3);
+          }
+          .footer {
+            background: #f8fafc;
+            padding: 24px;
+            text-align: center;
+            font-size: 14px;
+            color: #64748b;
+            border-top: 1px solid #e2e8f0;
+          }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h1>🎯 Assessment Invitation</h1>
+            <p>You've been invited to take an assessment on Skillment</p>
+          </div>
+          
+          <div class="content">
+            <h2>Hello ${candidate.name},</h2>
+            <p>You have been invited to take the <strong>${assessmentTitle || 'Assessment'}</strong> on the Skillment platform.</p>
+            
+            <div class="credentials">
+              <h3>🔑 Your Login Credentials</h3>
+              <div class="credential-item">
+                <span class="credential-label">Candidate ID:</span>
+                <span class="credential-value">${candidateId || candidate.id}</span>
+              </div>
+              <div class="credential-item">
+                <span class="credential-label">Password:</span>
+                <span class="credential-value">${generatedPassword}</span>
+              </div>
+            </div>
+            
+            <p><strong>Important Instructions:</strong></p>
+            <ul>
+              <li>Use the credentials above to login to the assessment platform</li>
+              <li>Ensure you have a stable internet connection</li>
+              <li>The assessment may be proctored - camera and microphone access may be required</li>
+              <li>Complete the assessment in one sitting</li>
+            </ul>
+            
+            <div style="text-align: center;">
+              <a href="${LOGIN_LINK}" class="cta-button">Start Assessment</a>
+            </div>
+            
+            <p style="margin-top: 24px; font-size: 14px; color: #64748b;">
+              If you have any questions or need technical support, please contact our support team.
+            </p>
+          </div>
+          
+          <div class="footer">
+            <p>© 2024 Skillment. All rights reserved.</p>
+            <p>This invitation was sent to ${candidate.email}</p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
+    
     // 3. Send email
     await this.sendEmail({
       to: candidate.email,
       subject,
       html: body,
     });
+    
     // 4. Log email
     await prisma.emailLog.create({
       data: {
@@ -1100,6 +1274,7 @@ class EmailService {
         createdById: "system",
       },
     });
+    
     return generatedPassword;
   }
 

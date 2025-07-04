@@ -6,8 +6,13 @@ const candidateController = new CandidateController();
 
 // PUBLIC: Candidate login route (no authentication)
 router.post('/login', (req, res) => {
-  console.log('POST /api/candidates/login hit (public router)');
   return candidateController.loginCandidate(req, res);
 });
+
+// PUBLIC: Get candidate assessment
+router.get('/assessments', candidateController.getCandidateAssessment.bind(candidateController));
+
+// PUBLIC: Submit assessment
+router.post('/submit-assessment', candidateController.submitAssessment.bind(candidateController));
 
 export default router; 

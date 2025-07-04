@@ -4,6 +4,235 @@ import { PrismaClient } from '@prisma/client';
 const prisma = new PrismaClient();
 
 export class CandidateController {
+  // Allocate candidates to an assessment
+  async allocateCandidates(req, res) {
+    try {
+      const { assessmentId, candidates } = req.body;
+      
+      if (!assessmentId || !candidates || !Array.isArray(candidates)) {
+        return res.status(400).json({ error: 'Assessment ID and candidates array are required' });
+      }
+
+      // Check if assessment exists
+      const assessment = await prisma.assessment.findUnique({
+        where: { id: assessmentId }
+      });
+
+      if (!assessment) {
+        return res.status(404).json({ error: 'Assessment not found' });
+      }
+
+      const createdCandidates = [];
+      
+      for (const candidateData of candidates) {
+        const { name, email } = candidateData;
+        
+        // Check if candidate already exists for this assessment
+        const existingCandidate = await prisma.candidate.findFirst({
+          where: {
+            email: email,
+            assessmentId: assessmentId
+          }
+        });
+
+        if (existingCandidate) {
+          continue; // Skip if already exists
+        }
+
+        // Generate candidate ID and password
+        const candidateId = `CAND${Date.now()}${Math.random().toString(36).substr(2, 4).toUpperCase()}`;
+        const password = Math.random().toString(36).slice(-8);
+        const hashedPassword = await bcrypt.hash(password, 10);
+
+        // Create candidate
+        const candidate = await prisma.candidate.create({
+          data: {
+            name: name,
+            email: email,
+            assessmentId: assessmentId,
+            status: 'invited',
+            allottedAt: new Date(),
+            allottedBy: req.user?.id || 'system'
+          }
+        });
+
+        // Create credential
+        await prisma.credential.create({
+          data: {
+            candidateId: candidate.id,
+            email: email,
+            passwordHash: hashedPassword
+          }
+        });
+
+        // Send email with credentials
+        try {
+          await emailService.sendCandidateCredentialEmail(
+            {
+              id: candidate.id,
+              name: name,
+              email: email,
+              assessmentId: assessmentId
+            },
+            password,
+            candidateId,
+            assessment.title
+          );
+
+          // Log email sending
+          await prisma.emailLog.create({
+            data: {
+              to: email,
+              candidateId: candidate.id,
+              assessmentId: assessmentId,
+              subject: `Assessment Invitation - ${assessment.title}`,
+              body: `Your credentials: ID: ${candidateId}, Password: ${password}`,
+              status: 'sent',
+              sentAt: new Date(),
+              createdById: req.user?.id || 'system'
+            }
+          });
+
+          createdCandidates.push({
+            ...candidate,
+            candidateId: candidateId,
+            password: password // Only for response, not stored
+          });
+        } catch (emailError) {
+          // Continue with other candidates even if email fails
+        }
+      }
+
+      return res.json({
+        success: true,
+        message: `${createdCandidates.length} candidates allocated successfully`,
+        candidates: createdCandidates
+      });
+    } catch (error) {
+      return res.status(500).json({ error: 'Failed to allocate candidates' });
+    }
+  }
+
+  // Get candidate assessment
+  async getCandidateAssessment(req, res) {
+    try {
+      const { candidateId } = req.query;
+      
+      if (!candidateId) {
+        return res.status(400).json({ error: 'Candidate ID is required' });
+      }
+
+      // Find candidate by credential
+      const credential = await prisma.credential.findUnique({
+        where: { candidateId: candidateId }
+      });
+
+      if (!credential) {
+        return res.status(404).json({ error: 'Candidate not found' });
+      }
+
+      const candidate = await prisma.candidate.findUnique({
+        where: { id: credential.candidateId },
+        include: {
+          assessment: {
+            include: {
+              questions: {
+                orderBy: { order: 'asc' }
+              }
+            }
+          }
+        }
+      });
+
+      if (!candidate) {
+        return res.status(404).json({ error: 'Candidate not found' });
+      }
+
+      return res.json([{
+        candidate: candidate,
+        assessment: candidate.assessment
+      }]);
+    } catch (error) {
+      return res.status(500).json({ error: 'Failed to fetch candidate assessment' });
+    }
+  }
+
+  // Submit assessment
+  async submitAssessment(req, res) {
+    try {
+      const { candidateId, answers, timeSpent } = req.body;
+      
+      if (!candidateId || !answers) {
+        return res.status(400).json({ error: 'Candidate ID and answers are required' });
+      }
+
+      // Find candidate by credential
+      const credential = await prisma.credential.findUnique({
+        where: { candidateId: candidateId }
+      });
+
+      if (!credential) {
+        return res.status(404).json({ error: 'Candidate not found' });
+      }
+
+      const candidate = await prisma.candidate.findUnique({
+        where: { id: credential.candidateId },
+        include: {
+          assessment: {
+            include: {
+              questions: true
+            }
+          }
+        }
+      });
+
+      if (!candidate) {
+        return res.status(404).json({ error: 'Candidate not found' });
+      }
+
+      // Calculate score
+      let score = 0;
+      const questions = candidate.assessment.questions;
+      
+      for (const question of questions) {
+        const answer = answers[question.id];
+        if (answer && question.correctAnswer) {
+          if (question.type === 'mcq') {
+            if (answer === question.correctAnswer) {
+              score += question.marks;
+            }
+          } else if (question.type === 'coding') {
+            // For coding questions, give partial credit based on test cases
+            // This is simplified - in a real system, you'd run test cases
+            score += question.marks * 0.5; // Give 50% for now
+          }
+        }
+      }
+
+      // Update candidate with submission
+      const updatedCandidate = await prisma.candidate.update({
+        where: { id: candidate.id },
+        data: {
+          status: 'completed',
+          score: score,
+          timeSpent: timeSpent,
+          submittedAt: new Date(),
+          answers: answers
+        }
+      });
+
+      return res.json({
+        success: true,
+        message: 'Assessment submitted successfully',
+        candidate: updatedCandidate,
+        score: score,
+        totalMarks: candidate.assessment.totalMarks
+      });
+    } catch (error) {
+      return res.status(500).json({ error: 'Failed to submit assessment' });
+    }
+  }
+
   // Start assessment for candidate
   async startCandidate(req, res) {
     try {
@@ -70,9 +299,36 @@ export class CandidateController {
       const assessmentId = req.query.assessmentId || req.params.id;
       let candidates;
       if (assessmentId) {
-        candidates = await prisma.candidate.findMany({ where: { assessmentId: assessmentId } });
+        candidates = await prisma.candidate.findMany({ 
+          where: { assessmentId: assessmentId },
+          include: {
+            assessment: {
+              select: {
+                id: true,
+                title: true,
+                type: true,
+                duration: true,
+                totalMarks: true
+              }
+            }
+          },
+          orderBy: { createdAt: 'desc' }
+        });
       } else {
-        candidates = await prisma.candidate.findMany();
+        candidates = await prisma.candidate.findMany({
+          include: {
+            assessment: {
+              select: {
+                id: true,
+                title: true,
+                type: true,
+                duration: true,
+                totalMarks: true
+              }
+            }
+          },
+          orderBy: { createdAt: 'desc' }
+        });
       }
       return res.json(candidates);
     } catch (error) {
@@ -84,13 +340,12 @@ export class CandidateController {
   async loginCandidate(req, res) {
     try {
       const { candidateId, password } = req.body;
-      console.log('Login attempt:', { candidateId, password });
       if (!candidateId || !password) {
         return res.status(400).json({ error: 'Candidate ID and password are required' });
       }
+      
       // Demo credential fallback
       if (candidateId === 'demo' && password === 'demo1234') {
-        console.log('Demo login successful');
         return res.json({ success: true, candidate: {
           id: 'demo',
           name: 'Demo Candidate',
@@ -99,25 +354,48 @@ export class CandidateController {
           status: 'invited',
         }});
       }
+      
       let credential = await prisma.credential.findUnique({ where: { candidateId } });
-      console.log('Lookup by candidateId:', !!credential);
+      
       if (!credential) {
         return res.status(401).json({ error: 'Invalid credentials (no credential found for candidateId)' });
       }
+      
       const valid = await bcrypt.compare(password, credential.passwordHash);
-      console.log('Password valid:', valid);
+      
       if (!valid) {
         return res.status(401).json({ error: 'Invalid credentials (password mismatch)' });
       }
+      
       // Fetch candidate info
-      const candidate = await prisma.candidate.findUnique({ where: { id: credential.candidateId } });
+      const candidate = await prisma.candidate.findUnique({ 
+        where: { id: credential.candidateId },
+        include: {
+          assessment: {
+            select: {
+              id: true,
+              title: true,
+              type: true,
+              duration: true,
+              totalMarks: true,
+              enableProctoring: true,
+              webcamMonitoring: true,
+              screenRecording: true,
+              tabSwitchDetection: true,
+              copyPasteDetection: true,
+              rightClickDisable: true,
+              fullscreenMode: true
+            }
+          }
+        }
+      });
+      
       if (!candidate) {
-        console.log('Credential found but candidate missing:', credential.candidateId);
         return res.status(401).json({ error: 'Invalid credentials (candidate missing)' });
       }
+      
       return res.json({ success: true, candidate });
     } catch (err) {
-      console.error('Login error:', err);
       return res.status(500).json({ error: 'Server error' });
     }
   }
