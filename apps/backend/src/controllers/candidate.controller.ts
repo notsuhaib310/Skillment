@@ -59,7 +59,7 @@ export class CandidateController {
         // Create credential
         await prisma.credential.create({
           data: {
-            candidateId: candidateId, // Store the display ID (CAND123456), not the database ID
+            candidateId: candidateId, // Store the display ID (CAND123456) for login
             email: email,
             passwordHash: hashedPassword
           }
@@ -168,8 +168,8 @@ export class CandidateController {
         return res.status(404).json({ error: 'Candidate not found' });
       }
 
-      const candidate = await prisma.candidate.findUnique({
-        where: { id: credential.candidateId },
+      const candidate = await prisma.candidate.findFirst({
+        where: { email: credential.email },
         include: {
           assessment: {
             include: {
@@ -212,8 +212,8 @@ export class CandidateController {
         return res.status(404).json({ error: 'Candidate not found' });
       }
 
-      const candidate = await prisma.candidate.findUnique({
-        where: { id: credential.candidateId },
+      const candidate = await prisma.candidate.findFirst({
+        where: { email: credential.email },
         include: {
           assessment: {
             include: {
@@ -297,16 +297,16 @@ export class CandidateController {
       if (!candidate) return res.status(404).json({ error: 'Candidate not found' });
       
       // Get the credential for this candidate
-      const credential = await prisma.credential.findUnique({
-        where: { candidateId: candidate.id }
+      const credential = await prisma.credential.findFirst({
+        where: { email: candidate.email }
       });
       
       if (!credential) {
         return res.status(404).json({ error: 'Candidate credentials not found' });
       }
       
-      // Generate a new candidate ID for display (you might want to store this)
-      const displayCandidateId = `CAND${Date.now()}${Math.random().toString(36).substr(2, 4).toUpperCase()}`;
+      // Use existing candidate ID or generate a new one
+      const displayCandidateId = credential?.candidateId || `CAND${Date.now()}${Math.random().toString(36).substr(2, 4).toUpperCase()}`;
       
       // Send credential email
       await emailService.sendCandidateCredentialEmail(
@@ -316,7 +316,7 @@ export class CandidateController {
           email: candidate.email,
           assessmentId: candidate.assessmentId
         },
-        undefined, // Don't send password, use existing
+        undefined, // Don't send password, use existing - will generate new password
         displayCandidateId,
         candidate.assessment?.title || 'Assessment'
       );
@@ -395,12 +395,10 @@ export class CandidateController {
       // Get credential information for each candidate
       const candidatesWithCredentials = await Promise.all(
         candidates.map(async (candidate) => {
-          // Find credential where the candidateId field matches the candidate's database ID
+          // Find credential by email since that's the reliable link
           const credential = await prisma.credential.findFirst({
             where: { 
-              email: candidate.email,
-              // Note: The candidateId in credential table is actually the display ID (CAND123456)
-              // We need to find by email since that's the reliable link
+              email: candidate.email
             }
           });
           
@@ -449,9 +447,9 @@ export class CandidateController {
         return res.status(401).json({ error: 'Invalid credentials (password mismatch)' });
       }
       
-      // Fetch candidate info
-      const candidate = await prisma.candidate.findUnique({ 
-        where: { id: credential.candidateId },
+      // Fetch candidate info using email since credential.candidateId is now the display ID
+      const candidate = await prisma.candidate.findFirst({ 
+        where: { email: credential.email },
         include: {
           assessment: {
             select: {
@@ -479,6 +477,35 @@ export class CandidateController {
       return res.json({ success: true, candidate });
     } catch (err) {
       return res.status(500).json({ error: 'Server error' });
+    }
+  }
+
+  // Test email functionality
+  async testEmail(req, res) {
+    try {
+      const { email } = req.body;
+      if (!email) {
+        return res.status(400).json({ error: 'Email is required' });
+      }
+
+      console.log('Testing email to:', email);
+      
+      // Send a simple test email
+      const success = await emailService.sendOtpEmail(email, '123456');
+      
+      if (success) {
+        return res.json({ 
+          success: true, 
+          message: 'Test email sent successfully! Check your inbox and spam folder.' 
+        });
+      } else {
+        return res.status(500).json({ 
+          error: 'Failed to send test email. Check server logs for details.' 
+        });
+      }
+    } catch (error) {
+      console.error('Test email error:', error);
+      return res.status(500).json({ error: 'Failed to send test email' });
     }
   }
 } 

@@ -44,23 +44,80 @@ class EmailService {
   private adminEmail = 'ceo@pronexus.in';
 
   constructor() {
-    this.transporter = nodemailer.createTransport({
-      host: process.env.RESEND_SMTP_HOST,
-      port: parseInt(process.env.RESEND_SMTP_PORT || '587'),
-      secure: false, // true for 465, false for other ports
-      auth: {
-        user: process.env.RESEND_SMTP_USER,
-        pass: process.env.RESEND_SMTP_PASS,
-      },
-    });
+    // Try multiple email providers for better reliability
+    const emailProvider = process.env.EMAIL_PROVIDER || 'resend';
+    
+    console.log('Initializing email service with provider:', emailProvider);
+    
+    if (emailProvider === 'gmail') {
+      this.transporter = nodemailer.createTransport({
+        service: 'gmail',
+        auth: {
+          user: process.env.GMAIL_USER,
+          pass: process.env.GMAIL_APP_PASSWORD, // Use App Password, not regular password
+        },
+      });
+    } else if (emailProvider === 'smtp') {
+      this.transporter = nodemailer.createTransport({
+        host: process.env.SMTP_HOST,
+        port: parseInt(process.env.SMTP_PORT || '587'),
+        secure: process.env.SMTP_SECURE === 'true',
+        auth: {
+          user: process.env.SMTP_USER,
+          pass: process.env.SMTP_PASS,
+        },
+      });
+    } else {
+      // Default to Resend
+      this.transporter = nodemailer.createTransport({
+        host: process.env.RESEND_SMTP_HOST || 'smtp.resend.com',
+        port: parseInt(process.env.RESEND_SMTP_PORT || '587'),
+        secure: false, // true for 465, false for other ports
+        auth: {
+          user: process.env.RESEND_SMTP_USER || 'resend',
+          pass: process.env.RESEND_SMTP_PASS,
+        },
+        // Add additional options for better reliability
+        pool: true,
+        maxConnections: 5,
+        maxMessages: 100,
+        rateDelta: 20000,
+        rateLimit: 5,
+      });
+    }
+
+    // Test the connection
+    this.testConnection();
+  }
+
+  private async testConnection() {
+    try {
+      await this.transporter.verify();
+      console.log('✅ Email service connection verified successfully');
+    } catch (error) {
+      console.error('❌ Email service connection failed:', error);
+      console.error('Please check your email configuration');
+    }
   }
 
   private async sendEmail(options: EmailOptions): Promise<boolean> {
     try {
+      // Enhanced logging for debugging
+      console.log('=== EMAIL DEBUG INFO ===');
+      console.log('SMTP Config:', {
+        host: process.env.RESEND_SMTP_HOST,
+        port: process.env.RESEND_SMTP_PORT,
+        user: process.env.RESEND_SMTP_USER ? 'SET' : 'NOT SET',
+        pass: process.env.RESEND_SMTP_PASS ? 'SET' : 'NOT SET',
+        fromEmail: process.env.FROM_EMAIL
+      });
+      console.log('Sending to:', options.to);
+      console.log('Subject:', options.subject);
+
       const mailOptions = {
         from: {
-          name: 'Skillment Platform',
-          address: process.env.FROM_EMAIL || 'no-reply@skillment.in'
+          name: 'Skillment Assessment Platform',
+          address: process.env.FROM_EMAIL || 'noreply@skillment.in'
         },
         to: options.to,
         subject: options.subject,
@@ -72,17 +129,33 @@ class EmailService {
           'X-MSMail-Priority': 'Normal',
           'List-Unsubscribe': '<mailto:unsubscribe@skillment.in>',
           'Message-ID': `<${Date.now()}.${Math.random().toString(36).substr(2, 9)}@skillment.in>`,
+          'Return-Path': process.env.FROM_EMAIL || 'noreply@skillment.in',
+          'Reply-To': 'support@skillment.in',
         },
         // Add proper MIME headers
         messageId: `<${Date.now()}.${Math.random().toString(36).substr(2, 9)}@skillment.in>`,
         date: new Date(),
+        // Add envelope settings for better deliverability
+        envelope: {
+          from: process.env.FROM_EMAIL || 'noreply@skillment.in',
+          to: options.to
+        }
       };
 
+      console.log('Mail options prepared, sending...');
       const info = await this.transporter.sendMail(mailOptions);
-      console.log('Email sent successfully:', info.messageId);
+      console.log('✅ Email sent successfully!');
+      console.log('Message ID:', info.messageId);
+      console.log('Response:', info.response);
+      console.log('========================');
       return true;
     } catch (error) {
-      console.error('Error sending email:', error);
+      console.error('❌ EMAIL SENDING FAILED:');
+      console.error('Error details:', error);
+      if (error.code) console.error('Error code:', error.code);
+      if (error.response) console.error('SMTP response:', error.response);
+      if (error.responseCode) console.error('Response code:', error.responseCode);
+      console.error('========================');
       return false;
     }
   }
@@ -1080,17 +1153,17 @@ class EmailService {
     candidateId?: string, 
     assessmentTitle?: string
   ): Promise<string> {
-    // 1. Check for existing credential
-    let credential = await prisma.credential.findUnique({ where: { candidateId: candidate.id } });
+    // 1. Check for existing credential by email
+    let credential = await prisma.credential.findFirst({ where: { email: candidate.email } });
     let generatedPassword = password;
     
     if (!credential) {
-      // Create new credential
+      // Create new credential with the provided candidateId (display ID)
       generatedPassword = generatedPassword || Math.random().toString(36).slice(-10);
       const hash = await bcrypt.hash(generatedPassword, 10);
       credential = await prisma.credential.create({
         data: {
-          candidateId: candidate.id,
+          candidateId: candidateId || candidate.id, // Use display ID if provided
           email: candidate.email,
           passwordHash: hash,
         },
@@ -1101,7 +1174,7 @@ class EmailService {
         generatedPassword = Math.random().toString(36).slice(-10);
         const hash = await bcrypt.hash(generatedPassword, 10);
         credential = await prisma.credential.update({
-          where: { candidateId: candidate.id },
+          where: { id: credential.id },
           data: { passwordHash: hash },
         });
       } else {

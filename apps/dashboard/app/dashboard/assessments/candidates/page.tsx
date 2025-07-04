@@ -40,6 +40,8 @@ interface Candidate {
   startedAt?: string
   submittedAt?: string
   assessmentId: string
+  loginId?: string
+  hasCredentials?: boolean
   assessment?: {
     title: string
     type: string
@@ -451,6 +453,33 @@ export default function CandidatesPage() {
                   <label className="text-sm font-medium text-muted-foreground">Email</label>
                   <p className="text-lg">{selectedCandidate.email}</p>
                 </div>
+              </div>
+
+              {/* Credentials Information */}
+              <div className="bg-blue-50 dark:bg-blue-950/20 rounded-xl p-4 border border-blue-200 dark:border-blue-800">
+                <h3 className="font-semibold text-blue-900 dark:text-blue-100 mb-3 flex items-center gap-2">
+                  <User className="h-4 w-4" />
+                  Login Credentials
+                </h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-blue-700 dark:text-blue-300">Candidate ID</label>
+                    <p className="text-lg font-mono bg-white dark:bg-gray-800 px-3 py-2 rounded-lg border">
+                      {selectedCandidate.loginId || 'N/A'}
+                    </p>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-blue-700 dark:text-blue-300">Password</label>
+                    <p className="text-lg font-mono bg-white dark:bg-gray-800 px-3 py-2 rounded-lg border">
+                      {selectedCandidate.hasCredentials ? 'Generated (sent via email)' : 'Not Available'}
+                    </p>
+                  </div>
+                </div>
+                {selectedCandidate.hasCredentials && (
+                  <p className="text-sm text-blue-600 dark:text-blue-400 mt-2">
+                    💡 Password is sent via email. Use "Resend Credentials" to generate a new password.
+                  </p>
+                )}
               </div>
 
               {/* Status and Assessment */}

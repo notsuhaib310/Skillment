@@ -50,6 +50,11 @@ router.post('/allocate', (req, res) => {
   return candidateController.allocateCandidates(req, res);
 });
 
+router.post('/test-email', (req, res) => {
+  console.log('Testing email functionality');
+  return candidateController.testEmail(req, res);
+});
+
 console.log('Candidate routes setup complete');
 
 export default router; 
