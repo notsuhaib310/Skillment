@@ -7,6 +7,8 @@ import participantsRoutes from "./routes/participants"
 import teamRoutes from "./routes/team"
 import assessmentRoutes from "./routes/assessment.routes"
 import emailRoutes from "./routes/email.routes"
+import candidateRoutes from "./routes/candidate.routes"
+import candidatePublicRoutes from "./routes/candidate-public.routes"
 import { PrismaClient } from "@prisma/client"
 import proctoringRoutes from './routes/proctoring.routes'
 
@@ -18,6 +20,7 @@ app.use(cors({
   origin: [
     'http://localhost:3000',
     'http://localhost:3001',
+    'http://localhost:3002', // Candidate panel
     /^http:\/\/([a-z0-9-]+\.)*localhost:3001$/, // Allow subdomains of localhost:3001
     'https://app.skillment.in',
     /^https:\/\/([a-z0-9-]+\.)*skillment\.in$/, // Allow subdomains of skillment.in
@@ -37,6 +40,8 @@ app.use("/api/users", userRoutes)
 app.use("/api/participants", participantsRoutes)
 app.use("/api/team", teamRoutes)
 app.use("/api/assessments", assessmentRoutes)
+app.use("/api/candidates", candidatePublicRoutes) // Public candidate routes (login, assessment)
+app.use("/api/admin/candidates", candidateRoutes) // Protected candidate routes (allocation, management)
 // app.use("/api/email", emailRoutes) // Removed to prevent double-mounting and global auth issues
 app.use('/api/proctoring', proctoringRoutes)
 
