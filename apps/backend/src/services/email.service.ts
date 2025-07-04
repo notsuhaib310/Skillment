@@ -1187,10 +1187,15 @@ class EmailService {
     const template = await prisma.emailTemplate.findFirst({ where: { name: "Send Credentials" } });
     const LOGIN_LINK = process.env.CANDIDATE_LOGIN_LINK || "http://localhost:3002/login";
     
+    // Always use the credential's candidateId if it exists, otherwise use the provided one
+    const finalCandidateId = credential?.candidateId || candidateId || candidate.id;
+    
+    console.log('Email service using candidate ID:', finalCandidateId, 'for email:', candidate.email);
+    
     const emailData = {
       name: candidate.name,
       email: candidate.email,
-      candidateId: candidateId || candidate.id,
+      candidateId: finalCandidateId,
       password: generatedPassword,
       assessmentTitle: assessmentTitle || 'Assessment',
       login_link: LOGIN_LINK,
@@ -1393,7 +1398,7 @@ class EmailService {
               <h3>Login Credentials</h3>
               <div class="credential-item">
                 <span class="credential-label">Candidate ID:</span>
-                <span class="credential-value">${candidateId || candidate.id}</span>
+                <span class="credential-value">${finalCandidateId}</span>
               </div>
               <div class="credential-item">
                 <span class="credential-label">Password:</span>
@@ -1443,7 +1448,7 @@ You have been invited to participate in the assessment: ${assessmentTitle || 'As
 This is an official invitation from the Skillment assessment platform. Please use the credentials below to access your assessment.
 
 LOGIN CREDENTIALS:
-Candidate ID: ${candidateId || candidate.id}
+Candidate ID: ${finalCandidateId}
 Password: ${generatedPassword}
 
 IMPORTANT INSTRUCTIONS:

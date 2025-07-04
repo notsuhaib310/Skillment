@@ -305,8 +305,10 @@ export class CandidateController {
         return res.status(404).json({ error: 'Candidate credentials not found' });
       }
       
-      // Use existing candidate ID or generate a new one
-      const displayCandidateId = credential?.candidateId || `CAND${Date.now()}${Math.random().toString(36).substr(2, 4).toUpperCase()}`;
+      // Always use the existing credential ID - this is the CAND123456 format
+      const displayCandidateId = credential.candidateId;
+      
+      console.log('Resending email with credential ID:', displayCandidateId, 'for candidate:', candidate.email);
       
       // Send credential email
       await emailService.sendCandidateCredentialEmail(

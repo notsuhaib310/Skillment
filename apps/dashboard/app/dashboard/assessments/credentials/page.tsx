@@ -20,6 +20,7 @@ import {
 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { assessmentsApi } from "@/lib/api/api"
+import { getAuthToken } from "@/lib/auth"
 
 interface CandidateCredential {
   candidateId: string
@@ -48,6 +49,7 @@ export default function CredentialsPage() {
   const [loading, setLoading] = useState(true)
   const [credentialsLoading, setCredentialsLoading] = useState(false)
   const [resendingCredentials, setResendingCredentials] = useState<string | null>(null)
+  const [bulkSending, setBulkSending] = useState(false)
   const router = useRouter()
   const searchParams = useSearchParams()
   const { toast } = useToast()
@@ -88,16 +90,29 @@ export default function CredentialsPage() {
     
     setCredentialsLoading(true)
     try {
-      const response = await fetch(`http://localhost:5000/api/admin/candidates/assessment/${selectedAssessment}/credentials`, {
-        credentials: 'include',
-      })
-      
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`)
+      const token = getAuthToken()
+      if (!token) {
+        throw new Error('No authentication token found')
       }
+
+      // Use the existing candidates API to get candidates for this assessment
+      const { candidatesApi } = await import("@/lib/api")
+      const candidates = await candidatesApi.getByAssessment(selectedAssessment)
       
-      const data = await response.json()
-      setCandidateCredentials(Array.isArray(data) ? data : [])
+      // Transform the candidates data to match the credentials interface
+      const credentialsData = candidates.map((candidate: any) => ({
+        candidateId: candidate.id,
+        name: candidate.name,
+        email: candidate.email,
+        status: candidate.status || 'invited',
+        allottedAt: candidate.allottedAt || candidate.createdAt,
+        credentialExists: candidate.hasCredentials || false,
+        credentialSent: candidate.hasCredentials || false,
+        lastSentAt: candidate.updatedAt,
+        loginId: candidate.loginId || null
+      }))
+      
+      setCandidateCredentials(credentialsData)
     } catch (error: any) {
       console.error('Error loading credentials:', error)
       setCandidateCredentials([])
@@ -114,26 +129,27 @@ export default function CredentialsPage() {
   const resendCredentials = async (candidateId: string) => {
     setResendingCredentials(candidateId)
     try {
-      const response = await fetch(`http://localhost:5000/api/admin/candidates/${candidateId}/resend-credentials`, {
-        method: 'POST',
-        credentials: 'include',
-      })
-      const data = await response.json()
-      
-      if (data.success) {
-        toast({
-          title: "Credentials Sent",
-          description: `New credentials sent to candidate successfully`,
-        })
-        // Reload credentials to update the status
-        loadCandidateCredentials()
-      } else {
-        throw new Error(data.error || 'Failed to send credentials')
+      const token = getAuthToken()
+      if (!token) {
+        throw new Error('No authentication token found')
       }
+
+      // Use the existing candidates API to send email
+      const { candidatesApi } = await import("@/lib/api")
+      await candidatesApi.sendEmail(candidateId)
+      
+      toast({
+        title: "Credentials Sent Successfully",
+        description: `New credentials have been sent to the candidate`,
+      })
+      
+      // Reload credentials to update the status
+      loadCandidateCredentials()
     } catch (error: any) {
+      console.error('Error sending credentials:', error)
       toast({
         title: "Error Sending Credentials",
-        description: error.message,
+        description: error.message || "Failed to send credentials. Please try again.",
         variant: "destructive",
       })
     } finally {
@@ -154,6 +170,50 @@ export default function CredentialsPage() {
         description: "Failed to copy to clipboard",
         variant: "destructive",
       })
+    }
+  }
+
+  const sendAllCredentials = async () => {
+    const pendingCredentials = candidateCredentials.filter(c => !c.credentialSent)
+    if (pendingCredentials.length === 0) {
+      toast({
+        title: "No Pending Credentials",
+        description: "All credentials have already been sent",
+      })
+      return
+    }
+
+    setBulkSending(true)
+    try {
+      const { candidatesApi } = await import("@/lib/api")
+      let successCount = 0
+      let errorCount = 0
+
+      for (const credential of pendingCredentials) {
+        try {
+          await candidatesApi.sendEmail(credential.candidateId)
+          successCount++
+        } catch (error) {
+          errorCount++
+          console.error(`Failed to send to ${credential.email}:`, error)
+        }
+      }
+
+      toast({
+        title: "Bulk Send Complete",
+        description: `${successCount} credentials sent successfully${errorCount > 0 ? `, ${errorCount} failed` : ''}`,
+      })
+
+      // Reload credentials to update the status
+      loadCandidateCredentials()
+    } catch (error: any) {
+      toast({
+        title: "Bulk Send Failed",
+        description: error.message,
+        variant: "destructive",
+      })
+    } finally {
+      setBulkSending(false)
     }
   }
 
@@ -301,10 +361,31 @@ export default function CredentialsPage() {
                   <Key className="h-5 w-5" />
                   Candidate Credentials ({candidateCredentials.length})
                 </CardTitle>
-                <Button onClick={loadCandidateCredentials} variant="outline" className="rounded-xl">
-                  <RefreshCw className="mr-2 h-4 w-4" />
-                  Refresh
-                </Button>
+                <div className="flex items-center gap-3">
+                  {candidateCredentials.filter(c => !c.credentialSent).length > 0 && (
+                    <Button 
+                      onClick={sendAllCredentials} 
+                      disabled={bulkSending}
+                      className="rounded-xl primary-gradient glow-primary"
+                    >
+                      {bulkSending ? (
+                        <>
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current mr-2" />
+                          Sending All...
+                        </>
+                      ) : (
+                        <>
+                          <Send className="mr-2 h-4 w-4" />
+                          Send All Pending ({candidateCredentials.filter(c => !c.credentialSent).length})
+                        </>
+                      )}
+                    </Button>
+                  )}
+                  <Button onClick={loadCandidateCredentials} variant="outline" className="rounded-xl">
+                    <RefreshCw className="mr-2 h-4 w-4" />
+                    Refresh
+                  </Button>
+                </div>
               </div>
             </CardHeader>
             <CardContent>
