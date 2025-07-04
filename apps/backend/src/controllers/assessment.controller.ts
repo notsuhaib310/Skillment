@@ -176,6 +176,19 @@ export const getAssessmentById = async (req: Request, res: Response): Promise<Re
         },
         questions: true,
         analytics: true,
+        candidates: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            status: true,
+            score: true,
+            timeSpent: true,
+            submittedAt: true,
+            startedAt: true,
+            createdAt: true,
+          },
+        },
         _count: {
           select: {
             candidates: true,

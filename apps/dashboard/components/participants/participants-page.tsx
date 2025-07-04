@@ -146,6 +146,15 @@ export function ParticipantsPage() {
     fetchParticipants()
   }, [searchTerm, statusFilter, assessmentFilter, batchFilter, pagination.page, pagination.limit])
 
+  // Auto-refresh every 30 seconds to catch new allocations
+  useEffect(() => {
+    const interval = setInterval(() => {
+      fetchParticipants()
+    }, 30000)
+
+    return () => clearInterval(interval)
+  }, [])
+
   const filteredParticipants = participants
 
   const handleSelectAll = (checked: boolean) => {
@@ -236,10 +245,21 @@ export function ParticipantsPage() {
         <div className="space-y-2">
           <h1 className="text-4xl font-bold tracking-tight text-primary-gradient">Participants</h1>
           <p className="text-lg text-muted-foreground">
-            Manage and track all your participants with powerful tools and insights
+            Manage and track all your participants with powerful tools and insights.
+            Candidates allocated from assessments appear here automatically.
           </p>
         </div>
         <div className="flex gap-3">
+          <Button
+            onClick={fetchParticipants}
+            variant="outline"
+            className="rounded-3xl border-border/40 hover:bg-accent/80 btn-professional"
+            disabled={loading}
+          >
+            <RefreshCw className={`mr-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+            {loading ? 'Refreshing...' : 'Refresh'}
+          </Button>
+
           <Dialog>
             <DialogTrigger asChild>
               <Button variant="outline" className="rounded-3xl border-border/40 hover:bg-accent/80 btn-professional">
@@ -440,7 +460,7 @@ export function ParticipantsPage() {
               <div className="p-2 rounded-2xl bg-amber-500/10">
                 <Clock className="h-4 w-4 text-amber-400" />
               </div>
-              Not Started
+              Recently Allocated
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -449,10 +469,14 @@ export function ParticipantsPage() {
             ) : (
               <>
                 <div className="text-3xl font-bold text-amber-400 mb-2">
-                  {participants.filter((p) => p.status === "not-started").length}
+                  {participants.filter((p) => {
+                    const createdAt = new Date(p.createdAt)
+                    const hoursDiff = (Date.now() - createdAt.getTime()) / (1000 * 60 * 60)
+                    return hoursDiff <= 24 && p.tags.some(tag => tag.includes('Assessment:'))
+                  }).length}
                 </div>
                 <div className="flex items-center gap-2">
-                  <div className="status-indicator text-amber-400">Pending invitations</div>
+                  <div className="status-indicator text-amber-400">Last 24 hours</div>
                 </div>
                 <div className="mt-4 h-2 w-full bg-muted rounded-full overflow-hidden">
                   <div className="h-full w-2/5 bg-gradient-to-r from-amber-500 to-amber-400 rounded-full" />
@@ -462,6 +486,62 @@ export function ParticipantsPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Recently Allocated Candidates Alert */}
+      {participants.filter(p => {
+        const createdAt = new Date(p.createdAt)
+        const hoursDiff = (Date.now() - createdAt.getTime()) / (1000 * 60 * 60)
+        return hoursDiff <= 24 && p.tags.some(tag => tag.includes('Assessment:'))
+      }).length > 0 && (
+        <Card className="card-gradient rounded-4xl border-border/40 shadow-xl border-l-4 border-l-blue-500">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-blue-400">
+              <Zap className="h-5 w-5" />
+              Recently Allocated Candidates
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {participants
+                .filter(p => {
+                  const createdAt = new Date(p.createdAt)
+                  const hoursDiff = (Date.now() - createdAt.getTime()) / (1000 * 60 * 60)
+                  return hoursDiff <= 24 && p.tags.some(tag => tag.includes('Assessment:'))
+                })
+                .slice(0, 5)
+                .map((participant) => (
+                  <div key={participant.id} className="flex items-center justify-between p-4 rounded-3xl bg-accent/20 border border-border/40 hover:bg-accent/30 transition-all duration-200">
+                    <div className="flex items-center gap-4">
+                      <Avatar className="h-10 w-10 rounded-3xl ring-2 ring-border/40">
+                        <AvatarImage src={participant.avatar || "/placeholder.svg"} />
+                        <AvatarFallback className="rounded-3xl bg-gradient-to-br from-primary to-orange-600 text-primary-foreground font-semibold">
+                          {participant.name.split(" ").map((n) => n[0]).join("")}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div>
+                        <p className="font-semibold text-foreground">{participant.name}</p>
+                        <p className="text-sm text-muted-foreground">{participant.email}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {participant.tags
+                        .filter(tag => tag.includes('Assessment:'))
+                        .slice(0, 1)
+                        .map((tag) => (
+                          <Badge key={tag} className="rounded-2xl bg-blue-500/20 text-blue-400 border-blue-500/30 badge-professional">
+                            🎯 {tag.replace('Assessment: ', '')}
+                          </Badge>
+                        ))}
+                      <Badge className="rounded-2xl bg-green-500/20 text-green-400 border-green-500/30 animate-pulse badge-professional">
+                        New
+                      </Badge>
+                    </div>
+                  </div>
+                ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Enhanced Filters */}
       <Card className="card-gradient rounded-4xl border-border/40 shadow-xl">
@@ -637,20 +717,40 @@ export function ParticipantsPage() {
                   <TableCell>
                     <div className="flex flex-wrap gap-2">
                       {participant.tags.slice(0, 2).map((tag) => (
-                        <Badge key={tag} className="rounded-2xl badge-professional">
-                          {tag}
+                        <Badge 
+                          key={tag} 
+                          className={`rounded-2xl badge-professional ${
+                            tag.includes('Assessment:') ? 'bg-blue-500/20 text-blue-400 border-blue-500/30' : ''
+                          }`}
+                        >
+                          {tag.includes('Assessment:') ? tag.replace('Assessment: ', '🎯 ') : tag}
                         </Badge>
                       ))}
                       {participant.tags.length > 2 && (
                         <Badge className="rounded-2xl badge-professional">+{participant.tags.length - 2}</Badge>
                       )}
+                      {(() => {
+                        const createdAt = new Date(participant.createdAt)
+                        const hoursDiff = (Date.now() - createdAt.getTime()) / (1000 * 60 * 60)
+                        return hoursDiff <= 24 && participant.tags.some(tag => tag.includes('Assessment:')) && (
+                          <Badge className="rounded-2xl bg-green-500/20 text-green-400 border-green-500/30 animate-pulse">
+                            New
+                          </Badge>
+                        )
+                      })()}
                     </div>
                   </TableCell>
                   <TableCell>
                     <Badge
-                      className={`rounded-2xl border ${statusColors.active} font-medium`}
+                      className={`rounded-2xl border ${
+                        participant.status === 'completed' ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' :
+                        participant.status === 'ongoing' ? 'bg-blue-500/20 text-blue-400 border-blue-500/30' :
+                        'bg-amber-500/20 text-amber-400 border-amber-500/30'
+                      } font-medium`}
                     >
-                      Active
+                      {participant.status === 'completed' ? 'Completed' :
+                       participant.status === 'ongoing' ? 'In Progress' :
+                       'Not Started'}
                     </Badge>
                   </TableCell>
                   <TableCell>
@@ -666,14 +766,45 @@ export function ParticipantsPage() {
                         <div
                           className="bg-gradient-to-r from-primary to-orange-500 h-2 rounded-full transition-all duration-500"
                           style={{
-                            width: `${(participant.completedAssessments / (participant.completedAssessments + participant.ongoingAssessments + participant.notStartedAssessments)) * 100}%`,
+                            width: `${
+                              participant.completedAssessments + participant.ongoingAssessments + participant.notStartedAssessments > 0 
+                                ? (participant.completedAssessments / (participant.completedAssessments + participant.ongoingAssessments + participant.notStartedAssessments)) * 100
+                                : 0
+                            }%`,
                           }}
                         />
                       </div>
                     </div>
                   </TableCell>
                   <TableCell>
-                    <div className="text-sm text-muted-foreground">{participant.lastActivity || '-'}</div>
+                    <div className="flex items-center gap-2">
+                      <div className={`h-2 w-2 rounded-full ${
+                        participant.performance === 'excellent' ? 'bg-emerald-400' :
+                        participant.performance === 'good' ? 'bg-blue-400' :
+                        participant.performance === 'average' ? 'bg-amber-400' :
+                        'bg-gray-400'
+                      }`} />
+                      <span className={`text-sm font-medium ${performanceColors[participant.performance as keyof typeof performanceColors]}`}>
+                        {participant.performance === 'excellent' ? 'Excellent' :
+                         participant.performance === 'good' ? 'Good' :
+                         participant.performance === 'average' ? 'Average' :
+                         'Pending'}
+                      </span>
+                      {participant.score > 0 && (
+                        <Badge variant="outline" className="text-xs">
+                          {participant.score}%
+                        </Badge>
+                      )}
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <div className="text-sm text-muted-foreground">
+                      {participant.lastActivity ? (
+                        <span>{new Date(participant.lastActivity).toLocaleDateString()}</span>
+                      ) : (
+                        <span>-</span>
+                      )}
+                    </div>
                   </TableCell>
                   <TableCell className="text-right pr-8">
                     <div className="flex items-center justify-end gap-2">

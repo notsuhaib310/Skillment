@@ -4,17 +4,27 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://api.skillment.in"
 
 export const getAuthToken = () => {
   if (typeof window === "undefined") return null
+  
   // Try to get token from cookie first, then localStorage as fallback
   const cookiesArr = document.cookie.split(';')
   const tokenCookie = cookiesArr.find(cookie => cookie.trim().startsWith('token='))
   if (tokenCookie) {
-    return tokenCookie.split('=')[1]
+    const token = tokenCookie.split('=')[1]
+    console.log('Found token in cookie:', token ? `${token.substring(0, 20)}...` : 'Empty')
+    return token
   }
+  
   const authTokenCookie = cookiesArr.find(cookie => cookie.trim().startsWith('auth_token='))
   if (authTokenCookie) {
-    return authTokenCookie.split('=')[1]
+    const token = authTokenCookie.split('=')[1]
+    console.log('Found auth_token in cookie:', token ? `${token.substring(0, 20)}...` : 'Empty')
+    return token
   }
-  return localStorage.getItem("auth_token") || localStorage.getItem("token")
+  
+  const localToken = localStorage.getItem("auth_token") || localStorage.getItem("token")
+  console.log('Found token in localStorage:', localToken ? `${localToken.substring(0, 20)}...` : 'None')
+  
+  return localToken
 }
 
 export const setAuthToken = (token: string) => {

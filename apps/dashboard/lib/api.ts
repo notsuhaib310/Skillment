@@ -1,31 +1,62 @@
 import { getAuthHeaders } from './auth'
 import * as participantsApiModule from './api/participants';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://api.skillment.in"
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api"
 
 export const apiCall = async (endpoint: string, options: RequestInit = {}) => {
   const url = `${API_URL}${endpoint}`
+  
+  const authHeaders = getAuthHeaders()
   
   const config: RequestInit = {
     ...options,
     headers: {
       'Content-Type': 'application/json',
-      ...getAuthHeaders(),
+      ...authHeaders,
       ...options.headers,
     } as HeadersInit,
   }
 
   // Debug log for Authorization header
-  console.log('API Request:', url, 'Authorization:', config.headers && (config.headers as any).Authorization)
+  console.log('API Request:', url)
+  console.log('Authorization Header:', authHeaders.Authorization ? 'Present' : 'Missing')
+  console.log('Token preview:', authHeaders.Authorization ? `${authHeaders.Authorization.substring(0, 30)}...` : 'None')
+  console.log('Full Headers:', config.headers)
 
-  const response = await fetch(url, config)
-  
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}))
-    throw new Error(errorData.error || `HTTP error! status: ${response.status}`)
+  try {
+    const response = await fetch(url, config)
+    
+    console.log('Response Status:', response.status)
+    
+    if (!response.ok) {
+      let errorData: any = {}
+      try {
+        errorData = await response.json()
+      } catch (e) {
+        errorData = { error: `HTTP ${response.status}: ${response.statusText}` }
+      }
+      
+      console.error('API Error:', errorData)
+      
+      // Handle authentication errors
+      if (response.status === 401) {
+        console.error('Authentication failed - redirecting to login')
+        // Clear auth data and redirect
+        if (typeof window !== 'undefined') {
+          localStorage.removeItem('auth_token')
+          localStorage.removeItem('token')
+          window.location.href = '/auth/login'
+        }
+      }
+      
+      throw new Error(errorData.error || errorData.message || `HTTP error! status: ${response.status}`)
+    }
+
+    return response.json()
+  } catch (error) {
+    console.error('API Call Failed:', error)
+    throw error
   }
-
-  return response.json()
 }
 
 // Convenience methods for common HTTP methods
@@ -109,6 +140,23 @@ export const questionsApi = {
 export const assignmentApi = {
   assign: (assessmentId: string, candidates: any[]) => apiPost(`/assessments/${assessmentId}/assign`, { candidates }),
 };
+
+// API endpoints for candidates
+export const candidatesApi = {
+  getAll: (assessmentId?: string) => {
+    const query = assessmentId ? `?assessmentId=${assessmentId}` : ''
+    return apiGet(`/admin/candidates${query}`)
+  },
+  allocate: (assessmentId: string, candidates: any[]) => 
+    apiPost('/admin/candidates/allocate', { assessmentId, candidates }),
+  getByAssessment: (assessmentId: string) => apiGet(`/admin/candidates?assessmentId=${assessmentId}`),
+  login: (candidateId: string, password: string) => 
+    apiPost('/candidates/login', { candidateId, password }),
+  startAssessment: (id: string) => apiPost(`/admin/candidates/${id}/start`),
+  sendEmail: (id: string) => apiPost(`/admin/candidates/${id}/send-email`),
+  resetPassword: (id: string) => apiPost(`/admin/candidates/${id}/reset-password`),
+  fixCredentialIds: () => apiPost('/admin/candidates/fix-credential-ids'),
+}
 
 // API endpoints for attempt flows
 export const attemptApi = {

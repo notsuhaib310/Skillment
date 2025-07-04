@@ -44,34 +44,132 @@ class EmailService {
   private adminEmail = 'ceo@pronexus.in';
 
   constructor() {
-    this.transporter = nodemailer.createTransport({
-      host: process.env.RESEND_SMTP_HOST,
-      port: parseInt(process.env.RESEND_SMTP_PORT || '587'),
-      secure: false, // true for 465, false for other ports
-      auth: {
-        user: process.env.RESEND_SMTP_USER,
-        pass: process.env.RESEND_SMTP_PASS,
-      },
-    });
+    // Try multiple email providers for better reliability
+    const emailProvider = process.env.EMAIL_PROVIDER || 'resend';
+    
+    console.log('Initializing email service with provider:', emailProvider);
+    
+    if (emailProvider === 'gmail') {
+      this.transporter = nodemailer.createTransport({
+        service: 'gmail',
+        auth: {
+          user: process.env.GMAIL_USER,
+          pass: process.env.GMAIL_APP_PASSWORD, // Use App Password, not regular password
+        },
+      });
+    } else if (emailProvider === 'smtp') {
+      this.transporter = nodemailer.createTransport({
+        host: process.env.SMTP_HOST,
+        port: parseInt(process.env.SMTP_PORT || '587'),
+        secure: process.env.SMTP_SECURE === 'true',
+        auth: {
+          user: process.env.SMTP_USER,
+          pass: process.env.SMTP_PASS,
+        },
+      });
+    } else {
+      // Default to Resend
+      this.transporter = nodemailer.createTransport({
+        host: process.env.RESEND_SMTP_HOST || 'smtp.resend.com',
+        port: parseInt(process.env.RESEND_SMTP_PORT || '587'),
+        secure: false, // true for 465, false for other ports
+        auth: {
+          user: process.env.RESEND_SMTP_USER || 'resend',
+          pass: process.env.RESEND_SMTP_PASS,
+        },
+        // Add additional options for better reliability
+        pool: true,
+        maxConnections: 5,
+        maxMessages: 100,
+        rateDelta: 20000,
+        rateLimit: 5,
+      });
+    }
+
+    // Test the connection
+    this.testConnection();
+  }
+
+  private async testConnection() {
+    try {
+      await this.transporter.verify();
+      console.log('✅ Email service connection verified successfully');
+    } catch (error) {
+      console.error('❌ Email service connection failed:', error);
+      console.error('Please check your email configuration');
+    }
   }
 
   private async sendEmail(options: EmailOptions): Promise<boolean> {
     try {
+      // Enhanced logging for debugging
+      console.log('=== EMAIL DEBUG INFO ===');
+      console.log('SMTP Config:', {
+        host: process.env.RESEND_SMTP_HOST,
+        port: process.env.RESEND_SMTP_PORT,
+        user: process.env.RESEND_SMTP_USER ? 'SET' : 'NOT SET',
+        pass: process.env.RESEND_SMTP_PASS ? 'SET' : 'NOT SET',
+        fromEmail: process.env.FROM_EMAIL
+      });
+      console.log('Sending to:', options.to);
+      console.log('Subject:', options.subject);
+
       const mailOptions = {
-        from: process.env.FROM_EMAIL || 'no-reply@skillment.in',
+        from: {
+          name: 'Skillment Assessment Platform',
+          address: process.env.FROM_EMAIL || 'noreply@skillment.in'
+        },
         to: options.to,
         subject: options.subject,
         html: options.html,
-        text: options.text,
+        text: options.text || this.htmlToText(options.html),
+        headers: {
+          'X-Mailer': 'Skillment Platform v1.0',
+          'X-Priority': '3',
+          'X-MSMail-Priority': 'Normal',
+          'List-Unsubscribe': '<mailto:unsubscribe@skillment.in>',
+          'Message-ID': `<${Date.now()}.${Math.random().toString(36).substr(2, 9)}@skillment.in>`,
+          'Return-Path': process.env.FROM_EMAIL || 'noreply@skillment.in',
+          'Reply-To': 'support@skillment.in',
+        },
+        // Add proper MIME headers
+        messageId: `<${Date.now()}.${Math.random().toString(36).substr(2, 9)}@skillment.in>`,
+        date: new Date(),
+        // Add envelope settings for better deliverability
+        envelope: {
+          from: process.env.FROM_EMAIL || 'noreply@skillment.in',
+          to: options.to
+        }
       };
 
+      console.log('Mail options prepared, sending...');
       const info = await this.transporter.sendMail(mailOptions);
-      console.log('Email sent successfully:', info.messageId);
+      console.log('✅ Email sent successfully!');
+      console.log('Message ID:', info.messageId);
+      console.log('Response:', info.response);
+      console.log('========================');
       return true;
     } catch (error) {
-      console.error('Error sending email:', error);
+      console.error('❌ EMAIL SENDING FAILED:');
+      console.error('Error details:', error);
+      if (error.code) console.error('Error code:', error.code);
+      if (error.response) console.error('SMTP response:', error.response);
+      if (error.responseCode) console.error('Response code:', error.responseCode);
+      console.error('========================');
       return false;
     }
+  }
+
+  private htmlToText(html: string): string {
+    // Simple HTML to text conversion
+    return html
+      .replace(/<[^>]*>/g, '') // Remove HTML tags
+      .replace(/&nbsp;/g, ' ') // Replace &nbsp; with space
+      .replace(/&amp;/g, '&') // Replace &amp; with &
+      .replace(/&lt;/g, '<') // Replace &lt; with <
+      .replace(/&gt;/g, '>') // Replace &gt; with >
+      .replace(/\s+/g, ' ') // Replace multiple spaces with single space
+      .trim();
   }
 
   private getEmailTemplate(templateName: string, data: any): string {
@@ -1055,32 +1153,49 @@ class EmailService {
     candidateId?: string, 
     assessmentTitle?: string
   ): Promise<string> {
-    // 1. Check for existing credential
-    let credential = await prisma.credential.findUnique({ where: { candidateId: candidate.id } });
+    // 1. Check for existing credential by email
+    let credential = await prisma.credential.findFirst({ where: { email: candidate.email } });
     let generatedPassword = password;
+    
     if (!credential) {
+      // Create new credential with the provided candidateId (display ID)
       generatedPassword = generatedPassword || Math.random().toString(36).slice(-10);
       const hash = await bcrypt.hash(generatedPassword, 10);
       credential = await prisma.credential.create({
         data: {
-          candidateId: candidate.id,
+          candidateId: candidateId || candidate.id, // Use display ID if provided
           email: candidate.email,
           passwordHash: hash,
         },
       });
     } else {
-      // If credential exists, do not overwrite password, but send placeholder
-      generatedPassword = "(already set)";
+      // If credential exists and no password provided, generate new one for resending
+      if (!password) {
+        generatedPassword = Math.random().toString(36).slice(-10);
+        const hash = await bcrypt.hash(generatedPassword, 10);
+        credential = await prisma.credential.update({
+          where: { id: credential.id },
+          data: { passwordHash: hash },
+        });
+      } else {
+        // Use provided password
+        generatedPassword = password;
+      }
     }
     
     // 2. Fetch template
     const template = await prisma.emailTemplate.findFirst({ where: { name: "Send Credentials" } });
     const LOGIN_LINK = process.env.CANDIDATE_LOGIN_LINK || "http://localhost:3002/login";
     
+    // Always use the credential's candidateId if it exists, otherwise use the provided one
+    const finalCandidateId = credential?.candidateId || candidateId || candidate.id;
+    
+    console.log('Email service using candidate ID:', finalCandidateId, 'for email:', candidate.email);
+    
     const emailData = {
       name: candidate.name,
       email: candidate.email,
-      candidateId: candidateId || candidate.id,
+      candidateId: finalCandidateId,
       password: generatedPassword,
       assessmentTitle: assessmentTitle || 'Assessment',
       login_link: LOGIN_LINK,
@@ -1090,7 +1205,7 @@ class EmailService {
       tpl.replace(/\{(.*?)\}/g, (_, key) => data[key] || '');
     
     const subject = template ? renderTemplate(template.subject, emailData) : 
-      `Assessment Invitation - ${assessmentTitle || 'Your Assessment'}`;
+      `Assessment Invitation: ${assessmentTitle || 'Your Assessment'} - Skillment Platform`;
     
     const body = template ? renderTemplate(template.body, emailData) : `
       <!DOCTYPE html>
@@ -1098,7 +1213,9 @@ class EmailService {
       <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Assessment Invitation</title>
+        <meta name="format-detection" content="telephone=no">
+        <meta name="x-apple-disable-message-reformatting">
+        <title>Assessment Invitation - Skillment</title>
         <style>
           body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
@@ -1106,120 +1223,182 @@ class EmailService {
             margin: 0;
             padding: 20px;
             color: #0f172a;
+            line-height: 1.6;
           }
           .container {
             max-width: 600px;
             margin: 0 auto;
             background: white;
-            border-radius: 16px;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05);
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
             overflow: hidden;
             border: 1px solid #e2e8f0;
           }
           .header {
-            background: linear-gradient(135deg, #ff4d00 0%, #ff6b35 100%);
+            background: linear-gradient(135deg, #1e40af 0%, #3b82f6 100%);
             color: white;
-            padding: 40px 30px;
+            padding: 32px 24px;
             text-align: center;
           }
           .header h1 {
             margin: 0;
-            font-size: 28px;
-            font-weight: 700;
+            font-size: 24px;
+            font-weight: 600;
           }
           .header p {
             margin: 8px 0 0;
-            font-size: 16px;
+            font-size: 14px;
             opacity: 0.9;
           }
           .content {
-            padding: 40px 30px;
+            padding: 32px 24px;
           }
           .content h2 {
             color: #0f172a;
-            font-size: 22px;
+            font-size: 20px;
             margin-bottom: 16px;
+            font-weight: 600;
           }
           .content p {
             color: #475569;
             line-height: 1.6;
             margin-bottom: 16px;
+            font-size: 16px;
           }
           .credentials {
             background: #f8fafc;
-            padding: 24px;
-            border-radius: 12px;
-            margin: 24px 0;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
             border: 1px solid #e2e8f0;
           }
           .credentials h3 {
             color: #0f172a;
             margin-bottom: 16px;
-            font-size: 18px;
+            font-size: 16px;
+            font-weight: 600;
           }
           .credential-item {
             display: flex;
             justify-content: space-between;
             margin-bottom: 12px;
-            padding: 12px 0;
+            padding: 8px 0;
             border-bottom: 1px solid #e2e8f0;
+            align-items: center;
           }
           .credential-item:last-child {
             border-bottom: none;
           }
           .credential-label {
-            font-weight: 600;
+            font-weight: 500;
             color: #64748b;
+            font-size: 14px;
           }
           .credential-value {
-            font-weight: 700;
+            font-weight: 600;
             color: #0f172a;
-            font-family: monospace;
+            font-family: 'Courier New', monospace;
             background: #f1f5f9;
             padding: 4px 8px;
-            border-radius: 6px;
+            border-radius: 4px;
+            font-size: 14px;
+          }
+          .instructions {
+            background: #fef3c7;
+            border: 1px solid #fbbf24;
+            border-radius: 8px;
+            padding: 16px;
+            margin: 20px 0;
+          }
+          .instructions h4 {
+            color: #92400e;
+            margin: 0 0 12px;
+            font-size: 16px;
+            font-weight: 600;
+          }
+          .instructions ul {
+            margin: 0;
+            padding-left: 20px;
+            color: #92400e;
+          }
+          .instructions li {
+            margin-bottom: 8px;
+            font-size: 14px;
           }
           .cta-button {
             display: inline-block;
-            background: linear-gradient(135deg, #ff4d00 0%, #ff6b35 100%);
+            background: #1e40af;
             color: white;
-            padding: 16px 32px;
-            border-radius: 12px;
+            padding: 12px 24px;
+            border-radius: 8px;
             text-decoration: none;
             font-weight: 600;
-            margin-top: 24px;
-            transition: all 0.2s ease;
-          }
-          .cta-button:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 8px 20px rgba(255, 77, 0, 0.3);
+            margin-top: 20px;
+            font-size: 16px;
+            border: none;
           }
           .footer {
             background: #f8fafc;
-            padding: 24px;
+            padding: 20px 24px;
             text-align: center;
-            font-size: 14px;
+            font-size: 12px;
             color: #64748b;
             border-top: 1px solid #e2e8f0;
+          }
+          .footer p {
+            margin: 4px 0;
+          }
+          .support-info {
+            background: #f0f9ff;
+            border: 1px solid #0ea5e9;
+            border-radius: 8px;
+            padding: 16px;
+            margin: 20px 0;
+            text-align: center;
+          }
+          .support-info p {
+            margin: 0;
+            color: #0369a1;
+            font-size: 14px;
+          }
+          @media (max-width: 600px) {
+            .container {
+              margin: 10px;
+              border-radius: 8px;
+            }
+            .header, .content {
+              padding: 20px 16px;
+            }
+            .credential-item {
+              flex-direction: column;
+              align-items: flex-start;
+              gap: 4px;
+            }
+            .cta-button {
+              width: 100%;
+              text-align: center;
+              box-sizing: border-box;
+            }
           }
         </style>
       </head>
       <body>
         <div class="container">
           <div class="header">
-            <h1>🎯 Assessment Invitation</h1>
-            <p>You've been invited to take an assessment on Skillment</p>
+            <h1>Assessment Invitation</h1>
+            <p>Skillment Assessment Platform</p>
           </div>
           
           <div class="content">
             <h2>Hello ${candidate.name},</h2>
-            <p>You have been invited to take the <strong>${assessmentTitle || 'Assessment'}</strong> on the Skillment platform.</p>
+            <p>You have been invited to participate in the assessment: <strong>${assessmentTitle || 'Assessment'}</strong></p>
+            <p>This is an official invitation from the Skillment assessment platform. Please use the credentials below to access your assessment.</p>
             
             <div class="credentials">
-              <h3>🔑 Your Login Credentials</h3>
+              <h3>Login Credentials</h3>
               <div class="credential-item">
                 <span class="credential-label">Candidate ID:</span>
-                <span class="credential-value">${candidateId || candidate.id}</span>
+                <span class="credential-value">${finalCandidateId}</span>
               </div>
               <div class="credential-item">
                 <span class="credential-label">Password:</span>
@@ -1227,37 +1406,75 @@ class EmailService {
               </div>
             </div>
             
-            <p><strong>Important Instructions:</strong></p>
-            <ul>
-              <li>Use the credentials above to login to the assessment platform</li>
-              <li>Ensure you have a stable internet connection</li>
-              <li>The assessment may be proctored - camera and microphone access may be required</li>
-              <li>Complete the assessment in one sitting</li>
-            </ul>
-            
-            <div style="text-align: center;">
-              <a href="${LOGIN_LINK}" class="cta-button">Start Assessment</a>
+            <div class="instructions">
+              <h4>Important Instructions</h4>
+              <ul>
+                <li>Use the credentials above to access the assessment platform</li>
+                <li>Ensure you have a stable internet connection before starting</li>
+                <li>Complete the assessment in one sitting without interruption</li>
+                <li>Camera and microphone access may be required for proctoring</li>
+                <li>Contact support if you experience any technical difficulties</li>
+              </ul>
             </div>
             
-            <p style="margin-top: 24px; font-size: 14px; color: #64748b;">
-              If you have any questions or need technical support, please contact our support team.
-            </p>
+            <div style="text-align: center;">
+              <a href="${LOGIN_LINK}" class="cta-button">Access Assessment Portal</a>
+            </div>
+            
+            <div class="support-info">
+              <p>Need help? Contact our support team for technical assistance.</p>
+            </div>
           </div>
           
           <div class="footer">
+            <p><strong>Skillment Assessment Platform</strong></p>
             <p>© 2024 Skillment. All rights reserved.</p>
-            <p>This invitation was sent to ${candidate.email}</p>
+            <p>This invitation was sent to: ${candidate.email}</p>
+            <p>If you received this email in error, please ignore it.</p>
           </div>
         </div>
       </body>
       </html>
     `;
     
-    // 3. Send email
+    // 3. Send email with text version
+    const textVersion = `
+Assessment Invitation - Skillment Platform
+
+Hello ${candidate.name},
+
+You have been invited to participate in the assessment: ${assessmentTitle || 'Assessment'}
+
+This is an official invitation from the Skillment assessment platform. Please use the credentials below to access your assessment.
+
+LOGIN CREDENTIALS:
+Candidate ID: ${finalCandidateId}
+Password: ${generatedPassword}
+
+IMPORTANT INSTRUCTIONS:
+- Use the credentials above to access the assessment platform
+- Ensure you have a stable internet connection before starting
+- Complete the assessment in one sitting without interruption
+- Camera and microphone access may be required for proctoring
+- Contact support if you experience any technical difficulties
+
+ACCESS YOUR ASSESSMENT:
+${LOGIN_LINK}
+
+Need help? Contact our support team for technical assistance.
+
+---
+Skillment Assessment Platform
+© 2024 Skillment. All rights reserved.
+This invitation was sent to: ${candidate.email}
+If you received this email in error, please ignore it.
+    `.trim();
+
     await this.sendEmail({
       to: candidate.email,
       subject,
       html: body,
+      text: textVersion,
     });
     
     // 4. Log email

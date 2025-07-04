@@ -87,10 +87,8 @@ export function AssessmentManagePage({ assessmentId }: AssessmentManagePageProps
   const loadCandidates = async () => {
     setCandidatesLoading(true)
     try {
-      const response = await fetch(`http://localhost:5000/api/admin/candidates?assessmentId=${assessmentId}`, {
-        credentials: 'include',
-      })
-      const data = await response.json()
+      const { candidatesApi } = await import("@/lib/api")
+      const data = await candidatesApi.getByAssessment(assessmentId)
       setCandidates(data)
     } catch (error: any) {
       toast({
@@ -134,6 +132,30 @@ export function AssessmentManagePage({ assessmentId }: AssessmentManagePageProps
     a.download = `${assessment?.title || 'assessment'}-results.csv`
     a.click()
     window.URL.revokeObjectURL(url)
+  }
+
+  const viewCandidateDetails = (candidate: Candidate) => {
+    toast({
+      title: "Candidate Details",
+      description: `Name: ${candidate.name}\nEmail: ${candidate.email}\nStatus: ${candidate.status}\nScore: ${candidate.score || 'N/A'}/${assessment?.totalMarks || 'N/A'}\nTime Spent: ${candidate.timeSpent ? Math.round(candidate.timeSpent / 60) + 'm' : 'N/A'}`,
+    })
+  }
+
+  const resendEmail = async (candidate: Candidate) => {
+    try {
+      const { candidatesApi } = await import("@/lib/api")
+      await candidatesApi.sendEmail(candidate.id)
+      toast({
+        title: "Email Sent",
+        description: `Credentials email sent to ${candidate.email}`,
+      })
+    } catch (error: any) {
+      toast({
+        title: "Email Failed",
+        description: error.message,
+        variant: "destructive",
+      })
+    }
   }
 
   if (loading) {
@@ -346,10 +368,22 @@ export function AssessmentManagePage({ assessmentId }: AssessmentManagePageProps
                         </TableCell>
                         <TableCell>
                           <div className="flex items-center gap-2">
-                            <Button size="sm" variant="ghost" className="rounded-xl">
+                            <Button 
+                              size="sm" 
+                              variant="ghost" 
+                              className="rounded-xl"
+                              onClick={() => viewCandidateDetails(candidate)}
+                              title="View Details"
+                            >
                               <Eye className="h-4 w-4" />
                             </Button>
-                            <Button size="sm" variant="ghost" className="rounded-xl">
+                            <Button 
+                              size="sm" 
+                              variant="ghost" 
+                              className="rounded-xl"
+                              onClick={() => resendEmail(candidate)}
+                              title="Resend Email"
+                            >
                               <Mail className="h-4 w-4" />
                             </Button>
                           </div>

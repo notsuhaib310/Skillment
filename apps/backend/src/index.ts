@@ -63,7 +63,8 @@ app.use('/api/team', require('./routes/team').default);
 app.use('/api', questionRouter);
 app.use('/api', attemptRouter);
 app.use('/api/email', emailRoutes);
-app.use('/api/candidates', candidateRouter);
+// Mount protected candidate routes at a different path to avoid conflicts
+app.use('/api/admin/candidates', candidateRouter);
 
 // Error handling
 app.use(errorHandler);
