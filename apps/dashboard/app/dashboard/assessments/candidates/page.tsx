@@ -93,13 +93,8 @@ export default function CandidatesPage() {
     if (!selectedAssessment) return
     
     try {
-      const response = await fetch(`http://localhost:5000/api/admin/candidates?assessmentId=${selectedAssessment}`, {
-        credentials: 'include',
-      })
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`)
-      }
-      const data = await response.json()
+      const { candidatesApi } = await import("@/lib/api")
+      const data = await candidatesApi.getByAssessment(selectedAssessment)
       setCandidates(Array.isArray(data) ? data : [])
     } catch (error: any) {
       console.error('Error loading candidates:', error)
@@ -159,6 +154,31 @@ export default function CandidatesPage() {
     a.download = `${assessment?.title || 'assessment'}-candidates.csv`
     a.click()
     window.URL.revokeObjectURL(url)
+  }
+
+  const viewCandidateDetails = (candidate: Candidate) => {
+    const currentAssessment = Array.isArray(assessments) ? assessments.find(a => a.id === selectedAssessment) : null
+    toast({
+      title: "Candidate Details",
+      description: `Name: ${candidate.name}\nEmail: ${candidate.email}\nStatus: ${candidate.status}\nScore: ${candidate.score || 'N/A'}/${currentAssessment?.totalMarks || 'N/A'}\nTime Spent: ${candidate.timeSpent ? Math.round(candidate.timeSpent / 60) + 'm' : 'N/A'}`,
+    })
+  }
+
+  const resendEmail = async (candidate: Candidate) => {
+    try {
+      const { candidatesApi } = await import("@/lib/api")
+      await candidatesApi.sendEmail(candidate.id)
+      toast({
+        title: "Email Sent",
+        description: `Credentials email sent to ${candidate.email}`,
+      })
+    } catch (error: any) {
+      toast({
+        title: "Email Failed",
+        description: error.message,
+        variant: "destructive",
+      })
+    }
   }
 
   if (loading) {
@@ -365,10 +385,22 @@ export default function CandidatesPage() {
                         </TableCell>
                         <TableCell>
                           <div className="flex items-center gap-2">
-                            <Button size="sm" variant="ghost" className="rounded-xl">
+                            <Button 
+                              size="sm" 
+                              variant="ghost" 
+                              className="rounded-xl"
+                              onClick={() => viewCandidateDetails(candidate)}
+                              title="View Details"
+                            >
                               <Eye className="h-4 w-4" />
                             </Button>
-                            <Button size="sm" variant="ghost" className="rounded-xl">
+                            <Button 
+                              size="sm" 
+                              variant="ghost" 
+                              className="rounded-xl"
+                              onClick={() => resendEmail(candidate)}
+                              title="Resend Email"
+                            >
                               <Mail className="h-4 w-4" />
                             </Button>
                           </div>
