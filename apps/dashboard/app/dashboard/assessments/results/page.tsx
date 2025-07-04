@@ -1,0 +1,574 @@
+"use client"
+
+import { useState, useEffect } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { Progress } from "@/components/ui/progress"
+import { 
+  ArrowLeft,
+  BarChart3, 
+  TrendingUp, 
+  Users, 
+  Clock,
+  Target,
+  Download,
+  Eye,
+  AlertTriangle,
+  CheckCircle,
+  Trophy,
+  Activity
+} from "lucide-react"
+import { useToast } from "@/hooks/use-toast"
+
+interface CandidateResult {
+  id: string
+  name: string
+  email: string
+  status: string
+  score: number
+  totalMarks: number
+  percentage: number
+  timeSpent: number
+  startedAt: string
+  submittedAt: string
+  violations: {
+    critical: number
+    warning: number
+    minor: number
+  }
+  answers: any[]
+}
+
+interface Assessment {
+  id: string
+  title: string
+  type: string
+  duration: number
+  totalMarks: number
+  totalQuestions: number
+}
+
+interface AssessmentAnalytics {
+  totalCandidates: number
+  completedCandidates: number
+  averageScore: number
+  averageTime: number
+  passRate: number
+  scoreDistribution: {
+    range: string
+    count: number
+    percentage: number
+  }[]
+  topPerformers: {
+    name: string
+    score: number
+    percentage: number
+  }[]
+}
+
+export default function ResultsPage() {
+  const [candidateResults, setCandidateResults] = useState<CandidateResult[]>([])
+  const [assessments, setAssessments] = useState<Assessment[]>([])
+  const [selectedAssessment, setSelectedAssessment] = useState<string>("")
+  const [analytics, setAnalytics] = useState<AssessmentAnalytics | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [resultsLoading, setResultsLoading] = useState(false)
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const { toast } = useToast()
+
+  useEffect(() => {
+    loadAssessments()
+    const assessmentId = searchParams.get('assessmentId')
+    if (assessmentId) {
+      setSelectedAssessment(assessmentId)
+    }
+  }, [searchParams])
+
+  useEffect(() => {
+    if (selectedAssessment && Array.isArray(assessments) && assessments.length > 0) {
+      loadResults()
+    }
+  }, [selectedAssessment, assessments])
+
+  const loadAssessments = async () => {
+    try {
+      const response = await fetch('http://localhost:5000/api/admin/assessments', {
+        credentials: 'include',
+      })
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`)
+      }
+      const data = await response.json()
+      setAssessments(Array.isArray(data) ? data : [])
+    } catch (error: any) {
+      console.error('Error loading assessments:', error)
+      setAssessments([])
+      toast({
+        title: "Error Loading Assessments",
+        description: error.message,
+        variant: "destructive",
+      })
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const loadResults = async () => {
+    if (!selectedAssessment) return
+    
+    setResultsLoading(true)
+    try {
+      const response = await fetch(`http://localhost:5000/api/admin/candidates?assessmentId=${selectedAssessment}`, {
+        credentials: 'include',
+      })
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`)
+      }
+      const data = await response.json()
+      
+      // Transform data to include results
+      const resultsData = Array.isArray(data) ? data.map((candidate: any) => ({
+        id: candidate.id,
+        name: candidate.name,
+        email: candidate.email,
+        status: candidate.status,
+        score: candidate.score || 0,
+        totalMarks: candidate.assessment?.totalMarks || 0,
+        percentage: candidate.assessment?.totalMarks ? Math.round((candidate.score || 0) / candidate.assessment.totalMarks * 100) : 0,
+        timeSpent: candidate.timeSpent || 0,
+        startedAt: candidate.startedAt,
+        submittedAt: candidate.submittedAt,
+        violations: candidate.violations || { critical: 0, warning: 0, minor: 0 },
+        answers: candidate.answers || []
+      })) : []
+      
+      setCandidateResults(resultsData)
+      generateAnalytics(resultsData)
+    } catch (error: any) {
+      console.error('Error loading results:', error)
+      setCandidateResults([])
+      setAnalytics(null)
+      toast({
+        title: "Error Loading Results",
+        description: error.message,
+        variant: "destructive",
+      })
+    } finally {
+      setResultsLoading(false)
+    }
+  }
+
+  const generateAnalytics = (results: CandidateResult[]) => {
+    const completed = results.filter(r => r.status === 'completed')
+    const totalCandidates = results.length
+    const completedCandidates = completed.length
+    
+    if (completedCandidates === 0) {
+      setAnalytics({
+        totalCandidates,
+        completedCandidates,
+        averageScore: 0,
+        averageTime: 0,
+        passRate: 0,
+        scoreDistribution: [],
+        topPerformers: []
+      })
+      return
+    }
+
+    const averageScore = completed.reduce((sum, r) => sum + r.percentage, 0) / completedCandidates
+    const averageTime = completed.reduce((sum, r) => sum + r.timeSpent, 0) / completedCandidates
+    const passRate = (completed.filter(r => r.percentage >= 60).length / completedCandidates) * 100
+
+    // Score distribution
+    const scoreRanges = [
+      { range: '90-100%', min: 90, max: 100 },
+      { range: '80-89%', min: 80, max: 89 },
+      { range: '70-79%', min: 70, max: 79 },
+      { range: '60-69%', min: 60, max: 69 },
+      { range: '50-59%', min: 50, max: 59 },
+      { range: '0-49%', min: 0, max: 49 }
+    ]
+
+    const scoreDistribution = scoreRanges.map(range => {
+      const count = completed.filter(r => r.percentage >= range.min && r.percentage <= range.max).length
+      return {
+        range: range.range,
+        count,
+        percentage: (count / completedCandidates) * 100
+      }
+    })
+
+    // Top performers
+    const topPerformers = completed
+      .sort((a, b) => b.percentage - a.percentage)
+      .slice(0, 5)
+      .map(r => ({
+        name: r.name,
+        score: r.score,
+        percentage: r.percentage
+      }))
+
+    setAnalytics({
+      totalCandidates,
+      completedCandidates,
+      averageScore,
+      averageTime: averageTime / 60, // Convert to minutes
+      passRate,
+      scoreDistribution,
+      topPerformers
+    })
+  }
+
+  const getStatusColor = (status: string) => {
+    const colors = {
+      invited: "bg-blue-500/20 text-blue-400 border-blue-500/30",
+      started: "bg-yellow-500/20 text-yellow-400 border-yellow-500/30",
+      completed: "bg-green-500/20 text-green-400 border-green-500/30",
+      expired: "bg-red-500/20 text-red-400 border-red-500/30",
+    }
+    return colors[status as keyof typeof colors] || colors.invited
+  }
+
+  const getScoreColor = (percentage: number) => {
+    if (percentage >= 90) return "text-green-600"
+    if (percentage >= 80) return "text-blue-600"
+    if (percentage >= 70) return "text-yellow-600"
+    if (percentage >= 60) return "text-orange-600"
+    return "text-red-600"
+  }
+
+  const downloadResults = () => {
+    if (!selectedAssessment) return
+    
+    const assessment = Array.isArray(assessments) ? assessments.find(a => a.id === selectedAssessment) : null
+    const csvContent = [
+      ["Name", "Email", "Status", "Score", "Total Marks", "Percentage", "Time Spent (min)", "Started At", "Submitted At", "Critical Violations", "Warning Violations", "Minor Violations"],
+      ...candidateResults.map(r => [
+        r.name,
+        r.email,
+        r.status,
+        r.score.toString(),
+        r.totalMarks.toString(),
+        `${r.percentage}%`,
+        Math.round(r.timeSpent / 60).toString(),
+        r.startedAt ? new Date(r.startedAt).toLocaleString() : "",
+        r.submittedAt ? new Date(r.submittedAt).toLocaleString() : "",
+        r.violations.critical.toString(),
+        r.violations.warning.toString(),
+        r.violations.minor.toString()
+      ])
+    ].map(row => row.join(",")).join("\n")
+
+    const blob = new Blob([csvContent], { type: 'text/csv' })
+    const url = window.URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `${assessment?.title || 'assessment'}-results.csv`
+    a.click()
+    window.URL.revokeObjectURL(url)
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-center space-y-4">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+          <p className="text-muted-foreground">Loading results...</p>
+        </div>
+      </div>
+    )
+  }
+
+  const currentAssessment = Array.isArray(assessments) ? assessments.find(a => a.id === selectedAssessment) : null
+
+  return (
+    <div className="space-y-8">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <Button
+            onClick={() => router.back()}
+            variant="ghost"
+            size="icon"
+            className="rounded-xl"
+          >
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-foreground to-primary bg-clip-text text-transparent">
+              Results & Analytics
+            </h1>
+            <p className="text-muted-foreground">
+              Detailed assessment results and performance analytics
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Assessment Selector */}
+      <Card className="card-gradient rounded-3xl border-border/40 shadow-xl">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Target className="h-5 w-5" />
+            Select Assessment
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center gap-4">
+            <select
+              value={selectedAssessment}
+              onChange={(e) => setSelectedAssessment(e.target.value)}
+              className="flex h-10 w-full rounded-xl border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <option value="">Select an assessment...</option>
+              {Array.isArray(assessments) && assessments.map((assessment) => (
+                <option key={assessment.id} value={assessment.id}>
+                  {assessment.title} ({assessment.type.toUpperCase()})
+                </option>
+              ))}
+            </select>
+            {selectedAssessment && (
+              <Button onClick={loadResults} variant="outline" className="rounded-xl">
+                <BarChart3 className="mr-2 h-4 w-4" />
+                Refresh
+              </Button>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
+      {selectedAssessment && currentAssessment && analytics && (
+        <>
+          {/* Analytics Cards */}
+          <div className="grid gap-6 md:grid-cols-4">
+            <Card className="card-gradient rounded-3xl border-border/40 shadow-xl">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                  <Users className="h-4 w-4" />
+                  Completion Rate
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-foreground">
+                  {analytics.totalCandidates > 0 ? `${Math.round((analytics.completedCandidates / analytics.totalCandidates) * 100)}%` : "0%"}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {analytics.completedCandidates} of {analytics.totalCandidates} candidates
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card className="card-gradient rounded-3xl border-border/40 shadow-xl">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                  <BarChart3 className="h-4 w-4" />
+                  Average Score
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-foreground">
+                  {Math.round(analytics.averageScore)}%
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Overall performance
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card className="card-gradient rounded-3xl border-border/40 shadow-xl">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                  <CheckCircle className="h-4 w-4" />
+                  Pass Rate
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-emerald-400">
+                  {Math.round(analytics.passRate)}%
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  60% or above
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card className="card-gradient rounded-3xl border-border/40 shadow-xl">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                  <Clock className="h-4 w-4" />
+                  Average Time
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-foreground">
+                  {Math.round(analytics.averageTime)}m
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  of {currentAssessment.duration}m allowed
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Score Distribution and Top Performers */}
+          <div className="grid gap-6 md:grid-cols-2">
+            <Card className="card-gradient rounded-3xl border-border/40 shadow-xl">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <TrendingUp className="h-5 w-5" />
+                  Score Distribution
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {analytics.scoreDistribution.map((dist, index) => (
+                    <div key={index} className="space-y-2">
+                      <div className="flex justify-between text-sm">
+                        <span>{dist.range}</span>
+                        <span>{dist.count} candidates ({Math.round(dist.percentage)}%)</span>
+                      </div>
+                      <Progress value={dist.percentage} className="h-2" />
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="card-gradient rounded-3xl border-border/40 shadow-xl">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Trophy className="h-5 w-5" />
+                  Top Performers
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {analytics.topPerformers.map((performer, index) => (
+                    <div key={index} className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-full bg-gradient-to-r from-primary to-orange-600 flex items-center justify-center text-white font-bold text-sm">
+                          {index + 1}
+                        </div>
+                        <span className="font-medium">{performer.name}</span>
+                      </div>
+                      <div className="text-right">
+                        <div className="font-bold text-green-600">{performer.percentage}%</div>
+                        <div className="text-xs text-muted-foreground">{performer.score} points</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Results Table */}
+          <Card className="card-gradient rounded-3xl border-border/40 shadow-xl">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle className="flex items-center gap-2">
+                  <Activity className="h-5 w-5" />
+                  Detailed Results ({candidateResults.length})
+                </CardTitle>
+                <div className="flex items-center gap-3">
+                  {candidateResults.length > 0 && (
+                    <Button onClick={downloadResults} variant="outline" className="rounded-xl">
+                      <Download className="mr-2 h-4 w-4" />
+                      Export Results
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {resultsLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
+                </div>
+              ) : candidateResults.length === 0 ? (
+                <div className="text-center py-8">
+                  <BarChart3 className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                  <p className="text-muted-foreground">No results available for this assessment</p>
+                </div>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Name</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Score</TableHead>
+                      <TableHead>Percentage</TableHead>
+                      <TableHead>Time Spent</TableHead>
+                      <TableHead>Violations</TableHead>
+                      <TableHead>Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {candidateResults.map((result) => (
+                      <TableRow key={result.id}>
+                        <TableCell>
+                          <div>
+                            <div className="font-medium">{result.name}</div>
+                            <div className="text-sm text-muted-foreground">{result.email}</div>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Badge className={`rounded-xl border ${getStatusColor(result.status)}`}>
+                            {result.status}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <span className="font-medium">{result.score}/{result.totalMarks}</span>
+                        </TableCell>
+                        <TableCell>
+                          <span className={`font-bold ${getScoreColor(result.percentage)}`}>
+                            {result.percentage}%
+                          </span>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <Clock className="h-4 w-4 text-muted-foreground" />
+                            <span>{Math.round(result.timeSpent / 60)}m</span>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            {result.violations.critical > 0 && (
+                              <Badge variant="destructive" className="text-xs">
+                                {result.violations.critical} Critical
+                              </Badge>
+                            )}
+                            {result.violations.warning > 0 && (
+                              <Badge variant="secondary" className="text-xs">
+                                {result.violations.warning} Warning
+                              </Badge>
+                            )}
+                            {result.violations.minor > 0 && (
+                              <Badge variant="outline" className="text-xs">
+                                {result.violations.minor} Minor
+                              </Badge>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Button size="sm" variant="ghost" className="rounded-xl">
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </CardContent>
+          </Card>
+        </>
+      )}
+    </div>
+  )
+}
