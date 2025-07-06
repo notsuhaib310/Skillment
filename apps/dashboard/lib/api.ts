@@ -173,4 +173,38 @@ export const proctoringApi = {
   getViolations: (assessmentId: string) => apiGet(`/admin/proctoring/violations?assessmentId=${assessmentId}`),
   logEvent: (event: any) => apiPost('/proctoring/event', event),
   uploadMedia: (media: any) => apiPost('/proctoring/media', media),
+};
+
+// API endpoints for reports
+export const reportsApi = {
+  getOverview: (params?: { dateRange?: string; assessmentType?: string; status?: string }) => {
+    const searchParams = new URLSearchParams()
+    if (params?.dateRange) searchParams.append('dateRange', params.dateRange)
+    if (params?.assessmentType) searchParams.append('assessmentType', params.assessmentType)
+    if (params?.status) searchParams.append('status', params.status)
+    
+    const query = searchParams.toString()
+    return apiGet(`/reports/overview${query ? `?${query}` : ''}`)
+  },
+  getPerformanceAnalytics: (params?: { dateRange?: string; assessmentType?: string }) => {
+    const searchParams = new URLSearchParams()
+    if (params?.dateRange) searchParams.append('dateRange', params.dateRange)
+    if (params?.assessmentType) searchParams.append('assessmentType', params.assessmentType)
+    
+    const query = searchParams.toString()
+    return apiGet(`/reports/performance${query ? `?${query}` : ''}`)
+  },
+  getSecurityAnalytics: (params?: { dateRange?: string; assessmentType?: string }) => {
+    const searchParams = new URLSearchParams()
+    if (params?.dateRange) searchParams.append('dateRange', params.dateRange)
+    if (params?.assessmentType) searchParams.append('assessmentType', params.assessmentType)
+    
+    const query = searchParams.toString()
+    return apiGet(`/reports/security${query ? `?${query}` : ''}`)
+  },
+  getTrends: (months?: number) => {
+    const query = months ? `?months=${months}` : ''
+    return apiGet(`/reports/trends${query}`)
+  },
+  exportReport: (data: any) => apiPost('/reports/export', data),
 }; 

@@ -19,6 +19,7 @@ import candidateRouter from './routes/candidate.routes';
 import candidatePublicRouter from './routes/candidate-public.routes';
 import proctoringRouter from './routes/proctoring.routes';
 import adminProctoringRouter from './routes/admin-proctoring.routes';
+import reportsRouter from './routes/reports.routes';
 
 // Load environment variables
 config();
@@ -71,6 +72,8 @@ app.use('/api/email', emailRoutes);
 app.use('/api/admin/candidates', candidateRouter);
 // Mount protected admin proctoring routes
 app.use('/api/admin/proctoring', adminProctoringRouter);
+// Mount reports routes
+app.use('/api/reports', reportsRouter);
 
 // Error handling
 app.use(errorHandler);
