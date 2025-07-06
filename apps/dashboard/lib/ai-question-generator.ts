@@ -81,8 +81,9 @@ export class AIQuestionGenerator {
         throw new Error("No content received from OpenAI")
       }
 
-      // Parse the JSON response
-      const questions = JSON.parse(content)
+      // Clean and parse the JSON response
+      const cleanedContent = this.cleanJSONResponse(content)
+      const questions = JSON.parse(cleanedContent)
       return Array.isArray(questions) ? questions : [questions]
     } catch (error) {
       console.error("Error generating MCQ questions:", error)
@@ -129,8 +130,9 @@ export class AIQuestionGenerator {
         throw new Error("No content received from OpenAI")
       }
 
-      // Parse the JSON response
-      const questions = JSON.parse(content)
+      // Clean and parse the JSON response
+      const cleanedContent = this.cleanJSONResponse(content)
+      const questions = JSON.parse(cleanedContent)
       return Array.isArray(questions) ? questions : [questions]
     } catch (error) {
       console.error("Error generating coding questions:", error)
@@ -195,7 +197,7 @@ Return as JSON array with this structure:
         throw new Error("No content received from OpenAI")
       }
 
-      return JSON.parse(content)
+      return JSON.parse(this.cleanJSONResponse(content))
     } catch (error) {
       console.error("Error generating test cases:", error)
       toast.error("Failed to generate test cases. Please try again.")
@@ -253,6 +255,24 @@ Return as JSON array with this structure:
       toast.error("Failed to enhance question. Please try again.")
       throw error
     }
+  }
+
+  private cleanJSONResponse(content: string): string {
+    // Remove markdown code blocks and trim whitespace
+    let cleaned = content.trim()
+    
+    // Remove ```json and ``` markers
+    if (cleaned.startsWith('```json')) {
+      cleaned = cleaned.substring(7)
+    } else if (cleaned.startsWith('```')) {
+      cleaned = cleaned.substring(3)
+    }
+    
+    if (cleaned.endsWith('```')) {
+      cleaned = cleaned.substring(0, cleaned.length - 3)
+    }
+    
+    return cleaned.trim()
   }
 
   private buildMCQPrompt(request: QuestionGenerationRequest): string {
