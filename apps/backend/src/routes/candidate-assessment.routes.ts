@@ -39,10 +39,19 @@ router.post('/:assessmentId/candidate/:candidateId/submit', async (req, res) => 
     const { assessmentId, candidateId } = req.params;
     const submissionData: AssessmentSubmission = req.body;
 
-    // Verify candidate exists and is assigned to this assessment
+    // Find credential first using external candidateId
+    const credential = await prisma.credential.findFirst({
+      where: { candidateId: candidateId }
+    });
+
+    if (!credential) {
+      return res.status(404).json({ error: 'Candidate credentials not found' });
+    }
+
+    // Find candidate using email from credential
     const candidate = await prisma.candidate.findFirst({
       where: {
-        id: candidateId,
+        email: credential.email,
         assessmentId: assessmentId
       },
       include: {
@@ -72,7 +81,7 @@ router.post('/:assessmentId/candidate/:candidateId/submit', async (req, res) => 
 
       // Score MCQ questions
       if (question.type === 'multiple_choice' && question.mcqData) {
-        const mcqData = question.mcqData as MCQQuestionData;
+        const mcqData = question.mcqData as unknown as MCQQuestionData;
         const correctOptions = mcqData.options
           .filter(opt => opt.isCorrect)
           .map(opt => opt.id);
@@ -102,13 +111,13 @@ router.post('/:assessmentId/candidate/:candidateId/submit', async (req, res) => 
 
     // Update candidate with submission data
     const updatedCandidate = await prisma.candidate.update({
-      where: { id: candidateId },
+      where: { id: candidate.id }, // Use the internal database ID for update
       data: {
         status: 'submitted',
         submittedAt: new Date(),
         timeSpent: submissionData.totalTimeSpent,
         score: totalScore,
-        answers: submissionData.answers
+        answers: submissionData.answers as any
       }
     });
 
@@ -136,10 +145,19 @@ router.get('/:assessmentId/candidate/:candidateId', async (req, res) => {
   try {
     const { assessmentId, candidateId } = req.params;
 
-    // Verify candidate exists and is assigned to this assessment
+    // Find credential first using external candidateId
+    const credential = await prisma.credential.findFirst({
+      where: { candidateId: candidateId }
+    });
+
+    if (!credential) {
+      return res.status(404).json({ error: 'Candidate credentials not found' });
+    }
+
+    // Find candidate using email from credential
     const candidate = await prisma.candidate.findFirst({
       where: {
-        id: candidateId,
+        email: credential.email,
         assessmentId: assessmentId
       }
     });
@@ -186,7 +204,7 @@ router.get('/:assessmentId/candidate/:candidateId', async (req, res) => {
 
         // Add MCQ specific data
         if (q.type === 'multiple_choice' && q.mcqData) {
-          const mcqData = q.mcqData as MCQQuestionData;
+          const mcqData = q.mcqData as unknown as MCQQuestionData;
           baseQuestion.options = mcqData.options.map(opt => ({
             id: opt.id,
             text: opt.text
@@ -196,7 +214,7 @@ router.get('/:assessmentId/candidate/:candidateId', async (req, res) => {
 
         // Add coding specific data
         if (q.type === 'coding' && q.codingData) {
-          const codingData = q.codingData as CodingQuestionData;
+          const codingData = q.codingData as unknown as CodingQuestionData;
           baseQuestion.question = codingData.description; // Use description as main question
           baseQuestion.languages = codingData.languages;
           baseQuestion.starterCode = codingData.starterCode;
@@ -237,10 +255,19 @@ router.post('/:assessmentId/candidate/:candidateId/start', async (req, res) => {
   try {
     const { assessmentId, candidateId } = req.params;
 
-    // Verify candidate exists and is assigned to this assessment
+    // Find credential first using external candidateId
+    const credential = await prisma.credential.findFirst({
+      where: { candidateId: candidateId }
+    });
+
+    if (!credential) {
+      return res.status(404).json({ error: 'Candidate credentials not found' });
+    }
+
+    // Find candidate using email from credential
     const candidate = await prisma.candidate.findFirst({
       where: {
-        id: candidateId,
+        email: credential.email,
         assessmentId: assessmentId
       }
     });
@@ -256,7 +283,7 @@ router.post('/:assessmentId/candidate/:candidateId/start', async (req, res) => {
 
     // Update candidate status to started
     const updatedCandidate = await prisma.candidate.update({
-      where: { id: candidateId },
+      where: { id: candidate.id }, // Use the internal database ID for update
       data: {
         status: 'started',
         startedAt: candidate.startedAt || new Date(), // Don't override if already started
@@ -274,36 +301,40 @@ router.post('/:assessmentId/candidate/:candidateId/start', async (req, res) => {
   }
 });
 
-// (Submit endpoint moved to public section above)
-
 // Save answers (auto-save functionality)
 router.post('/:assessmentId/candidate/:candidateId/save', async (req, res) => {
   try {
     const { assessmentId, candidateId } = req.params;
     const { answers, timeSpent } = req.body;
 
-    // Verify candidate exists and is assigned to this assessment
+    // Find credential first using external candidateId
+    const credential = await prisma.credential.findFirst({
+      where: { candidateId: candidateId }
+    });
+
+    if (!credential) {
+      return res.status(404).json({ error: 'Candidate credentials not found' });
+    }
+
+    // Find candidate using email from credential
     const candidate = await prisma.candidate.findFirst({
       where: {
-        id: candidateId,
+        email: credential.email,
         assessmentId: assessmentId
       }
     });
 
     if (!candidate) {
-      return res.status(404).json({ error: 'Candidate not found' });
-    }
-
-    if (candidate.status === 'submitted') {
-      return res.status(400).json({ error: 'Assessment already submitted' });
+      return res.status(404).json({ error: 'Candidate not found or not assigned to this assessment' });
     }
 
     // Update candidate with current answers and time spent
-    await prisma.candidate.update({
-      where: { id: candidateId },
+    const updatedCandidate = await prisma.candidate.update({
+      where: { id: candidate.id }, // Use the internal database ID for update
       data: {
-        answers: answers,
-        timeSpent: timeSpent
+        answers: answers as any,
+        timeSpent: timeSpent,
+        updatedAt: new Date()
       }
     });
 
@@ -319,9 +350,19 @@ router.get('/:assessmentId/candidate/:candidateId/progress', async (req, res) =>
   try {
     const { assessmentId, candidateId } = req.params;
 
+    // Find credential first using external candidateId
+    const credential = await prisma.credential.findFirst({
+      where: { candidateId: candidateId }
+    });
+
+    if (!credential) {
+      return res.status(404).json({ error: 'Candidate credentials not found' });
+    }
+
+    // Find candidate using email from credential
     const candidate = await prisma.candidate.findFirst({
       where: {
-        id: candidateId,
+        email: credential.email,
         assessmentId: assessmentId
       },
       include: {

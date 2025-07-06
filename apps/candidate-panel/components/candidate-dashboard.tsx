@@ -57,7 +57,7 @@ export default function CandidateDashboard({ candidateData, onStartAssessment, o
       const candidateId = candidateData.candidateId
       const email = candidateData.email
       
-      let apiUrl = 'http://localhost:5000/api/candidate/assessments'
+      let apiUrl = 'http://localhost:5000/api/candidate-assessment/assessments'
       if (candidateId) {
         apiUrl += `?candidateId=${encodeURIComponent(candidateId)}`
       } else if (email) {

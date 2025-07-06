@@ -87,7 +87,7 @@ export default function CandidateLogin({ onSuccess }: CandidateLoginProps) {
       }
       
       // Fetch assigned assessment for this candidate using the correct endpoint
-      const assessmentRes = await fetch(`http://localhost:5000/api/candidate/assessments?candidateId=${encodeURIComponent(formData.candidateId)}`, {
+      const assessmentRes = await fetch(`http://localhost:5000/api/candidate-assessment/assessments?candidateId=${encodeURIComponent(formData.candidateId)}`, {
         headers: {
           'Content-Type': 'application/json'
         }

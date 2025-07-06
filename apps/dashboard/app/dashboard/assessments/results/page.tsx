@@ -42,7 +42,7 @@ import {
   Zap
 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
-import { assessmentsApi } from "@/lib/api/api"
+import { assessmentsApi, candidatesApi } from "@/lib/api"
 
 interface CandidateResult {
   id: string
@@ -164,13 +164,7 @@ export default function ResultsPage() {
     
     setResultsLoading(true)
     try {
-      const response = await fetch(`http://localhost:5000/api/admin/candidates?assessmentId=${selectedAssessment}`, {
-        credentials: 'include',
-      })
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`)
-      }
-      const data = await response.json()
+      const data = await candidatesApi.getByAssessment(selectedAssessment)
       
       // Transform data to include results
       const resultsData = Array.isArray(data) ? data.map((candidate: any) => ({
@@ -231,7 +225,7 @@ export default function ResultsPage() {
   }
 
   const generateAnalytics = (results: CandidateResult[]) => {
-    const completed = results.filter(r => r.status === 'completed')
+    const completed = results.filter(r => r.status === 'submitted')
     const totalCandidates = results.length
     const completedCandidates = completed.length
     
@@ -296,6 +290,7 @@ export default function ResultsPage() {
     const colors = {
       invited: "bg-blue-500/20 text-blue-400 border-blue-500/30",
       started: "bg-yellow-500/20 text-yellow-400 border-yellow-500/30",
+      submitted: "bg-green-500/20 text-green-400 border-green-500/30",
       completed: "bg-green-500/20 text-green-400 border-green-500/30",
       expired: "bg-red-500/20 text-red-400 border-red-500/30",
     }

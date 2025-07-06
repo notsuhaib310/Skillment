@@ -90,7 +90,7 @@ export default function CandidatePanel() {
   const handleSubmitAssessment = async () => {
     try {
       console.log('Submitting assessment with data:', {
-        candidateId: candidateData?.id,
+        candidateId: candidateData?.candidateId || candidateData?.id,
         assessmentId: assessmentData?.id,
         answers: answers
       })
@@ -134,7 +134,9 @@ export default function CandidatePanel() {
       
       console.log('Formatted submission data:', submissionData)
       
-      const response = await fetch(`http://localhost:5000/api/candidate-assessment/${assessmentData?.id}/candidate/${candidateData?.id}/submit`, {
+      // Use candidateId (external ID) instead of id (internal database ID)
+      const candidateId = candidateData?.candidateId || candidateData?.id
+      const response = await fetch(`http://localhost:5000/api/candidate-assessment/${assessmentData?.id}/candidate/${candidateId}/submit`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'

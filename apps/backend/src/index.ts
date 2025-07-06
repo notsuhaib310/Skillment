@@ -55,7 +55,7 @@ app.use('/api/candidates', candidatePublicRouter);
 app.use('/api/proctoring', proctoringRouter);
 // IMPORTANT: Do NOT apply any global authentication middleware here.
 // /api/candidates/login must remain public for candidate login to work.
-app.use('/api/candidate', candidateAssessmentRouter);
+app.use('/api/candidate-assessment', candidateAssessmentRouter);
 app.use('/api/assessments', assessmentRouter);
 app.use('/api/auth', authRouter);
 app.use('/api/users', userRouter);
