@@ -580,15 +580,15 @@ export function CreateAssessmentPage({ onBack }: CreateAssessmentPageProps) {
               </TabsList>
 
               <TabsContent value="mcq" className="space-y-6">
-                <MCQQuestionBuilder onAddQuestion={(q) => setQuestions((prev) => [...prev, { ...q, type: "mcq", id: Date.now().toString(), order: prev.length + 1 }])} />
-                {questions.filter((q) => q.type === "mcq").length > 0 && (
+                <MCQQuestionBuilder onAddQuestion={(q) => setQuestions((prev) => [...prev, { ...q, type: "multiple_choice", id: Date.now().toString(), order: prev.length + 1 }])} />
+                {questions.filter((q) => q.type === "multiple_choice" || q.type === "mcq").length > 0 && (
                   <div className="space-y-2">
                     <h4 className="font-semibold">
-                      Added MCQ Questions ({questions.filter((q) => q.type === "mcq").length})
+                      Added MCQ Questions ({questions.filter((q) => q.type === "multiple_choice" || q.type === "mcq").length})
                     </h4>
                     <ul className="space-y-2">
                       {questions
-                        .filter((q) => q.type === "mcq")
+                        .filter((q) => q.type === "multiple_choice" || q.type === "mcq")
                         .map((q, idx) => (
                           <li key={idx} className="border-b pb-2">
                             <div className="font-semibold">

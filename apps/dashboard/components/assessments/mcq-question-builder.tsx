@@ -32,6 +32,12 @@ interface MCQQuestion {
   tags: string[]
   multipleCorrect: boolean
   type?: string
+  mcqData?: {
+    question: string
+    options: MCQOption[]
+    explanation: string
+    multipleCorrect: boolean
+  }
 }
 
 interface MCQQuestionBuilderProps {
@@ -53,6 +59,12 @@ export function MCQQuestionBuilder({ onAddQuestion }: MCQQuestionBuilderProps) {
     marks: 1,
     tags: [],
     multipleCorrect: false,
+    mcqData: {
+      question: "",
+      options: [],
+      explanation: "",
+      multipleCorrect: false,
+    },
   })
 
   const [aiPanel, setAiPanel] = useState({
@@ -139,7 +151,13 @@ export function MCQQuestionBuilder({ onAddQuestion }: MCQQuestionBuilderProps) {
     const questionWithId = {
       ...currentQuestion,
       id: Date.now().toString(),
-      type: 'mcq', // Ensure type is set correctly
+      type: 'multiple_choice', // Ensure type is set correctly
+      mcqData: {
+        question: currentQuestion.question,
+        options: currentQuestion.options,
+        explanation: currentQuestion.explanation,
+        multipleCorrect: currentQuestion.multipleCorrect,
+      },
     }
 
     onAddQuestion(questionWithId);
@@ -159,7 +177,13 @@ export function MCQQuestionBuilder({ onAddQuestion }: MCQQuestionBuilderProps) {
       marks: 1,
       tags: [],
       multipleCorrect: false,
-      type: "mcq",
+      type: "multiple_choice",
+      mcqData: {
+        question: "",
+        options: [],
+        explanation: "",
+        multipleCorrect: false,
+      },
     });
 
     toast({
@@ -215,6 +239,12 @@ export function MCQQuestionBuilder({ onAddQuestion }: MCQQuestionBuilderProps) {
       marks: 1,
       tags: suggestion.tags || [],
       multipleCorrect: false,
+      mcqData: {
+        question: suggestion.question,
+        options: formattedOptions,
+        explanation: suggestion.explanation || "",
+        multipleCorrect: false,
+      },
     })
 
     toast({

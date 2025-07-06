@@ -204,9 +204,14 @@ router.get('/:assessmentId/candidate/:candidateId', async (req, res) => {
 
         // Add MCQ specific data
         if (q.type === 'multiple_choice') {
+          console.log(`Debug: MCQ Question ${q.id}:`);
+          console.log(`  mcqData:`, q.mcqData);
+          console.log(`  options:`, q.options);
+          
           // First try to get from mcqData (new format)
           if (q.mcqData) {
             const mcqData = q.mcqData as unknown as MCQQuestionData;
+            console.log(`  Using mcqData format:`, mcqData);
             baseQuestion.options = mcqData.options.map(opt => ({
               id: opt.id,
               text: opt.text
@@ -215,14 +220,16 @@ router.get('/:assessmentId/candidate/:candidateId', async (req, res) => {
           } 
           // Fallback to legacy options field
           else if (q.options && Array.isArray(q.options)) {
+            console.log(`  Using legacy options format:`, q.options);
             baseQuestion.options = (q.options as any[]).map((opt, index) => ({
               id: opt.id || `option-${index}`,
               text: opt.text || opt
             }));
             baseQuestion.multipleCorrect = false;
           }
-          // Last resort: create placeholder options if none exist
+          // Create placeholder options if none exist
           else {
+            console.log(`  No options found, creating placeholders`);
             baseQuestion.options = [
               { id: 'opt1', text: 'Option A' },
               { id: 'opt2', text: 'Option B' },
@@ -230,8 +237,9 @@ router.get('/:assessmentId/candidate/:candidateId', async (req, res) => {
               { id: 'opt4', text: 'Option D' }
             ];
             baseQuestion.multipleCorrect = false;
-            console.warn(`Question ${q.id} has no options data, using placeholder options`);
           }
+          
+          console.log(`  Final options:`, baseQuestion.options);
         }
 
         // Add coding specific data

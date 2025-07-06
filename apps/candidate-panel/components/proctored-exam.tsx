@@ -655,47 +655,47 @@ export default function ProctoredExam({ candidateData, systemStatus, onComplete 
                         }
                         
                         return (
-                          <div
-                            key={index}
-                            className="flex items-center space-x-4 p-4 rounded-lg border border-[#2a2d31] hover:border-[#ff4d00]/30 hover:bg-[#ff4d00]/5 transition-colors cursor-pointer"
-                          >
-                            <RadioGroupItem
+                    <div
+                      key={index}
+                      className="flex items-center space-x-4 p-4 rounded-lg border border-[#2a2d31] hover:border-[#ff4d00]/30 hover:bg-[#ff4d00]/5 transition-colors cursor-pointer"
+                    >
+                      <RadioGroupItem
                               value={optionValue}
-                              id={`option-${index}`}
-                              className="border-gray-500 text-[#ff4d00]"
-                            />
-                            <Label htmlFor={`option-${index}`} className="flex-1 text-gray-200 cursor-pointer text-lg">
+                        id={`option-${index}`}
+                        className="border-gray-500 text-[#ff4d00]"
+                      />
+                      <Label htmlFor={`option-${index}`} className="flex-1 text-gray-200 cursor-pointer text-lg">
                               <span className="font-medium mr-2">{String.fromCharCode(65 + index)}.</span>
                               {optionText}
-                            </Label>
-                          </div>
+                      </Label>
+                    </div>
                         );
                       })}
                 </RadioGroup>
-                  ) : (
-                    <div className="space-y-4">
-                      <div className="relative">
-                        <input
-                          type="text"
-                          value={currentAnswer}
-                          onChange={(e) => handleFillAnswerChange(e.target.value)}
+              ) : (
+                <div className="space-y-4">
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={currentAnswer}
+                      onChange={(e) => handleFillAnswerChange(e.target.value)}
                           placeholder="Enter your answer here"
-                          className="w-full p-4 bg-[#2a2d31] border border-[#3a3d41] rounded-lg text-white placeholder-gray-400 focus:border-[#ff4d00] focus:outline-none text-lg"
-                        />
-                        {savedAnswers[currentQuestion] && (
-                          <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
-                            <Badge className="bg-green-900/30 text-green-400 border-green-500/30 text-xs">Saved</Badge>
-                          </div>
-                        )}
+                      className="w-full p-4 bg-[#2a2d31] border border-[#3a3d41] rounded-lg text-white placeholder-gray-400 focus:border-[#ff4d00] focus:outline-none text-lg"
+                    />
+                    {savedAnswers[currentQuestion] && (
+                      <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                        <Badge className="bg-green-900/30 text-green-400 border-green-500/30 text-xs">Saved</Badge>
                       </div>
-                      <Button
-                        id="save-btn"
-                        onClick={saveAnswer}
-                        variant="outline"
-                        className="border-[#ff4d00] text-[#ff4d00] hover:bg-[#ff4d00]/10"
-                      >
-                        Save Answer
-                      </Button>
+                    )}
+                  </div>
+                  <Button
+                    id="save-btn"
+                    onClick={saveAnswer}
+                    variant="outline"
+                    className="border-[#ff4d00] text-[#ff4d00] hover:bg-[#ff4d00]/10"
+                  >
+                    Save Answer
+                  </Button>
                     </div>
                   )}
                 </>

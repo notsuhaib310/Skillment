@@ -42,14 +42,37 @@ export class CandidateController {
           continue; // Skip if already exists
         }
 
-        // Generate candidate ID and password
-        const candidateId = `CAND${Date.now()}${Math.random().toString(36).substr(2, 4).toUpperCase()}`;
-        const password = Math.random().toString(36).slice(-8);
-        const hashedPassword = await bcrypt.hash(password, 10);
-        
-        console.log(`Creating candidate with ID: ${candidateId}, Password: ${password}`);
+        // Check if credential already exists for this email
+        let credential = await prisma.credential.findFirst({
+          where: { email: email }
+        });
 
-        // Create candidate
+        let candidateId, password;
+
+        if (credential) {
+          // Reuse existing credential
+          candidateId = credential.candidateId;
+          password = 'Use existing password'; // Don't regenerate password
+          console.log(`Reusing existing credential for ${email}: ${candidateId}`);
+        } else {
+          // Generate new candidate ID and password only if no credential exists
+          candidateId = `CAND${Date.now()}${Math.random().toString(36).substr(2, 4).toUpperCase()}`;
+          password = Math.random().toString(36).slice(-8);
+          const hashedPassword = await bcrypt.hash(password, 10);
+          
+          console.log(`Creating new credential for ${email}: ID: ${candidateId}, Password: ${password}`);
+
+          // Create new credential
+          credential = await prisma.credential.create({
+            data: {
+              candidateId: candidateId,
+              email: email,
+              passwordHash: hashedPassword
+            }
+          });
+        }
+
+        // Create candidate (always create new candidate record for each assessment)
         const candidate = await prisma.candidate.create({
           data: {
             name: name,
@@ -58,15 +81,6 @@ export class CandidateController {
             status: 'invited',
             allottedAt: new Date(),
             allottedBy: req.user?.id || 'system'
-          }
-        });
-
-        // Create credential
-        await prisma.credential.create({
-          data: {
-            candidateId: candidateId, // Store the display ID (CAND123456) for login
-            email: email,
-            passwordHash: hashedPassword
           }
         });
 
@@ -101,36 +115,68 @@ export class CandidateController {
 
         // Send email with credentials
         try {
-          await emailService.sendCandidateCredentialEmail(
-            {
-              id: candidate.id,
-              name: name,
-              email: email,
-              assessmentId: assessmentId
-            },
-            password,
-            candidateId,
-            assessment.title
-          );
+          if (password === 'Use existing password') {
+            // For existing credentials, send email without password
+            await emailService.sendCandidateCredentialEmail(
+              {
+                id: candidate.id,
+                name: name,
+                email: email,
+                assessmentId: assessmentId
+              },
+              null, // Don't send password for existing credentials
+              candidateId,
+              assessment.title,
+              true // Flag indicating this is for additional assessment
+            );
 
-          // Log email sending
-          await prisma.emailLog.create({
-            data: {
-              to: email,
-              candidateId: candidate.id,
-              assessmentId: assessmentId,
-              subject: `Assessment Invitation - ${assessment.title}`,
-              body: `Your credentials: ID: ${candidateId}, Password: ${password}`,
-              status: 'sent',
-              sentAt: new Date(),
-              createdById: req.user?.id || 'system'
-            }
-          });
+            // Log email sending for existing credentials
+            await prisma.emailLog.create({
+              data: {
+                to: email,
+                candidateId: candidate.id,
+                assessmentId: assessmentId,
+                subject: `New Assessment Invitation - ${assessment.title}`,
+                body: `You have been invited to a new assessment: ${assessment.title}. Use your existing credentials with ID: ${candidateId}`,
+                status: 'sent',
+                sentAt: new Date(),
+                createdById: req.user?.id || 'system'
+              }
+            });
+          } else {
+            // For new credentials, send email with password
+            await emailService.sendCandidateCredentialEmail(
+              {
+                id: candidate.id,
+                name: name,
+                email: email,
+                assessmentId: assessmentId
+              },
+              password,
+              candidateId,
+              assessment.title
+            );
+
+            // Log email sending for new credentials
+            await prisma.emailLog.create({
+              data: {
+                to: email,
+                candidateId: candidate.id,
+                assessmentId: assessmentId,
+                subject: `Assessment Invitation - ${assessment.title}`,
+                body: `Your credentials: ID: ${candidateId}, Password: ${password}`,
+                status: 'sent',
+                sentAt: new Date(),
+                createdById: req.user?.id || 'system'
+              }
+            });
+          }
 
           createdCandidates.push({
             ...candidate,
             candidateId: candidateId,
-            password: password // Only for response, not stored
+            password: password === 'Use existing password' ? '[Existing Password]' : password,
+            isExistingCredential: password === 'Use existing password'
           });
         } catch (emailError) {
           console.error('Email sending failed:', emailError);
@@ -138,7 +184,8 @@ export class CandidateController {
           createdCandidates.push({
             ...candidate,
             candidateId: candidateId,
-            password: password,
+            password: password === 'Use existing password' ? '[Existing Password]' : password,
+            isExistingCredential: password === 'Use existing password',
             emailError: 'Failed to send email'
           });
         }
