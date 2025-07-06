@@ -120,13 +120,16 @@ model Assessment {
   id                String              @id @default(cuid())
   title             String
   description       String?
+  instructions      String?             // NEW - Enhanced instructions field
   type              String
   status            String              @default("draft")
   duration          Int
   totalMarks        Int
+  passingMarks      Int                 @default(60) // NEW - Passing marks threshold
   totalQuestions    Int
   attemptLimit      Int                 @default(1)
   showResults       Boolean             @default(true)
+  showCorrectAnswers Boolean            @default(false) // NEW - Control answer visibility
   enableProctoring  Boolean             @default(false)
   randomizeQuestions Boolean            @default(false)
   randomizeOptions   Boolean            @default(false)
@@ -144,6 +147,7 @@ model Assessment {
   timeWarnings         Boolean   @default(true)
   autoSubmit           Boolean   @default(true)
   warningTimes         String?   // e.g. "30,15,5"
+  // Proctoring Configuration
   webcamMonitoring     Boolean   @default(false)
   screenRecording      Boolean   @default(false)
   tabSwitchDetection   Boolean   @default(false)
