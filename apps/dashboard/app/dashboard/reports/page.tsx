@@ -35,6 +35,7 @@ import {
   Settings
 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
+import { reportsApi } from "@/lib/api"
 
 interface ReportData {
   assessments: {
@@ -74,44 +75,163 @@ interface ReportData {
   }
 }
 
+interface PerformanceData {
+  topPerformers: {
+    name: string
+    score: number
+    assessment: string
+  }[]
+  scoreRanges: {
+    range: string
+    count: number
+    percentage: number
+  }[]
+  timeAnalytics: {
+    averageTime: number
+    fastestTime: number
+    slowestTime: number
+    under30MinPercentage: number
+  }
+}
+
+interface SecurityData {
+  securityMetrics: {
+    lowRisk: number
+    mediumRisk: number
+    highRisk: number
+    totalViolations: number
+    proctoringSuccessRate: number
+    falsePositiveRate: number
+  }
+  violationBreakdown: {
+    type: string
+    count: number
+    severity: string
+  }[]
+}
+
 export default function ReportsPage() {
-  const [reportData, setReportData] = useState<ReportData>({
-    assessments: { total: 45, published: 38, draft: 7, completed: 32 },
-    candidates: { total: 1247, active: 234, completed: 856, inProgress: 157 },
-    performance: { averageScore: 78.5, passRate: 82.3, completionRate: 89.7, averageTime: 42.3 },
-    trends: [
-      { month: "Jan", assessments: 12, candidates: 156, averageScore: 75.2 },
-      { month: "Feb", assessments: 15, candidates: 189, averageScore: 78.1 },
-      { month: "Mar", assessments: 18, candidates: 223, averageScore: 81.4 },
-      { month: "Apr", assessments: 22, candidates: 267, averageScore: 79.8 },
-      { month: "May", assessments: 25, candidates: 298, averageScore: 82.1 },
-      { month: "Jun", assessments: 28, candidates: 314, averageScore: 84.3 }
-    ],
-    deviceBreakdown: { desktop: 68, mobile: 22, tablet: 10 },
-    securityMetrics: { lowRisk: 892, mediumRisk: 234, highRisk: 67, totalViolations: 156 }
-  })
-  
+  const [reportData, setReportData] = useState<ReportData | null>(null)
+  const [performanceData, setPerformanceData] = useState<PerformanceData | null>(null)
+  const [securityData, setSecurityData] = useState<SecurityData | null>(null)
   const [selectedDateRange, setSelectedDateRange] = useState("last30days")
   const [selectedAssessmentType, setSelectedAssessmentType] = useState("all")
-  const [loading, setLoading] = useState(false)
+  const [selectedStatus, setSelectedStatus] = useState("all")
+  const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
   const { toast } = useToast()
 
-  const refreshReports = async () => {
-    setLoading(true)
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1000))
-    setLoading(false)
-    toast({
-      title: "Reports Updated",
-      description: "Latest data has been loaded successfully.",
-    })
+  // Load initial data
+  useEffect(() => {
+    loadReportsData()
+  }, [])
+
+  const loadReportsData = async () => {
+    try {
+      setLoading(true)
+      
+      // Load overview data
+      const overviewData = await reportsApi.getOverview({
+        dateRange: selectedDateRange,
+        assessmentType: selectedAssessmentType,
+        status: selectedStatus
+      })
+      setReportData(overviewData)
+      
+      // Load performance data
+      const perfData = await reportsApi.getPerformanceAnalytics({
+        dateRange: selectedDateRange,
+        assessmentType: selectedAssessmentType
+      })
+      setPerformanceData(perfData)
+      
+      // Load security data
+      const secData = await reportsApi.getSecurityAnalytics({
+        dateRange: selectedDateRange,
+        assessmentType: selectedAssessmentType
+      })
+      setSecurityData(secData)
+      
+    } catch (error) {
+      console.error('Error loading reports data:', error)
+      toast({
+        title: "Error",
+        description: "Failed to load reports data. Please try again.",
+        variant: "destructive"
+      })
+    } finally {
+      setLoading(false)
+    }
   }
 
-  const exportReport = (type: string) => {
-    toast({
-      title: "Export Started",
-      description: `${type} report is being generated and will be downloaded shortly.`,
-    })
+  const refreshReports = async () => {
+    setRefreshing(true)
+    try {
+      await loadReportsData()
+      toast({
+        title: "Reports Updated",
+        description: "Latest data has been loaded successfully.",
+      })
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to refresh reports data.",
+        variant: "destructive"
+      })
+    } finally {
+      setRefreshing(false)
+    }
+  }
+
+  const applyFilters = () => {
+    loadReportsData()
+  }
+
+  const exportReport = async (reportType: string) => {
+    try {
+      const response = await reportsApi.exportReport({
+        reportType,
+        format: 'pdf',
+        dateRange: selectedDateRange,
+        assessmentType: selectedAssessmentType
+      })
+      
+      toast({
+        title: "Export Started",
+        description: `${reportType} report is being generated and will be available shortly.`,
+      })
+    } catch (error) {
+      toast({
+        title: "Export Failed",
+        description: "Failed to generate report. Please try again.",
+        variant: "destructive"
+      })
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center space-y-4">
+          <RefreshCw className="h-8 w-8 animate-spin mx-auto" />
+          <p className="text-muted-foreground">Loading reports data...</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (!reportData) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center space-y-4">
+          <AlertTriangle className="h-8 w-8 text-red-500 mx-auto" />
+          <p className="text-muted-foreground">Failed to load reports data</p>
+          <Button onClick={loadReportsData} variant="outline">
+            Try Again
+          </Button>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -127,8 +247,8 @@ export default function ReportsPage() {
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <Button onClick={refreshReports} variant="outline" disabled={loading} className="rounded-xl">
-            <RefreshCw className={`mr-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+          <Button onClick={refreshReports} variant="outline" disabled={refreshing} className="rounded-xl">
+            <RefreshCw className={`mr-2 h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
             Refresh
           </Button>
           <Button onClick={() => exportReport("Complete")} className="rounded-xl primary-gradient">
@@ -159,7 +279,6 @@ export default function ReportsPage() {
                   <SelectItem value="last30days">Last 30 Days</SelectItem>
                   <SelectItem value="last90days">Last 90 Days</SelectItem>
                   <SelectItem value="last12months">Last 12 Months</SelectItem>
-                  <SelectItem value="custom">Custom Range</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -179,7 +298,7 @@ export default function ReportsPage() {
             </div>
             <div className="space-y-2">
               <Label>Status</Label>
-              <Select defaultValue="all">
+              <Select value={selectedStatus} onValueChange={setSelectedStatus}>
                 <SelectTrigger className="rounded-xl">
                   <SelectValue />
                 </SelectTrigger>
@@ -192,7 +311,7 @@ export default function ReportsPage() {
               </Select>
             </div>
             <div className="flex items-end">
-              <Button variant="outline" className="w-full rounded-xl">
+              <Button onClick={applyFilters} variant="outline" className="w-full rounded-xl">
                 <Eye className="mr-2 h-4 w-4" />
                 Apply Filters
               </Button>
@@ -233,9 +352,9 @@ export default function ReportsPage() {
           <CardContent>
             <div className="text-3xl font-bold text-foreground">{reportData.candidates.total.toLocaleString()}</div>
             <div className="flex items-center gap-2 mt-2">
-              <Progress value={(reportData.candidates.completed / reportData.candidates.total) * 100} className="flex-1 h-2" />
+              <Progress value={reportData.candidates.total > 0 ? (reportData.candidates.completed / reportData.candidates.total) * 100 : 0} className="flex-1 h-2" />
               <span className="text-xs text-muted-foreground">
-                {Math.round((reportData.candidates.completed / reportData.candidates.total) * 100)}% Complete
+                {reportData.candidates.total > 0 ? Math.round((reportData.candidates.completed / reportData.candidates.total) * 100) : 0}% Complete
               </span>
             </div>
           </CardContent>
@@ -252,7 +371,12 @@ export default function ReportsPage() {
             <div className="text-3xl font-bold text-emerald-400">{reportData.performance.averageScore}%</div>
             <div className="flex items-center gap-2 mt-2">
               <TrendingUp className="h-4 w-4 text-emerald-400" />
-              <span className="text-xs text-emerald-400">+2.3% vs last period</span>
+              <span className="text-xs text-emerald-400">
+                {reportData.trends.length >= 2 ? 
+                  `${reportData.trends[reportData.trends.length - 1].averageScore > reportData.trends[reportData.trends.length - 2].averageScore ? '+' : ''}${(reportData.trends[reportData.trends.length - 1].averageScore - reportData.trends[reportData.trends.length - 2].averageScore).toFixed(1)}% vs last period` :
+                  'No trend data'
+                }
+              </span>
             </div>
           </CardContent>
         </Card>
@@ -299,24 +423,30 @@ export default function ReportsPage() {
                 <div className="space-y-4">
                   <div className="space-y-3">
                     <div className="flex items-center justify-between">
-                      <span className="text-sm">MCQ Assessments</span>
-                      <span className="font-bold">45%</span>
+                      <span className="text-sm">Published</span>
+                      <span className="font-bold">
+                        {reportData.assessments.total > 0 ? Math.round((reportData.assessments.published / reportData.assessments.total) * 100) : 0}%
+                      </span>
                     </div>
-                    <Progress value={45} className="h-2" />
+                    <Progress value={reportData.assessments.total > 0 ? (reportData.assessments.published / reportData.assessments.total) * 100 : 0} className="h-2" />
                   </div>
                   <div className="space-y-3">
                     <div className="flex items-center justify-between">
-                      <span className="text-sm">Coding Assessments</span>
-                      <span className="font-bold">35%</span>
+                      <span className="text-sm">Draft</span>
+                      <span className="font-bold">
+                        {reportData.assessments.total > 0 ? Math.round((reportData.assessments.draft / reportData.assessments.total) * 100) : 0}%
+                      </span>
                     </div>
-                    <Progress value={35} className="h-2" />
+                    <Progress value={reportData.assessments.total > 0 ? (reportData.assessments.draft / reportData.assessments.total) * 100 : 0} className="h-2" />
                   </div>
                   <div className="space-y-3">
                     <div className="flex items-center justify-between">
-                      <span className="text-sm">Hybrid Assessments</span>
-                      <span className="font-bold">20%</span>
+                      <span className="text-sm">Completed</span>
+                      <span className="font-bold">
+                        {reportData.assessments.total > 0 ? Math.round((reportData.assessments.completed / reportData.assessments.total) * 100) : 0}%
+                      </span>
                     </div>
-                    <Progress value={20} className="h-2" />
+                    <Progress value={reportData.assessments.total > 0 ? (reportData.assessments.completed / reportData.assessments.total) * 100 : 0} className="h-2" />
                   </div>
                 </div>
               </CardContent>
@@ -399,189 +529,176 @@ export default function ReportsPage() {
         </TabsContent>
 
         <TabsContent value="performance" className="space-y-6">
-          <div className="grid gap-6 md:grid-cols-3">
-            <Card className="card-gradient rounded-3xl border-border/40 shadow-xl">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Trophy className="h-5 w-5 text-yellow-500" />
-                  Top Performers
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {[
-                    { name: "Alice Johnson", score: 97, assessment: "JavaScript Advanced" },
-                    { name: "Bob Smith", score: 94, assessment: "React Fundamentals" },
-                    { name: "Carol Davis", score: 92, assessment: "Node.js Backend" },
-                    { name: "David Wilson", score: 91, assessment: "Python Data Science" },
-                    { name: "Eve Brown", score: 89, assessment: "Java Spring Boot" }
-                  ].map((performer, index) => (
-                    <div key={index} className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-xl bg-gradient-to-r from-primary to-orange-600 flex items-center justify-center text-white font-bold text-sm">
-                          {index + 1}
+          {performanceData && (
+            <div className="grid gap-6 md:grid-cols-3">
+              <Card className="card-gradient rounded-3xl border-border/40 shadow-xl">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Trophy className="h-5 w-5 text-yellow-500" />
+                    Top Performers
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    {performanceData.topPerformers.length > 0 ? (
+                      performanceData.topPerformers.map((performer, index) => (
+                        <div key={index} className="flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 rounded-xl bg-gradient-to-r from-primary to-orange-600 flex items-center justify-center text-white font-bold text-sm">
+                              {index + 1}
+                            </div>
+                            <div>
+                              <div className="font-medium">{performer.name}</div>
+                              <div className="text-xs text-muted-foreground">{performer.assessment}</div>
+                            </div>
+                          </div>
+                          <div className="font-bold text-green-600">{performer.score}%</div>
                         </div>
-                        <div>
-                          <div className="font-medium">{performer.name}</div>
-                          <div className="text-xs text-muted-foreground">{performer.assessment}</div>
+                      ))
+                    ) : (
+                      <div className="text-center py-8 text-muted-foreground">
+                        No performance data available
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="card-gradient rounded-3xl border-border/40 shadow-xl">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <BarChart3 className="h-5 w-5 text-blue-500" />
+                    Score Ranges
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    {performanceData.scoreRanges.map((range, index) => (
+                      <div key={index} className="space-y-2">
+                        <div className="flex justify-between text-sm">
+                          <span>{range.range}</span>
+                          <span>{range.count} candidates ({range.percentage}%)</span>
                         </div>
+                        <Progress value={range.percentage} className="h-2" />
                       </div>
-                      <div className="font-bold text-green-600">{performer.score}%</div>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
 
-            <Card className="card-gradient rounded-3xl border-border/40 shadow-xl">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <BarChart3 className="h-5 w-5 text-blue-500" />
-                  Score Ranges
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {[
-                    { range: "90-100%", count: 156, percentage: 18 },
-                    { range: "80-89%", count: 234, percentage: 27 },
-                    { range: "70-79%", count: 289, percentage: 33 },
-                    { range: "60-69%", count: 178, percentage: 15 },
-                    { range: "Below 60%", count: 67, percentage: 7 }
-                  ].map((range, index) => (
-                    <div key={index} className="space-y-2">
-                      <div className="flex justify-between text-sm">
-                        <span>{range.range}</span>
-                        <span>{range.count} candidates ({range.percentage}%)</span>
-                      </div>
-                      <Progress value={range.percentage} className="h-2" />
+              <Card className="card-gradient rounded-3xl border-border/40 shadow-xl">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Clock className="h-5 w-5 text-purple-500" />
+                    Time Analytics
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    <div className="flex justify-between">
+                      <span>Average Completion Time</span>
+                      <span className="font-bold">{performanceData.timeAnalytics.averageTime}m</span>
                     </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="card-gradient rounded-3xl border-border/40 shadow-xl">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Clock className="h-5 w-5 text-purple-500" />
-                  Time Analytics
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div className="flex justify-between">
-                    <span>Average Completion Time</span>
-                    <span className="font-bold">{reportData.performance.averageTime}m</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Fastest Completion</span>
-                    <span className="font-bold text-green-500">18m</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Slowest Completion</span>
-                    <span className="font-bold text-red-500">89m</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Time Efficiency</span>
-                    <span className="font-bold text-blue-500">78%</span>
-                  </div>
-                  <div className="space-y-2 pt-2 border-t">
-                    <span className="text-sm font-medium">Completion Rate by Time</span>
-                    <div className="space-y-2">
-                      <div className="flex justify-between text-xs">
-                        <span>Under 30min</span>
-                        <span>45%</span>
+                    <div className="flex justify-between">
+                      <span>Fastest Completion</span>
+                      <span className="font-bold text-green-500">{performanceData.timeAnalytics.fastestTime}m</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Slowest Completion</span>
+                      <span className="font-bold text-red-500">{performanceData.timeAnalytics.slowestTime}m</span>
+                    </div>
+                    <div className="space-y-2 pt-2 border-t">
+                      <span className="text-sm font-medium">Completion Rate by Time</span>
+                      <div className="space-y-2">
+                        <div className="flex justify-between text-xs">
+                          <span>Under 30min</span>
+                          <span>{performanceData.timeAnalytics.under30MinPercentage}%</span>
+                        </div>
+                        <Progress value={performanceData.timeAnalytics.under30MinPercentage} className="h-1" />
                       </div>
-                      <Progress value={45} className="h-1" />
                     </div>
                   </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
+                </CardContent>
+              </Card>
+            </div>
+          )}
         </TabsContent>
 
         <TabsContent value="security" className="space-y-6">
-          <div className="grid gap-6 md:grid-cols-2">
-            <Card className="card-gradient rounded-3xl border-border/40 shadow-xl">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Shield className="h-5 w-5 text-blue-500" />
-                  Security Risk Overview
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-6">
-                  <div className="grid grid-cols-3 gap-4 text-center">
-                    <div>
-                      <div className="text-2xl font-bold text-green-500">{reportData.securityMetrics.lowRisk}</div>
-                      <div className="text-sm text-muted-foreground">Low Risk</div>
-                    </div>
-                    <div>
-                      <div className="text-2xl font-bold text-orange-500">{reportData.securityMetrics.mediumRisk}</div>
-                      <div className="text-sm text-muted-foreground">Medium Risk</div>
-                    </div>
-                    <div>
-                      <div className="text-2xl font-bold text-red-500">{reportData.securityMetrics.highRisk}</div>
-                      <div className="text-sm text-muted-foreground">High Risk</div>
-                    </div>
-                  </div>
-                  
-                  <div className="space-y-3">
-                    <div className="flex justify-between">
-                      <span>Total Violations Detected</span>
-                      <Badge variant="destructive" className="rounded-xl">
-                        {reportData.securityMetrics.totalViolations}
-                      </Badge>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Proctoring Success Rate</span>
-                      <span className="font-bold text-green-500">94.7%</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>False Positive Rate</span>
-                      <span className="font-bold text-blue-500">2.1%</span>
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="card-gradient rounded-3xl border-border/40 shadow-xl">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <AlertTriangle className="h-5 w-5 text-orange-500" />
-                  Violation Breakdown
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {[
-                    { type: "Tab Switching", count: 45, severity: "medium" },
-                    { type: "Copy/Paste Attempts", count: 23, severity: "high" },
-                    { type: "Multiple Faces Detected", count: 18, severity: "high" },
-                    { type: "Fullscreen Exit", count: 34, severity: "medium" },
-                    { type: "Right-click Disabled", count: 12, severity: "low" },
-                    { type: "Phone/Device Detected", count: 8, severity: "high" }
-                  ].map((violation, index) => (
-                    <div key={index} className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <Badge 
-                          variant={violation.severity === "high" ? "destructive" : violation.severity === "medium" ? "secondary" : "outline"} 
-                          className="text-xs rounded-xl"
-                        >
-                          {violation.severity.toUpperCase()}
-                        </Badge>
-                        <span className="text-sm">{violation.type}</span>
+          {securityData && (
+            <div className="grid gap-6 md:grid-cols-2">
+              <Card className="card-gradient rounded-3xl border-border/40 shadow-xl">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Shield className="h-5 w-5 text-blue-500" />
+                    Security Risk Overview
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-6">
+                    <div className="grid grid-cols-3 gap-4 text-center">
+                      <div>
+                        <div className="text-2xl font-bold text-green-500">{securityData.securityMetrics.lowRisk}</div>
+                        <div className="text-sm text-muted-foreground">Low Risk</div>
                       </div>
-                      <div className="font-bold">{violation.count}</div>
+                      <div>
+                        <div className="text-2xl font-bold text-orange-500">{securityData.securityMetrics.mediumRisk}</div>
+                        <div className="text-sm text-muted-foreground">Medium Risk</div>
+                      </div>
+                      <div>
+                        <div className="text-2xl font-bold text-red-500">{securityData.securityMetrics.highRisk}</div>
+                        <div className="text-sm text-muted-foreground">High Risk</div>
+                      </div>
                     </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          </div>
+                    
+                    <div className="space-y-3">
+                      <div className="flex justify-between">
+                        <span>Total Violations Detected</span>
+                        <Badge variant="destructive" className="rounded-xl">
+                          {securityData.securityMetrics.totalViolations}
+                        </Badge>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Proctoring Success Rate</span>
+                        <span className="font-bold text-green-500">{securityData.securityMetrics.proctoringSuccessRate}%</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>False Positive Rate</span>
+                        <span className="font-bold text-blue-500">{securityData.securityMetrics.falsePositiveRate}%</span>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="card-gradient rounded-3xl border-border/40 shadow-xl">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <AlertTriangle className="h-5 w-5 text-orange-500" />
+                    Violation Breakdown
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    {securityData.violationBreakdown.map((violation, index) => (
+                      <div key={index} className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <Badge 
+                            variant={violation.severity === "high" ? "destructive" : violation.severity === "medium" ? "secondary" : "outline"} 
+                            className="text-xs rounded-xl"
+                          >
+                            {violation.severity.toUpperCase()}
+                          </Badge>
+                          <span className="text-sm">{violation.type}</span>
+                        </div>
+                        <div className="font-bold">{violation.count}</div>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          )}
         </TabsContent>
 
         <TabsContent value="trends" className="space-y-6">
