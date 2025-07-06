@@ -18,6 +18,68 @@ export default function ExamSummary({ results, onComplete }: ExamSummaryProps) {
   const [submitError, setSubmitError] = useState("")
   const [submitSuccess, setSubmitSuccess] = useState(false)
 
+  // Automatic fullscreen enforcement
+  useEffect(() => {
+    const enforceFullscreen = () => {
+      if (!document.fullscreenElement) {
+        // Instantly force back to fullscreen without any warnings
+        document.documentElement.requestFullscreen().catch((error) => {
+          console.log('Fullscreen enforcement failed:', error);
+          // Retry after a short delay
+          setTimeout(() => {
+            document.documentElement.requestFullscreen().catch(() => {
+              // If fullscreen completely fails, we still don't show warnings
+              console.log('Fullscreen enforcement retry failed');
+            });
+          }, 100);
+        });
+      }
+    };
+
+    // Force fullscreen on component mount
+    enforceFullscreen();
+
+    // Monitor fullscreen changes and instantly re-enter
+    const handleFullscreenChange = () => {
+      if (!document.fullscreenElement) {
+        // Use requestAnimationFrame for immediate execution
+        requestAnimationFrame(() => {
+          enforceFullscreen();
+        });
+      }
+    };
+
+    // Also monitor visibility changes (tab switches)
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        // When tab becomes visible again, ensure fullscreen
+        setTimeout(enforceFullscreen, 50);
+      }
+    };
+
+    // Add event listeners
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    // Block Escape key to prevent fullscreen exit
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' || e.key === 'F11') {
+        e.preventDefault();
+        e.stopPropagation();
+        return false;
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown, true);
+
+    // Cleanup
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      document.removeEventListener('keydown', handleKeyDown, true);
+    };
+  }, []);
+
   useEffect(() => {
     // Submit results to backend first
     submitResultsToBackend()
@@ -61,7 +123,11 @@ export default function ExamSummary({ results, onComplete }: ExamSummaryProps) {
         timestamp: results.timestamp || new Date().toISOString(),
       }
 
-      const response = await fetch(`http://localhost:5000/api/assessments/${selectedAssessment.id}/candidate/${candidateData.candidateId || candidateData.id}/submit`, {
+      console.log('📝 Submitting assessment data:', submissionData);
+      console.log('📋 Answers being submitted:', submissionData.answers);
+      console.log('🔑 Answer keys:', Object.keys(submissionData.answers || {}));
+
+      const response = await fetch(`http://localhost:5000/api/candidates/submit-assessment`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -71,11 +137,13 @@ export default function ExamSummary({ results, onComplete }: ExamSummaryProps) {
       })
 
       if (!response.ok) {
-        throw new Error('Failed to submit assessment results')
+        const errorData = await response.text();
+        console.error('❌ Submission failed:', response.status, errorData);
+        throw new Error(`Failed to submit assessment results: ${response.status} - ${errorData}`)
       }
 
       const responseData = await response.json()
-      console.log('Assessment submitted successfully:', responseData)
+      console.log('✅ Assessment submitted successfully:', responseData)
       setSubmitSuccess(true)
       
     } catch (error: any) {

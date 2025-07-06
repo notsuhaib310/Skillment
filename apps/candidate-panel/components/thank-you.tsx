@@ -15,27 +15,58 @@ export default function ThankYou({ candidateData, assessmentData, submissionResu
   const [countdown, setCountdown] = useState(5)
 
   useEffect(() => {
-    // Enter fullscreen for thank you message
-    document.documentElement.requestFullscreen().catch((error: any) => {
-      alert("Fullscreen required for thank you screen: " + (error?.message || error))
-    })
-    // Strict enforcement
+    // Automatic silent fullscreen enforcement
     const enforceFullscreen = () => {
       if (!document.fullscreenElement) {
-        document.documentElement.requestFullscreen().catch(() => {
-          alert("Fullscreen required for thank you screen. Please allow fullscreen mode.")
-        })
+        // Instantly force back to fullscreen without any warnings
+        document.documentElement.requestFullscreen().catch((error) => {
+          console.log('Fullscreen enforcement failed:', error);
+          // Retry after a short delay
+          setTimeout(() => {
+            document.documentElement.requestFullscreen().catch(() => {
+              // If fullscreen completely fails, we still don't show warnings
+              console.log('Fullscreen enforcement retry failed');
+            });
+          }, 100);
+        });
       }
-    }
-    document.addEventListener("fullscreenchange", enforceFullscreen)
-    document.addEventListener("keydown", (e) => {
-      if (e.key === "Escape" || e.key === "F11") {
-        e.preventDefault()
-        e.stopPropagation()
-        alert(`${e.key} key blocked (fullscreen exit attempt). Fullscreen is required.`)
-        return false
+    };
+
+    // Force fullscreen on component mount
+    enforceFullscreen();
+
+    // Monitor fullscreen changes and instantly re-enter
+    const handleFullscreenChange = () => {
+      if (!document.fullscreenElement) {
+        // Use requestAnimationFrame for immediate execution
+        requestAnimationFrame(() => {
+          enforceFullscreen();
+        });
       }
-    }, true)
+    };
+
+    // Also monitor visibility changes (tab switches)
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        // When tab becomes visible again, ensure fullscreen
+        setTimeout(enforceFullscreen, 50);
+      }
+    };
+
+    // Block Escape key to prevent fullscreen exit
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' || e.key === 'F11') {
+        e.preventDefault();
+        e.stopPropagation();
+        // No alerts - just silently block the key
+        return false;
+      }
+    };
+
+    // Add event listeners
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    document.addEventListener('keydown', handleKeyDown, true);
 
     // Countdown and auto-close
     const timer = setInterval(() => {
@@ -62,7 +93,12 @@ export default function ThankYou({ candidateData, assessmentData, submissionResu
       })
     }, 1000)
 
-    return () => clearInterval(timer)
+    return () => {
+      clearInterval(timer)
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      document.removeEventListener('keydown', handleKeyDown, true);
+    };
   }, [])
 
   return (

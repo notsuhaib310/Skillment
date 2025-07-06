@@ -254,19 +254,41 @@ export class CandidateController {
       }
 
       // Format questions for the frontend
-      const formattedQuestions = candidate.assessment.questions.map(q => ({
+      const formattedQuestions = candidate.assessment.questions.map(q => {
+        let questionOptions = [];
+        
+        // Handle both mcqData and legacy options format
+        if (q.type === 'multiple_choice') {
+          if (q.mcqData && typeof q.mcqData === 'object' && q.mcqData.options) {
+            questionOptions = q.mcqData.options;
+          } else if (q.options) {
+            questionOptions = Array.isArray(q.options) ? q.options : [];
+          }
+        }
+        
+        return {
+          id: q.id,
+          question: q.question,
+          type: q.type,
+          options: questionOptions,
+          correctAnswer: q.correctAnswer,
+          marks: q.marks,
+          order: q.order,
+          hints: q.hints || [],
+          explanation: q.explanation || '',
+          difficulty: q.difficulty || 'medium',
+          tags: q.tags || []
+        };
+      });
+
+      console.log('📋 Formatted questions for candidate:', candidateId);
+      console.log('🔍 Sample question format:', formattedQuestions[0]);
+      console.log('📊 MCQ questions with options:', formattedQuestions.filter(q => q.type === 'multiple_choice').map(q => ({
         id: q.id,
-        question: q.question,
-        type: q.type,
-        options: q.options || [],
-        correctAnswer: q.correctAnswer,
-        marks: q.marks,
-        order: q.order,
-        hints: q.hints || [],
-        explanation: q.explanation || '',
-        difficulty: q.difficulty || 'medium',
-        tags: q.tags || []
-      }));
+        hasOptions: q.options && q.options.length > 0,
+        optionsCount: q.options ? q.options.length : 0,
+        sampleOptions: q.options ? q.options.slice(0, 2) : []
+      })));
 
       return res.json({
         candidate: {
