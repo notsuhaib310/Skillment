@@ -259,22 +259,52 @@ export default function MCQExam({ assessment, onComplete, onBack }: MCQExamProps
                     onValueChange={handleAnswerChange}
                     className="space-y-3"
                   >
-                    {Object.entries(mcqData?.options || currentQuestion?.options).map(([key, value]: [string, any]) => (
-                      <div key={key} className="flex items-center space-x-3 p-3 rounded-lg hover:bg-white/5 border border-white/10">
-                        <RadioGroupItem 
-                          value={key} 
-                          id={key}
-                          className="border-white/30 text-white"
-                        />
-                        <Label 
-                          htmlFor={key} 
-                          className="text-white cursor-pointer flex-1"
-                        >
-                          <span className="font-medium mr-2">{key.toUpperCase()}.</span>
-                          {value}
-                        </Label>
-                      </div>
-                    ))}
+                    {(() => {
+                      const options = mcqData?.options || currentQuestion?.options;
+                      
+                      // Handle both array and object formats
+                      if (Array.isArray(options)) {
+                        return options.map((option: any, index: number) => {
+                          const optionId = option.id || `option-${index}`;
+                          const optionText = option.text || option.label || option;
+                          
+                          return (
+                            <div key={optionId} className="flex items-center space-x-3 p-3 rounded-lg hover:bg-white/5 border border-white/10">
+                              <RadioGroupItem 
+                                value={optionId} 
+                                id={optionId}
+                                className="border-white/30 text-white"
+                              />
+                              <Label 
+                                htmlFor={optionId} 
+                                className="text-white cursor-pointer flex-1"
+                              >
+                                <span className="font-medium mr-2">{String.fromCharCode(65 + index)}.</span>
+                                {optionText}
+                              </Label>
+                            </div>
+                          );
+                        });
+                      } else {
+                        // Handle object format (legacy)
+                        return Object.entries(options).map(([key, value]: [string, any]) => (
+                          <div key={key} className="flex items-center space-x-3 p-3 rounded-lg hover:bg-white/5 border border-white/10">
+                            <RadioGroupItem 
+                              value={key} 
+                              id={key}
+                              className="border-white/30 text-white"
+                            />
+                            <Label 
+                              htmlFor={key} 
+                              className="text-white cursor-pointer flex-1"
+                            >
+                              <span className="font-medium mr-2">{key.toUpperCase()}.</span>
+                              {value}
+                            </Label>
+                          </div>
+                        ));
+                      }
+                    })()}
                   </RadioGroup>
                 )}
 

@@ -34,26 +34,43 @@ export default function ProctoredExam({ candidateData, systemStatus, onComplete 
   const questions = candidateData?.assignedAssessment?.questions || []
   
   // Format questions to ensure they have proper structure
-  const formattedQuestions = questions.map((q: any, index: number) => ({
-    id: q.id || `q${index + 1}`,
-    question: q.question || '',
-    type: q.type || 'multiple_choice',
-    marks: q.marks || 1,
-    options: q.options || [],
-    timeLimit: q.timeLimit || 120, // 2 minutes default
-    difficulty: q.difficulty || 'Medium',
-    category: q.category || 'General',
-    explanation: q.explanation || '',
-    multipleCorrect: q.multipleCorrect || false,
-    // For backward compatibility, also check if options are in old format
-    ...(q.options && Array.isArray(q.options) ? {} : {
-      options: Object.keys(q.options || {}).map(key => ({
-        id: key,
-        text: q.options[key],
-        isCorrect: false // This will be determined by backend during scoring
-      }))
-    })
-  }))
+  const formattedQuestions = questions.map((q: any, index: number) => {
+    console.log(`Formatting question ${index + 1}:`, q); // Debug log
+    
+    // Handle different possible question structures
+    let options = [];
+    
+    if (q.options) {
+      // If options already exist (from backend formatting)
+      if (Array.isArray(q.options)) {
+        options = q.options;
+      } else if (typeof q.options === 'object') {
+        // Convert object to array (legacy format)
+        options = Object.entries(q.options).map(([key, value]) => ({
+          id: key,
+          text: value
+        }));
+      }
+    } else if (q.mcqData && q.mcqData.options) {
+      // Get from mcqData structure
+      options = q.mcqData.options;
+    }
+    
+    console.log(`Question ${index + 1} options:`, options); // Debug log
+    
+    return {
+      id: q.id || `q${index + 1}`,
+      question: q.question || '',
+      type: q.type || 'multiple_choice',
+      marks: q.marks || 1,
+      options: options,
+      timeLimit: q.timeLimit || 120, // 2 minutes default
+      difficulty: q.difficulty || 'Medium',
+      category: q.category || 'General',
+      explanation: q.explanation || '',
+      multipleCorrect: q.multipleCorrect || false
+    };
+  });
   
   // Debug logging disabled for security
   // console.log('Formatted questions for proctored exam:', formattedQuestions)
@@ -628,21 +645,35 @@ export default function ProctoredExam({ candidateData, systemStatus, onComplete 
                   onValueChange={handleAnswerChange}
                   className="space-y-4"
                 >
-                      {formattedQuestions[currentQuestion].options?.map((option: any, index: number) => (
-                    <div
-                      key={index}
-                      className="flex items-center space-x-4 p-4 rounded-lg border border-[#2a2d31] hover:border-[#ff4d00]/30 hover:bg-[#ff4d00]/5 transition-colors cursor-pointer"
-                    >
-                      <RadioGroupItem
-                            value={typeof option === 'string' ? option : option.text || option.id}
-                        id={`option-${index}`}
-                        className="border-gray-500 text-[#ff4d00]"
-                      />
-                      <Label htmlFor={`option-${index}`} className="flex-1 text-gray-200 cursor-pointer text-lg">
-                            {typeof option === 'string' ? option : option.text || option.id}
-                      </Label>
-                    </div>
-                  ))}
+                      {formattedQuestions[currentQuestion].options?.map((option: any, index: number) => {
+                        // Handle different option formats
+                        let optionValue = '';
+                        let optionText = '';
+                        
+                        if (typeof option === 'string') {
+                          optionValue = option;
+                          optionText = option;
+                        } else if (option && typeof option === 'object') {
+                          optionValue = option.id || option.value || `option-${index}`;
+                          optionText = option.text || option.label || option.id || option.value || `Option ${index + 1}`;
+                        }
+                        
+                        return (
+                          <div
+                            key={index}
+                            className="flex items-center space-x-4 p-4 rounded-lg border border-[#2a2d31] hover:border-[#ff4d00]/30 hover:bg-[#ff4d00]/5 transition-colors cursor-pointer"
+                          >
+                            <RadioGroupItem
+                              value={optionValue}
+                              id={`option-${index}`}
+                              className="border-gray-500 text-[#ff4d00]"
+                            />
+                            <Label htmlFor={`option-${index}`} className="flex-1 text-gray-200 cursor-pointer text-lg">
+                              {optionText}
+                            </Label>
+                          </div>
+                        );
+                      })}
                 </RadioGroup>
               ) : (
                 <div className="space-y-4">
