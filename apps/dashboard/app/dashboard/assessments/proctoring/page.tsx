@@ -22,7 +22,7 @@ import {
   Zap
 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
-import { assessmentsApi } from "@/lib/api/api"
+import { assessmentsApi, proctoringApi } from "@/lib/api"
 
 interface ProctoringEvent {
   id: string
@@ -117,26 +117,12 @@ export default function ProctoringPage() {
     setEventsLoading(true)
     try {
       // Load proctoring events
-      const eventsResponse = await fetch(`http://localhost:5000/api/admin/proctoring/events?assessmentId=${selectedAssessment}`, {
-        credentials: 'include',
-      })
-      if (eventsResponse.ok) {
-        const eventsData = await eventsResponse.json()
-        setProctoringEvents(Array.isArray(eventsData) ? eventsData : [])
-      } else {
-        setProctoringEvents([])
-      }
+      const eventsData = await proctoringApi.getEvents(selectedAssessment)
+      setProctoringEvents(Array.isArray(eventsData) ? eventsData : [])
 
       // Load candidate violations summary
-      const violationsResponse = await fetch(`http://localhost:5000/api/admin/proctoring/violations?assessmentId=${selectedAssessment}`, {
-        credentials: 'include',
-      })
-      if (violationsResponse.ok) {
-        const violationsData = await violationsResponse.json()
-        setCandidateViolations(Array.isArray(violationsData) ? violationsData : [])
-      } else {
-        setCandidateViolations([])
-      }
+      const violationsData = await proctoringApi.getViolations(selectedAssessment)
+      setCandidateViolations(Array.isArray(violationsData) ? violationsData : [])
     } catch (error: any) {
       console.error('Error loading proctoring data:', error)
       setProctoringEvents([])

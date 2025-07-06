@@ -331,9 +331,9 @@ export function CodingQuestionBuilder({ onAddQuestion }: CodingQuestionBuilderPr
             AI Assistant
           </Button>
           <Button onClick={handleAddQuestion} className="rounded-2xl primary-gradient glow-primary">
-            <Plus className="mr-2 h-4 w-4" />
-            Add Question
-          </Button>
+          <Plus className="mr-2 h-4 w-4" />
+          Add Question
+        </Button>
         </div>
       </div>
 
@@ -345,16 +345,16 @@ export function CodingQuestionBuilder({ onAddQuestion }: CodingQuestionBuilderPr
               <CardTitle>Problem Details</CardTitle>
             </CardHeader>
             <CardContent className="space-y-6">
-              <div className="space-y-2">
+                <div className="space-y-2">
                 <Label htmlFor="title">Problem Title *</Label>
-                <Input
-                  id="title"
-                  value={currentQuestion.title}
-                  onChange={(e) => setCurrentQuestion({ ...currentQuestion, title: e.target.value })}
+                  <Input
+                    id="title"
+                    value={currentQuestion.title}
+                    onChange={(e) => setCurrentQuestion({ ...currentQuestion, title: e.target.value })}
                   placeholder="e.g., Two Sum, Binary Search, etc."
-                  className="rounded-2xl"
-                />
-              </div>
+                    className="rounded-2xl"
+                  />
+                </div>
 
               <div className="space-y-2">
                 <Label htmlFor="description">Problem Description *</Label>
@@ -413,7 +413,7 @@ export function CodingQuestionBuilder({ onAddQuestion }: CodingQuestionBuilderPr
                 </div>
               </div>
 
-              <div className="space-y-2">
+                <div className="space-y-2">
                 <Label>Tags</Label>
                 <Input
                   value={currentQuestion.tags.join(", ")}
@@ -464,12 +464,12 @@ export function CodingQuestionBuilder({ onAddQuestion }: CodingQuestionBuilderPr
                 </TabsList>
                 {currentQuestion.languages.map((lang) => (
                   <TabsContent key={lang} value={lang} className="space-y-4">
-                    <Textarea
+                <Textarea
                       value={currentQuestion.starterCode[lang] || ""}
                       onChange={(e) => updateStarterCode(lang, e.target.value)}
                       placeholder={`Enter starter code for ${lang}...`}
                       className="rounded-2xl min-h-32 font-mono text-sm"
-                    />
+                />
                   </TabsContent>
                 ))}
               </Tabs>
@@ -504,11 +504,11 @@ export function CodingQuestionBuilder({ onAddQuestion }: CodingQuestionBuilderPr
               ) : (
                 currentQuestion.testCases.map((testCase, index) => (
                   <div key={testCase.id} className="p-4 rounded-2xl bg-accent/30 space-y-4">
-                    <div className="flex items-center justify-between">
+                        <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <Badge variant="outline" className="rounded-xl">
                           Test Case {index + 1}
-                        </Badge>
+                          </Badge>
                         <div className="flex items-center gap-2">
                           <Switch
                             checked={testCase.isPublic}
@@ -523,32 +523,32 @@ export function CodingQuestionBuilder({ onAddQuestion }: CodingQuestionBuilderPr
                           </span>
                         </div>
                       </div>
-                      <Button
-                        onClick={() => removeTestCase(testCase.id)}
-                        variant="ghost"
+                          <Button
+                            onClick={() => removeTestCase(testCase.id)}
+                            variant="ghost"
                         size="icon"
                         className="h-8 w-8 text-red-400 hover:text-red-300"
-                      >
+                          >
                         <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
+                          </Button>
+                        </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="space-y-2">
+                        <div className="space-y-2">
                         <Label>Input</Label>
-                        <Textarea
-                          value={testCase.input}
-                          onChange={(e) => updateTestCase(testCase.id, "input", e.target.value)}
-                          placeholder="Input data..."
+                            <Textarea
+                              value={testCase.input}
+                              onChange={(e) => updateTestCase(testCase.id, "input", e.target.value)}
+                              placeholder="Input data..."
                           className="rounded-2xl font-mono text-sm"
                           rows={3}
-                        />
-                      </div>
+                            />
+                          </div>
                       <div className="space-y-2">
                         <Label>Expected Output</Label>
-                        <Textarea
-                          value={testCase.expectedOutput}
-                          onChange={(e) => updateTestCase(testCase.id, "expectedOutput", e.target.value)}
-                          placeholder="Expected output..."
+                            <Textarea
+                              value={testCase.expectedOutput}
+                              onChange={(e) => updateTestCase(testCase.id, "expectedOutput", e.target.value)}
+                              placeholder="Expected output..."
                           className="rounded-2xl font-mono text-sm"
                           rows={3}
                         />
@@ -561,13 +561,13 @@ export function CodingQuestionBuilder({ onAddQuestion }: CodingQuestionBuilderPr
                         onChange={(e) => updateTestCase(testCase.id, "explanation", e.target.value)}
                         placeholder="Brief explanation of this test case..."
                         className="rounded-2xl"
-                      />
-                    </div>
-                  </div>
+                            />
+                          </div>
+                        </div>
                 ))
               )}
-            </CardContent>
-          </Card>
+                      </CardContent>
+                    </Card>
         </div>
 
         {/* AI Assistant Panel */}
@@ -637,14 +637,14 @@ export function CodingQuestionBuilder({ onAddQuestion }: CodingQuestionBuilderPr
                       </div>
                       <div className="space-y-2">
                         <Label>Requirements</Label>
-                        <Textarea
+                            <Textarea
                           value={aiPanel.requirements}
                           onChange={(e) => setAiPanel({ ...aiPanel, requirements: e.target.value })}
                           placeholder="Any specific requirements..."
                           className="rounded-2xl"
                           rows={3}
-                        />
-                      </div>
+                            />
+                          </div>
                       <Button
                         onClick={handleAIGeneration}
                         disabled={aiPanel.isGenerating}
@@ -713,20 +713,20 @@ export function CodingQuestionBuilder({ onAddQuestion }: CodingQuestionBuilderPr
                       <div className="w-16 h-16 rounded-2xl bg-accent/50 mx-auto flex items-center justify-center">
                         <Target className="h-8 w-8 text-muted-foreground" />
                       </div>
-                      <div>
+                          <div>
                         <h4 className="font-semibold text-foreground">Problem Enhancement</h4>
                         <p className="text-sm text-muted-foreground">
                           AI will enhance your problem description, add constraints, and improve clarity
                         </p>
-                      </div>
+                          </div>
                       <Badge className="bg-amber-500/20 text-amber-400 border-amber-500/30">
                         Coming Soon
                       </Badge>
-                    </div>
-                  </TabsContent>
-                </Tabs>
-              </CardContent>
-            </Card>
+                        </div>
+                </TabsContent>
+              </Tabs>
+            </CardContent>
+          </Card>
           )}
 
           {/* AI Suggestions */}

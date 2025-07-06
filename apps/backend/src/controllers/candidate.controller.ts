@@ -167,27 +167,27 @@ export class CandidateController {
       let candidate;
       
       if (candidateId) {
-        // Find candidate by credential
-        const credential = await prisma.credential.findUnique({
-          where: { candidateId: candidateId }
-        });
+      // Find candidate by credential
+      const credential = await prisma.credential.findUnique({
+        where: { candidateId: candidateId }
+      });
 
-        if (!credential) {
-          return res.status(404).json({ error: 'Candidate not found' });
-        }
+      if (!credential) {
+        return res.status(404).json({ error: 'Candidate not found' });
+      }
 
         candidate = await prisma.candidate.findFirst({
-          where: { email: credential.email },
-          include: {
-            assessment: {
-              include: {
-                questions: {
-                  orderBy: { order: 'asc' }
-                }
+        where: { email: credential.email },
+        include: {
+          assessment: {
+            include: {
+              questions: {
+                orderBy: { order: 'asc' }
               }
             }
           }
-        });
+        }
+      });
       } else if (email) {
         candidate = await prisma.candidate.findFirst({
           where: { email: email },
@@ -548,12 +548,12 @@ export class CandidateController {
         return res.json({ 
           success: true, 
           candidate: {
-            id: 'demo',
+          id: 'demo',
             candidateId: 'demo',
-            name: 'Demo Candidate',
-            email: 'demo@skillment.in',
-            assessmentId: 'demo-assessment',
-            status: 'invited',
+          name: 'Demo Candidate',
+          email: 'demo@skillment.in',
+          assessmentId: 'demo-assessment',
+          status: 'invited',
           },
           token: demoToken
         });

@@ -18,6 +18,7 @@ import emailRoutes from './routes/email.routes';
 import candidateRouter from './routes/candidate.routes';
 import candidatePublicRouter from './routes/candidate-public.routes';
 import proctoringRouter from './routes/proctoring.routes';
+import adminProctoringRouter from './routes/admin-proctoring.routes';
 
 // Load environment variables
 config();
@@ -68,6 +69,8 @@ app.use('/api', attemptRouter);
 app.use('/api/email', emailRoutes);
 // Mount protected candidate routes at a different path to avoid conflicts
 app.use('/api/admin/candidates', candidateRouter);
+// Mount protected admin proctoring routes
+app.use('/api/admin/proctoring', adminProctoringRouter);
 
 // Error handling
 app.use(errorHandler);

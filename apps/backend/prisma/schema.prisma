@@ -162,6 +162,8 @@ model Assessment {
   recordingFrequency   String?
   dataRetention        String?
   autoDeleteAfter      String?
+  proctoringEvents     ProctoringEvent[]
+  proctoringSessions   ProctoringSession[]
 }
 
 model Question {
@@ -207,6 +209,8 @@ model Candidate {
   password      String?      // <-- Add this line for demo/testing only
   assessment    Assessment   @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
   user          User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
+  proctoringEvents    ProctoringEvent[]
+  proctoringSession   ProctoringSession?
   
   @@index([assessmentId])
   @@index([userId])
@@ -300,4 +304,50 @@ model Credential {
   passwordHash String
   createdAt    DateTime @default(now())
   lastSentAt   DateTime?
+}
+
+// Proctoring Models
+model ProctoringEvent {
+  id            String   @id @default(cuid())
+  candidateId   String
+  assessmentId  String
+  eventType     String   // tab_switch, fullscreen_exit, face_not_detected, copy_paste, etc.
+  severity      String   // critical, warning, minor
+  description   String?
+  metadata      Json?    // Additional event-specific data
+  timestamp     DateTime @default(now())
+  createdAt     DateTime @default(now())
+  
+  // Relations
+  candidate     Candidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  assessment    Assessment @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  
+  @@index([candidateId])
+  @@index([assessmentId])
+  @@index([eventType])
+  @@index([severity])
+  @@index([timestamp])
+}
+
+model ProctoringSession {
+  id                    String   @id @default(cuid())
+  candidateId           String   @unique
+  assessmentId          String
+  sessionStart          DateTime @default(now())
+  sessionEnd            DateTime?
+  totalViolations       Int      @default(0)
+  criticalViolations    Int      @default(0)
+  warningViolations     Int      @default(0)
+  minorViolations       Int      @default(0)
+  riskLevel            String   @default("low") // low, medium, high
+  isActive             Boolean  @default(true)
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+  
+  // Relations
+  candidate            Candidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  assessment           Assessment @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  
+  @@index([assessmentId])
+  @@index([riskLevel])
 }

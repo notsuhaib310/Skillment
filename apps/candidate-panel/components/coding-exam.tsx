@@ -123,7 +123,7 @@ export default function CodingExam({ candidateData, systemStatus, assessment, on
     const codingData = q.codingData || q;
     
     return {
-      id: q.id || idx + 1,
+    id: q.id || idx + 1,
       title: codingData.title || codingData.question || `Problem ${idx + 1}`,
       description: codingData.description || codingData.explanation || codingData.question || 'Solve this coding problem',
       difficulty: codingData.difficulty || 'Medium',
@@ -172,10 +172,10 @@ export default function CodingExam({ candidateData, systemStatus, assessment, on
 
   useEffect(() => {
     if (problems.length > 0) {
-      initializeUltraStrictProctoring()
-      setProblemTimeLeft(problems[0].timeLimit * 60)
-      setCode(problems[0].starterCode[language])
-      setTestResults(problems[0].testCases)
+    initializeUltraStrictProctoring()
+    setProblemTimeLeft(problems[0].timeLimit * 60)
+    setCode(problems[0].starterCode[language])
+    setTestResults(problems[0].testCases)
     }
     return () => cleanup()
   }, [problems.length])
@@ -189,8 +189,8 @@ export default function CodingExam({ candidateData, systemStatus, assessment, on
 
   useEffect(() => {
     if (problems.length > 0 && problems[currentProblem]) {
-      setCode(problems[currentProblem].starterCode[language])
-      setTestResults(problems[currentProblem].testCases)
+    setCode(problems[currentProblem].starterCode[language])
+    setTestResults(problems[currentProblem].testCases)
     }
   }, [currentProblem, language, problems.length])
 

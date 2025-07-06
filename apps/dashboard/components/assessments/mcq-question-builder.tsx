@@ -272,9 +272,9 @@ export function MCQQuestionBuilder({ onAddQuestion }: MCQQuestionBuilderProps) {
             AI Assistant
           </Button>
           <Button onClick={handleAddQuestion} className="rounded-2xl primary-gradient glow-primary">
-            <Plus className="mr-2 h-4 w-4" />
-            Add Question
-          </Button>
+          <Plus className="mr-2 h-4 w-4" />
+          Add Question
+        </Button>
         </div>
       </div>
 

@@ -163,4 +163,12 @@ export const attemptApi = {
   start: (assessmentId: string, candidateId: string) => apiPost(`/assessments/${assessmentId}/attempt`, { candidateId }),
   submit: (attemptId: string, data: any) => apiPost(`/attempts/${attemptId}/submit`, data),
   get: (attemptId: string) => apiGet(`/attempts/${attemptId}`),
+};
+
+// API endpoints for proctoring
+export const proctoringApi = {
+  getEvents: (assessmentId: string) => apiGet(`/admin/proctoring/events?assessmentId=${assessmentId}`),
+  getViolations: (assessmentId: string) => apiGet(`/admin/proctoring/violations?assessmentId=${assessmentId}`),
+  logEvent: (event: any) => apiPost('/proctoring/event', event),
+  uploadMedia: (media: any) => apiPost('/proctoring/media', media),
 }; 

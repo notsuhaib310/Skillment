@@ -103,7 +103,7 @@ export default function CandidateLogin({ onSuccess }: CandidateLoginProps) {
       let assigned = []
       try {
         assigned = await assessmentRes.json()
-        console.log('Assigned assessments:', assigned)
+      console.log('Assigned assessments:', assigned)
       } catch (parseError) {
         console.warn("Failed to parse assessment response:", parseError)
       }

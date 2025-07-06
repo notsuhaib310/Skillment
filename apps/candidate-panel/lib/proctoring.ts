@@ -7,16 +7,16 @@ export async function sendProctoringEvent(eventType: string, details: any = {}, 
       headers.Authorization = `Bearer ${authToken}`
     }
     
-    await fetch('http://localhost:5000/api/proctoring/event', {
-      method: 'POST',
+  await fetch('http://localhost:5000/api/proctoring/event', {
+    method: 'POST',
       headers,
-      body: JSON.stringify({
-        eventType,
-        details,
-        timestamp: new Date().toISOString(),
-        candidateId,
-      }),
-    });
+    body: JSON.stringify({
+      eventType,
+      details,
+      timestamp: new Date().toISOString(),
+      candidateId,
+    }),
+  });
   } catch (error) {
     // Silently ignore proctoring event failures to avoid disrupting the exam
     console.error('Failed to send proctoring event:', error)
@@ -32,16 +32,16 @@ export async function sendProctoringMedia(mediaType: string, data: any, candidat
       headers.Authorization = `Bearer ${authToken}`
     }
     
-    await fetch('http://localhost:5000/api/proctoring/media', {
-      method: 'POST',
+  await fetch('http://localhost:5000/api/proctoring/media', {
+    method: 'POST',
       headers,
-      body: JSON.stringify({
-        mediaType,
-        data,
-        timestamp: new Date().toISOString(),
-        candidateId,
-      }),
-    });
+    body: JSON.stringify({
+      mediaType,
+      data,
+      timestamp: new Date().toISOString(),
+      candidateId,
+    }),
+  });
   } catch (error) {
     // Silently ignore proctoring media failures to avoid disrupting the exam
     console.error('Failed to send proctoring media:', error)

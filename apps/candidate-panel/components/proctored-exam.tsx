@@ -60,7 +60,7 @@ export default function ProctoredExam({ candidateData, systemStatus, onComplete 
 
   useEffect(() => {
     if (formattedQuestions.length > 0) {
-      initializeUltraStrictProctoring()
+    initializeUltraStrictProctoring()
       setQuestionTimeLeft(formattedQuestions[0].timeLimit)
     }
     return () => cleanup()
@@ -583,9 +583,9 @@ export default function ProctoredExam({ candidateData, systemStatus, onComplete 
           {/* Progress */}
           <div className="mb-6">
             <div className="flex justify-between items-center mb-2">
-                          <span className="text-sm text-gray-400">
+              <span className="text-sm text-gray-400">
               Question {currentQuestion + 1} of {formattedQuestions.length}
-            </span>
+              </span>
               <span className="text-sm text-gray-400">{answeredCount} answered</span>
             </div>
             <Progress value={progress} className="h-2 bg-[#2a2d31]" />
@@ -623,51 +623,51 @@ export default function ProctoredExam({ candidateData, systemStatus, onComplete 
                   <p className="text-xl text-gray-200 mb-8">{formattedQuestions[currentQuestion].question}</p>
 
                   {formattedQuestions[currentQuestion].type === "multiple_choice" ? (
-                    <RadioGroup
-                      value={answers[currentQuestion] || ""}
-                      onValueChange={handleAnswerChange}
-                      className="space-y-4"
-                    >
+                <RadioGroup
+                  value={answers[currentQuestion] || ""}
+                  onValueChange={handleAnswerChange}
+                  className="space-y-4"
+                >
                       {formattedQuestions[currentQuestion].options?.map((option: any, index: number) => (
-                        <div
-                          key={index}
-                          className="flex items-center space-x-4 p-4 rounded-lg border border-[#2a2d31] hover:border-[#ff4d00]/30 hover:bg-[#ff4d00]/5 transition-colors cursor-pointer"
-                        >
-                          <RadioGroupItem
+                    <div
+                      key={index}
+                      className="flex items-center space-x-4 p-4 rounded-lg border border-[#2a2d31] hover:border-[#ff4d00]/30 hover:bg-[#ff4d00]/5 transition-colors cursor-pointer"
+                    >
+                      <RadioGroupItem
                             value={typeof option === 'string' ? option : option.text || option.id}
-                            id={`option-${index}`}
-                            className="border-gray-500 text-[#ff4d00]"
-                          />
-                          <Label htmlFor={`option-${index}`} className="flex-1 text-gray-200 cursor-pointer text-lg">
+                        id={`option-${index}`}
+                        className="border-gray-500 text-[#ff4d00]"
+                      />
+                      <Label htmlFor={`option-${index}`} className="flex-1 text-gray-200 cursor-pointer text-lg">
                             {typeof option === 'string' ? option : option.text || option.id}
-                          </Label>
-                        </div>
-                      ))}
-                    </RadioGroup>
-                  ) : (
-                    <div className="space-y-4">
-                      <div className="relative">
-                        <input
-                          type="text"
-                          value={currentAnswer}
-                          onChange={(e) => handleFillAnswerChange(e.target.value)}
+                      </Label>
+                    </div>
+                  ))}
+                </RadioGroup>
+              ) : (
+                <div className="space-y-4">
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={currentAnswer}
+                      onChange={(e) => handleFillAnswerChange(e.target.value)}
                           placeholder="Enter your answer here"
-                          className="w-full p-4 bg-[#2a2d31] border border-[#3a3d41] rounded-lg text-white placeholder-gray-400 focus:border-[#ff4d00] focus:outline-none text-lg"
-                        />
-                        {savedAnswers[currentQuestion] && (
-                          <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
-                            <Badge className="bg-green-900/30 text-green-400 border-green-500/30 text-xs">Saved</Badge>
-                          </div>
-                        )}
+                      className="w-full p-4 bg-[#2a2d31] border border-[#3a3d41] rounded-lg text-white placeholder-gray-400 focus:border-[#ff4d00] focus:outline-none text-lg"
+                    />
+                    {savedAnswers[currentQuestion] && (
+                      <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                        <Badge className="bg-green-900/30 text-green-400 border-green-500/30 text-xs">Saved</Badge>
                       </div>
-                      <Button
-                        id="save-btn"
-                        onClick={saveAnswer}
-                        variant="outline"
-                        className="border-[#ff4d00] text-[#ff4d00] hover:bg-[#ff4d00]/10"
-                      >
-                        Save Answer
-                      </Button>
+                    )}
+                  </div>
+                  <Button
+                    id="save-btn"
+                    onClick={saveAnswer}
+                    variant="outline"
+                    className="border-[#ff4d00] text-[#ff4d00] hover:bg-[#ff4d00]/10"
+                  >
+                    Save Answer
+                  </Button>
                     </div>
                   )}
                 </>
