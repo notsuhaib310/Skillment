@@ -7,6 +7,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Progress } from "@/components/ui/progress"
+import { Input } from "@/components/ui/input"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { 
   ArrowLeft,
   BarChart3, 
@@ -19,7 +21,25 @@ import {
   AlertTriangle,
   CheckCircle,
   Trophy,
-  Activity
+  Activity,
+  Search,
+  Filter,
+  Shield,
+  Camera,
+  Video,
+  AlertCircle,
+  PlayCircle,
+  FileText,
+  Calendar,
+  Globe,
+  Smartphone,
+  Monitor,
+  Wifi,
+  MousePointer,
+  Copy,
+  FileX,
+  Timer,
+  Zap
 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { assessmentsApi } from "@/lib/api/api"
@@ -41,6 +61,33 @@ interface CandidateResult {
     minor: number
   }
   answers: any[]
+  proctoring: {
+    webcamMonitored: boolean
+    screenRecorded: boolean
+    tabSwitches: number
+    copyPasteAttempts: number
+    rightClickAttempts: number
+    fullscreenExits: number
+    suspiciousActivity: number
+    faceDetectionFailures: number
+    multiplePersonsDetected: number
+    phoneDetected: boolean
+    environmentFlags: string[]
+    videoRecordingUrl?: string
+    screenshots: string[]
+    browserInfo: {
+      userAgent: string
+      screenResolution: string
+      browserName: string
+    }
+  }
+  device: {
+    type: "desktop" | "mobile" | "tablet"
+    os: string
+    browser: string
+    ipAddress: string
+    location?: string
+  }
 }
 
 interface Assessment {
@@ -138,7 +185,33 @@ export default function ResultsPage() {
         startedAt: candidate.startedAt,
         submittedAt: candidate.submittedAt,
         violations: candidate.violations || { critical: 0, warning: 0, minor: 0 },
-        answers: candidate.answers || []
+        answers: candidate.answers || [],
+        proctoring: candidate.proctoring || {
+          webcamMonitored: false,
+          screenRecorded: false,
+          tabSwitches: 0,
+          copyPasteAttempts: 0,
+          rightClickAttempts: 0,
+          fullscreenExits: 0,
+          suspiciousActivity: 0,
+          faceDetectionFailures: 0,
+          multiplePersonsDetected: 0,
+          phoneDetected: false,
+          environmentFlags: [],
+          screenshots: [],
+          browserInfo: {
+            userAgent: "",
+            screenResolution: "",
+            browserName: ""
+          }
+        },
+        device: candidate.device || {
+          type: "desktop" as const,
+          os: "Unknown",
+          browser: "Unknown",
+          ipAddress: "",
+          location: ""
+        }
       })) : []
       
       setCandidateResults(resultsData)
@@ -462,15 +535,26 @@ export default function ResultsPage() {
             </Card>
           </div>
 
-          {/* Results Table */}
+          {/* Enhanced Results with Proctoring */}
           <Card className="card-gradient rounded-3xl border-border/40 shadow-xl">
             <CardHeader>
               <div className="flex items-center justify-between">
                 <CardTitle className="flex items-center gap-2">
                   <Activity className="h-5 w-5" />
-                  Detailed Results ({candidateResults.length})
+                  Detailed Results & Proctoring ({candidateResults.length})
                 </CardTitle>
                 <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-2">
+                    <Search className="h-4 w-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Search candidates..."
+                      className="w-64 rounded-xl"
+                    />
+                  </div>
+                  <Button variant="outline" className="rounded-xl">
+                    <Filter className="mr-2 h-4 w-4" />
+                    Filter
+                  </Button>
                   {candidateResults.length > 0 && (
                     <Button onClick={downloadResults} variant="outline" className="rounded-xl">
                       <Download className="mr-2 h-4 w-4" />
@@ -491,74 +575,341 @@ export default function ResultsPage() {
                   <p className="text-muted-foreground">No results available for this assessment</p>
                 </div>
               ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Name</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Score</TableHead>
-                      <TableHead>Percentage</TableHead>
-                      <TableHead>Time Spent</TableHead>
-                      <TableHead>Violations</TableHead>
-                      <TableHead>Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {candidateResults.map((result) => (
-                      <TableRow key={result.id}>
-                        <TableCell>
-                          <div>
-                            <div className="font-medium">{result.name}</div>
-                            <div className="text-sm text-muted-foreground">{result.email}</div>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <Badge className={`rounded-xl border ${getStatusColor(result.status)}`}>
-                            {result.status}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          <span className="font-medium">{result.score}/{result.totalMarks}</span>
-                        </TableCell>
-                        <TableCell>
-                          <span className={`font-bold ${getScoreColor(result.percentage)}`}>
-                            {result.percentage}%
-                          </span>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-2">
-                            <Clock className="h-4 w-4 text-muted-foreground" />
-                            <span>{Math.round(result.timeSpent / 60)}m</span>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-2">
-                            {result.violations.critical > 0 && (
-                              <Badge variant="destructive" className="text-xs">
-                                {result.violations.critical} Critical
+                <Tabs defaultValue="overview" className="space-y-6">
+                  <TabsList className="grid w-full grid-cols-4 rounded-2xl bg-accent/20">
+                    <TabsTrigger value="overview" className="rounded-xl">Overview</TabsTrigger>
+                    <TabsTrigger value="proctoring" className="rounded-xl">Proctoring</TabsTrigger>
+                    <TabsTrigger value="analytics" className="rounded-xl">Analytics</TabsTrigger>
+                    <TabsTrigger value="detailed" className="rounded-xl">Detailed View</TabsTrigger>
+                  </TabsList>
+
+                  <TabsContent value="overview">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Candidate</TableHead>
+                          <TableHead>Status</TableHead>
+                          <TableHead>Score</TableHead>
+                          <TableHead>Time</TableHead>
+                          <TableHead>Device</TableHead>
+                          <TableHead>Risk Level</TableHead>
+                          <TableHead>Actions</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {candidateResults.map((result) => (
+                          <TableRow key={result.id}>
+                            <TableCell>
+                              <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary/20 to-orange-500/20 flex items-center justify-center">
+                                  <span className="font-medium text-primary">
+                                    {result.name[0]?.toUpperCase()}
+                                  </span>
+                                </div>
+                                <div>
+                                  <div className="font-medium">{result.name}</div>
+                                  <div className="text-sm text-muted-foreground">{result.email}</div>
+                                </div>
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <Badge className={`rounded-xl border ${getStatusColor(result.status)}`}>
+                                {result.status}
                               </Badge>
-                            )}
-                            {result.violations.warning > 0 && (
-                              <Badge variant="secondary" className="text-xs">
-                                {result.violations.warning} Warning
-                              </Badge>
-                            )}
-                            {result.violations.minor > 0 && (
-                              <Badge variant="outline" className="text-xs">
-                                {result.violations.minor} Minor
-                              </Badge>
-                            )}
+                            </TableCell>
+                            <TableCell>
+                              <div className="text-right">
+                                <div className={`font-bold text-lg ${getScoreColor(result.percentage)}`}>
+                                  {result.percentage}%
+                                </div>
+                                <div className="text-sm text-muted-foreground">
+                                  {result.score}/{result.totalMarks} pts
+                                </div>
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex items-center gap-2">
+                                <Timer className="h-4 w-4 text-muted-foreground" />
+                                <span>{Math.round(result.timeSpent / 60)}m</span>
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex items-center gap-2">
+                                {result.device.type === "desktop" && <Monitor className="h-4 w-4" />}
+                                {result.device.type === "mobile" && <Smartphone className="h-4 w-4" />}
+                                {result.device.type === "tablet" && <Smartphone className="h-4 w-4" />}
+                                <span className="text-sm">{result.device.browser}</span>
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              {(result.violations.critical + result.violations.warning) > 5 ? (
+                                <Badge variant="destructive" className="rounded-xl">High Risk</Badge>
+                              ) : (result.violations.critical + result.violations.warning) > 2 ? (
+                                <Badge variant="secondary" className="rounded-xl">Medium Risk</Badge>
+                              ) : (
+                                <Badge variant="outline" className="rounded-xl">Low Risk</Badge>
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex items-center gap-2">
+                                <Button size="sm" variant="ghost" className="rounded-xl">
+                                  <Eye className="h-4 w-4" />
+                                </Button>
+                                <Button size="sm" variant="ghost" className="rounded-xl">
+                                  <Download className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </TabsContent>
+
+                  <TabsContent value="proctoring">
+                    <div className="space-y-6">
+                      {candidateResults.map((result) => (
+                        <Card key={result.id} className="rounded-2xl border-border/30">
+                          <CardHeader className="pb-4">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary/20 to-orange-500/20 flex items-center justify-center">
+                                  <span className="font-medium text-primary">
+                                    {result.name[0]?.toUpperCase()}
+                                  </span>
+                                </div>
+                                <div>
+                                  <h4 className="font-semibold">{result.name}</h4>
+                                  <p className="text-sm text-muted-foreground">{result.email}</p>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                {result.proctoring.videoRecordingUrl && (
+                                  <Button size="sm" variant="outline" className="rounded-xl">
+                                    <Video className="mr-2 h-4 w-4" />
+                                    View Recording
+                                  </Button>
+                                )}
+                                <Button size="sm" variant="outline" className="rounded-xl">
+                                  <Shield className="mr-2 h-4 w-4" />
+                                  Proctoring Report
+                                </Button>
+                              </div>
+                            </div>
+                          </CardHeader>
+                          <CardContent>
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+                              <div className="space-y-2">
+                                <div className="flex items-center gap-2">
+                                  <Camera className="h-4 w-4 text-blue-500" />
+                                  <span className="text-sm font-medium">Webcam Monitoring</span>
+                                </div>
+                                <Badge variant={result.proctoring.webcamMonitored ? "default" : "secondary"} className="rounded-xl">
+                                  {result.proctoring.webcamMonitored ? "Active" : "Inactive"}
+                                </Badge>
+                              </div>
+                              <div className="space-y-2">
+                                <div className="flex items-center gap-2">
+                                  <AlertTriangle className="h-4 w-4 text-orange-500" />
+                                  <span className="text-sm font-medium">Tab Switches</span>
+                                </div>
+                                <div className="text-2xl font-bold text-orange-500">
+                                  {result.proctoring.tabSwitches}
+                                </div>
+                              </div>
+                              <div className="space-y-2">
+                                <div className="flex items-center gap-2">
+                                  <Copy className="h-4 w-4 text-red-500" />
+                                  <span className="text-sm font-medium">Copy/Paste</span>
+                                </div>
+                                <div className="text-2xl font-bold text-red-500">
+                                  {result.proctoring.copyPasteAttempts}
+                                </div>
+                              </div>
+                              <div className="space-y-2">
+                                <div className="flex items-center gap-2">
+                                  <Monitor className="h-4 w-4 text-purple-500" />
+                                  <span className="text-sm font-medium">Fullscreen Exits</span>
+                                </div>
+                                <div className="text-2xl font-bold text-purple-500">
+                                  {result.proctoring.fullscreenExits}
+                                </div>
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
+                  </TabsContent>
+
+                  <TabsContent value="analytics">
+                    <div className="grid gap-6 md:grid-cols-3">
+                      <Card className="rounded-2xl border-border/30">
+                        <CardHeader>
+                          <CardTitle className="flex items-center gap-2">
+                            <Shield className="h-5 w-5 text-blue-500" />
+                            Security Overview
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="space-y-4">
+                            <div className="flex justify-between">
+                              <span>High Risk Candidates</span>
+                              <span className="font-bold text-red-500">
+                                {candidateResults.filter(r => (r.violations.critical + r.violations.warning) > 5).length}
+                              </span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span>Medium Risk Candidates</span>
+                              <span className="font-bold text-orange-500">
+                                {candidateResults.filter(r => (r.violations.critical + r.violations.warning) > 2 && (r.violations.critical + r.violations.warning) <= 5).length}
+                              </span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span>Low Risk Candidates</span>
+                              <span className="font-bold text-green-500">
+                                {candidateResults.filter(r => (r.violations.critical + r.violations.warning) <= 2).length}
+                              </span>
+                            </div>
                           </div>
-                        </TableCell>
-                        <TableCell>
-                          <Button size="sm" variant="ghost" className="rounded-xl">
-                            <Eye className="h-4 w-4" />
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                        </CardContent>
+                      </Card>
+
+                      <Card className="rounded-2xl border-border/30">
+                        <CardHeader>
+                          <CardTitle className="flex items-center gap-2">
+                            <Globe className="h-5 w-5 text-green-500" />
+                            Device Analytics
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="space-y-4">
+                            <div className="flex justify-between">
+                              <span>Desktop Users</span>
+                              <span className="font-bold">
+                                {candidateResults.filter(r => r.device.type === "desktop").length}
+                              </span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span>Mobile Users</span>
+                              <span className="font-bold">
+                                {candidateResults.filter(r => r.device.type === "mobile").length}
+                              </span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span>Tablet Users</span>
+                              <span className="font-bold">
+                                {candidateResults.filter(r => r.device.type === "tablet").length}
+                              </span>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+
+                      <Card className="rounded-2xl border-border/30">
+                        <CardHeader>
+                          <CardTitle className="flex items-center gap-2">
+                            <Activity className="h-5 w-5 text-purple-500" />
+                            Behavior Insights
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="space-y-4">
+                            <div className="flex justify-between">
+                              <span>Avg Tab Switches</span>
+                              <span className="font-bold">
+                                {Math.round(candidateResults.reduce((sum, r) => sum + r.proctoring.tabSwitches, 0) / candidateResults.length || 0)}
+                              </span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span>Copy/Paste Attempts</span>
+                              <span className="font-bold">
+                                {candidateResults.reduce((sum, r) => sum + r.proctoring.copyPasteAttempts, 0)}
+                              </span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span>Suspicious Activity</span>
+                              <span className="font-bold">
+                                {candidateResults.reduce((sum, r) => sum + r.proctoring.suspiciousActivity, 0)}
+                              </span>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </div>
+                  </TabsContent>
+
+                  <TabsContent value="detailed">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Name</TableHead>
+                          <TableHead>Status</TableHead>
+                          <TableHead>Score</TableHead>
+                          <TableHead>Percentage</TableHead>
+                          <TableHead>Time Spent</TableHead>
+                          <TableHead>Violations</TableHead>
+                          <TableHead>Actions</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {candidateResults.map((result) => (
+                          <TableRow key={result.id}>
+                            <TableCell>
+                              <div>
+                                <div className="font-medium">{result.name}</div>
+                                <div className="text-sm text-muted-foreground">{result.email}</div>
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <Badge className={`rounded-xl border ${getStatusColor(result.status)}`}>
+                                {result.status}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>
+                              <span className="font-medium">{result.score}/{result.totalMarks}</span>
+                            </TableCell>
+                            <TableCell>
+                              <span className={`font-bold ${getScoreColor(result.percentage)}`}>
+                                {result.percentage}%
+                              </span>
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex items-center gap-2">
+                                <Clock className="h-4 w-4 text-muted-foreground" />
+                                <span>{Math.round(result.timeSpent / 60)}m</span>
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex items-center gap-2">
+                                {result.violations.critical > 0 && (
+                                  <Badge variant="destructive" className="text-xs">
+                                    {result.violations.critical} Critical
+                                  </Badge>
+                                )}
+                                {result.violations.warning > 0 && (
+                                  <Badge variant="secondary" className="text-xs">
+                                    {result.violations.warning} Warning
+                                  </Badge>
+                                )}
+                                {result.violations.minor > 0 && (
+                                  <Badge variant="outline" className="text-xs">
+                                    {result.violations.minor} Minor
+                                  </Badge>
+                                )}
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <Button size="sm" variant="ghost" className="rounded-xl">
+                                <Eye className="h-4 w-4" />
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </TabsContent>
+                </Tabs>
               )}
             </CardContent>
           </Card>
