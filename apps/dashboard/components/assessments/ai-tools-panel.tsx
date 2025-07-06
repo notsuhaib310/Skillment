@@ -1,6 +1,6 @@
 "use client"
 
-import { Brain, Sparkles, Target, FileText, Zap, Code, Users, Wand2, Loader2, CheckCircle } from "lucide-react"
+import { Brain, Sparkles, Target, FileText, Zap, Code, Users, Wand2, Loader2, CheckCircle, Settings, TrendingUp, Shield, BarChart, Lightbulb, Star, Plus } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Switch } from "@/components/ui/switch"
@@ -41,92 +41,75 @@ export function AIToolsPanel({ selectedType }: AIToolsPanelProps) {
   const [generationResults, setGenerationResults] = useState<any[]>([])
   const { toast } = useToast()
 
-  const aiFeatures = [
+  const coreFeatures = [
     {
-      id: "question-generation",
-      title: "AI Question Generation",
-      description: "Generate questions automatically from topics and learning objectives",
+      id: "bulk-generation",
+      title: "Bulk Question Generation",
+      description: "Generate multiple questions across different topics using AI",
       icon: Brain,
-      category: "content",
-      supportedTypes: ["mcq", "coding", "proctored", "hybrid"],
-      premium: false,
-      enabled: true,
+      status: "active",
       action: () => setBulkGenerationDialog(true),
     },
     {
-      id: "test-case-generation",
-      title: "Test Case Generation",
-      description: "Automatically create test cases for coding problems",
+      id: "smart-enhancement",
+      title: "Smart Question Enhancement",
+      description: "Automatically improve question quality with AI suggestions",
+      icon: Lightbulb,
+      status: "active",
+      action: () => enhanceQuestions(),
+    },
+    {
+      id: "difficulty-balancing",
+      title: "Difficulty Balancing",
+      description: "AI-powered analysis and balancing of question difficulty",
+      icon: Target,
+      status: "active",
+      action: () => balanceDifficulty(),
+    },
+    {
+      id: "test-case-generator",
+      title: "Smart Test Case Generation",
+      description: "Generate comprehensive test cases for coding problems",
       icon: Code,
-      category: "coding",
-      supportedTypes: ["coding", "hybrid"],
-      premium: false,
-      enabled: selectedType === "coding" || selectedType === "hybrid",
+      status: "active",
       action: () => generateTestCases(),
     },
-    {
-      id: "difficulty-analysis",
-      title: "Difficulty Analysis",
-      description: "AI-powered difficulty assessment and balancing",
-      icon: Target,
-      category: "analysis",
-      supportedTypes: ["mcq", "coding", "proctored", "hybrid"],
-      premium: true,
-      enabled: false,
-      action: () => analyzeDifficulty(),
-    },
+  ]
+
+  const premiumFeatures = [
     {
       id: "plagiarism-detection",
-      title: "Plagiarism Detection",
-      description: "Advanced AI-based code and text plagiarism detection",
-      icon: FileText,
-      category: "security",
-      supportedTypes: ["coding", "proctored", "hybrid"],
-      premium: true,
-      enabled: false,
-      action: () => detectPlagiarism(),
+      title: "AI Plagiarism Detection",
+      description: "Advanced detection of copied code and answers",
+      icon: Shield,
+      status: "premium",
+      category: "Security",
+    },
+    {
+      id: "candidate-insights",
+      title: "Candidate Behavior Analysis",
+      description: "AI insights into candidate performance patterns",
+      icon: Users,
+      status: "premium",
+      category: "Analytics",
     },
     {
       id: "auto-grading",
       title: "Intelligent Auto-Grading",
       description: "AI-powered grading for subjective answers",
-      icon: Sparkles,
-      category: "grading",
-      supportedTypes: ["mcq", "coding", "proctored", "hybrid"],
-      premium: true,
-      enabled: false,
-      action: () => setupAutoGrading(),
+      icon: Star,
+      status: "premium",
+      category: "Evaluation",
     },
     {
-      id: "candidate-insights",
-      title: "Candidate Insights",
-      description: "AI-generated insights about candidate performance",
-      icon: Users,
-      category: "analytics",
-      supportedTypes: ["mcq", "coding", "proctored", "hybrid"],
-      premium: true,
-      enabled: false,
-      action: () => generateInsights(),
+      id: "predictive-scoring",
+      title: "Predictive Scoring",
+      description: "Predict candidate performance before completion",
+      icon: TrendingUp,
+      status: "premium",
+      category: "Analytics",
     },
   ]
-
-  const categories = [
-    { id: "content", title: "Content Generation", icon: Brain },
-    { id: "coding", title: "Coding Tools", icon: Code },
-    { id: "analysis", title: "Analysis & Insights", icon: Target },
-    { id: "security", title: "Security & Integrity", icon: FileText },
-    { id: "grading", title: "Grading & Scoring", icon: Sparkles },
-    { id: "analytics", title: "Analytics", icon: Users },
-  ]
-
-  const filteredFeatures = aiFeatures.filter((feature) => feature.supportedTypes.includes(selectedType))
-
-  const groupedFeatures = categories
-    .map((category) => ({
-      ...category,
-      features: filteredFeatures.filter((feature) => feature.category === category.id),
-    }))
-    .filter((category) => category.features.length > 0)
 
   const handleBulkGeneration = async () => {
     if (!bulkGenerationData.topics.trim()) {
@@ -185,375 +168,407 @@ export function AIToolsPanel({ selectedType }: AIToolsPanelProps) {
     }
   }
 
-  const generateTestCases = async () => {
+  const enhanceQuestions = () => {
+    toast({
+      title: "Question Enhancement",
+      description: "Use the AI Enhancement features in the individual question builders.",
+    })
+  }
+
+  const balanceDifficulty = () => {
+    toast({
+      title: "Difficulty Balancing",
+      description: "This feature will analyze and balance question difficulty across your assessment.",
+    })
+  }
+
+  const generateTestCases = () => {
     toast({
       title: "Test Case Generation",
       description: "Use the 'AI Generate' button in the coding question builder to generate test cases.",
     })
   }
 
-  const analyzeDifficulty = () => {
-    toast({
-      title: "Premium Feature",
-      description: "Difficulty analysis is available in our premium plan.",
-    })
-  }
-
-  const detectPlagiarism = () => {
-    toast({
-      title: "Premium Feature",
-      description: "Plagiarism detection is available in our premium plan.",
-    })
-  }
-
-  const setupAutoGrading = () => {
-    toast({
-      title: "Premium Feature",
-      description: "Auto-grading is available in our premium plan.",
-    })
-  }
-
-  const generateInsights = () => {
-    toast({
-      title: "Premium Feature",
-      description: "Candidate insights are available in our premium plan.",
-    })
-  }
-
   return (
     <div className="space-y-8">
+      {/* Header */}
       <div className="text-center space-y-4">
-        <h2 className="text-2xl font-bold text-foreground">AI Tools & Features</h2>
-        <p className="text-muted-foreground max-w-2xl mx-auto">
-          Enhance your {selectedType} assessment with powerful AI-driven features for better content creation, analysis,
-          and candidate evaluation.
-        </p>
+        <div className="w-16 h-16 rounded-3xl primary-gradient mx-auto flex items-center justify-center glow-primary">
+          <Brain className="h-8 w-8 text-primary-foreground" />
+        </div>
+        <div>
+          <h2 className="text-3xl font-bold text-foreground">AI-Powered Assessment Tools</h2>
+          <p className="text-muted-foreground max-w-2xl mx-auto">
+            Enhance your {selectedType} assessment with cutting-edge AI features for smarter content creation, 
+            analysis, and candidate evaluation.
+          </p>
+        </div>
       </div>
 
-      {/* Quick Actions */}
-      <Card className="card-gradient rounded-3xl border-border/40 shadow-xl">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Zap className="h-5 w-5 text-primary" />
-            Quick AI Actions
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <Dialog open={bulkGenerationDialog} onOpenChange={setBulkGenerationDialog}>
-              <DialogTrigger asChild>
-                <Button className="h-20 flex-col gap-2 rounded-2xl primary-gradient">
-                  <Brain className="h-6 w-6" />
-                  <span className="text-sm">Bulk Generate Questions</span>
+      {/* Core AI Features */}
+      <div className="space-y-6">
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 rounded-2xl bg-emerald-500/20 flex items-center justify-center">
+            <Zap className="h-4 w-4 text-emerald-500" />
+          </div>
+          <h3 className="text-xl font-semibold text-foreground">Core AI Features</h3>
+          <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30">Active</Badge>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {coreFeatures.map((feature) => (
+            <Card key={feature.id} className="card-gradient rounded-3xl border-border/40 shadow-xl hover:shadow-2xl transition-all duration-300 group">
+              <CardHeader className="pb-4">
+                <div className="flex items-start justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 rounded-2xl bg-primary/20 flex items-center justify-center group-hover:bg-primary/30 transition-colors">
+                      <feature.icon className="h-6 w-6 text-primary" />
+                    </div>
+                    <div>
+                      <CardTitle className="text-base">{feature.title}</CardTitle>
+                      <Badge variant="outline" className="mt-1 rounded-xl">Ready to Use</Badge>
+                    </div>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent className="pt-0 space-y-4">
+                <p className="text-sm text-muted-foreground">{feature.description}</p>
+                <Button
+                  onClick={feature.action}
+                  className="w-full rounded-2xl primary-gradient glow-primary"
+                >
+                  <Plus className="mr-2 h-4 w-4" />
+                  Use This Feature
                 </Button>
-              </DialogTrigger>
-              <DialogContent className="sm:max-w-lg">
-                <DialogHeader>
-                  <DialogTitle>Bulk Generate Questions with AI</DialogTitle>
-                </DialogHeader>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </div>
+
+      {/* Bulk Generation Dialog */}
+      <Dialog open={bulkGenerationDialog} onOpenChange={setBulkGenerationDialog}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Brain className="h-5 w-5 text-primary" />
+              Bulk Question Generation
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-6">
+            <div className="space-y-2">
+              <Label htmlFor="bulk-topics">Topics (comma separated) *</Label>
+              <Textarea
+                id="bulk-topics"
+                value={bulkGenerationData.topics}
+                onChange={(e) => setBulkGenerationData({ ...bulkGenerationData, topics: e.target.value })}
+                placeholder="JavaScript, React, Node.js, Databases, Algorithms"
+                className="rounded-2xl"
+                rows={3}
+              />
+            </div>
+            
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Total Questions</Label>
+                <Select
+                  value={bulkGenerationData.questionCount.toString()}
+                  onValueChange={(value) => setBulkGenerationData({ ...bulkGenerationData, questionCount: parseInt(value) })}
+                >
+                  <SelectTrigger className="rounded-2xl">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="5">5 Questions</SelectItem>
+                    <SelectItem value="10">10 Questions</SelectItem>
+                    <SelectItem value="15">15 Questions</SelectItem>
+                    <SelectItem value="20">20 Questions</SelectItem>
+                    <SelectItem value="30">30 Questions</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Difficulty Mix</Label>
+                <Select
+                  value={bulkGenerationData.difficulty}
+                  onValueChange={(value: any) => setBulkGenerationData({ ...bulkGenerationData, difficulty: value })}
+                >
+                  <SelectTrigger className="rounded-2xl">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="easy">Easy Only</SelectItem>
+                    <SelectItem value="medium">Medium Only</SelectItem>
+                    <SelectItem value="hard">Hard Only</SelectItem>
+                    <SelectItem value="mixed">Mixed Difficulty</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Question Types</Label>
+              <div className="flex gap-2">
+                {["mcq", "coding"].map((type) => (
+                  <div key={type} className="flex items-center space-x-2">
+                    <input
+                      type="checkbox"
+                      id={type}
+                      checked={bulkGenerationData.questionTypes.includes(type)}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setBulkGenerationData({
+                            ...bulkGenerationData,
+                            questionTypes: [...bulkGenerationData.questionTypes, type],
+                          })
+                        } else {
+                          setBulkGenerationData({
+                            ...bulkGenerationData,
+                            questionTypes: bulkGenerationData.questionTypes.filter(t => t !== type),
+                          })
+                        }
+                      }}
+                      className="rounded"
+                    />
+                    <Label htmlFor={type} className="text-sm capitalize">
+                      {type === "mcq" ? "MCQ Questions" : "Coding Problems"}
+                    </Label>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {bulkGenerationData.questionTypes.includes("coding") && (
+              <div className="space-y-2">
+                <Label>Programming Language</Label>
+                <Select
+                  value={bulkGenerationData.language}
+                  onValueChange={(value) => setBulkGenerationData({ ...bulkGenerationData, language: value })}
+                >
+                  <SelectTrigger className="rounded-2xl">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="javascript">JavaScript</SelectItem>
+                    <SelectItem value="python">Python</SelectItem>
+                    <SelectItem value="java">Java</SelectItem>
+                    <SelectItem value="cpp">C++</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            <Button
+              onClick={handleBulkGeneration}
+              disabled={isGenerating}
+              className="w-full rounded-2xl primary-gradient"
+            >
+              {isGenerating ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Generating Questions...
+                </>
+              ) : (
+                <>
+                  <Wand2 className="mr-2 h-4 w-4" />
+                  Generate Questions
+                </>
+              )}
+            </Button>
+
+            {generationResults.length > 0 && (
+              <div className="space-y-4 mt-4">
+                <Separator />
+                <div className="flex items-center justify-between">
+                  <h4 className="font-medium">Generation Complete!</h4>
+                  <Badge className="bg-emerald-500/20 text-emerald-400">
+                    <CheckCircle className="mr-1 h-3 w-3" />
+                    {generationResults.length} Questions
+                  </Badge>
+                </div>
+                <div className="p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/20">
+                  <p className="text-sm text-emerald-600 dark:text-emerald-400">
+                    Questions have been generated successfully! Use the individual question builders 
+                    to review and add them to your assessment.
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Premium Features */}
+      <div className="space-y-6">
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 rounded-2xl bg-gradient-to-r from-amber-500/20 to-orange-500/20 flex items-center justify-center">
+            <Star className="h-4 w-4 text-amber-500" />
+          </div>
+          <h3 className="text-xl font-semibold text-foreground">Premium AI Features</h3>
+          <Badge className="bg-gradient-to-r from-amber-500/20 to-orange-500/20 text-amber-400 border-amber-500/30">
+            Pro
+          </Badge>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {premiumFeatures.map((feature) => (
+            <Card key={feature.id} className="card-gradient rounded-3xl border-border/40 shadow-xl relative overflow-hidden">
+              {/* Premium overlay */}
+              <div className="absolute inset-0 bg-gradient-to-br from-amber-500/5 to-orange-500/5 pointer-events-none" />
+              
+              <CardHeader className="pb-4">
+                <div className="flex items-start justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 rounded-2xl bg-amber-500/20 flex items-center justify-center">
+                      <feature.icon className="h-6 w-6 text-amber-500" />
+                    </div>
+                    <div>
+                      <CardTitle className="text-base">{feature.title}</CardTitle>
+                      <Badge className="mt-1 rounded-xl bg-gradient-to-r from-amber-500/20 to-orange-500/20 text-amber-400 border-amber-500/30">
+                        {feature.category}
+                      </Badge>
+                    </div>
+                  </div>
+                  <Badge variant="outline" className="rounded-xl border-amber-500/30 text-amber-400">
+                    Premium
+                  </Badge>
+                </div>
+              </CardHeader>
+              <CardContent className="pt-0 space-y-4">
+                <p className="text-sm text-muted-foreground">{feature.description}</p>
+                <Button
+                  variant="outline"
+                  className="w-full rounded-2xl border-amber-500/30 text-amber-400 hover:bg-amber-500/10"
+                >
+                  <Star className="mr-2 h-4 w-4" />
+                  Upgrade to Access
+                </Button>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </div>
+
+      {/* AI Configuration */}
+      <div className="space-y-6">
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 rounded-2xl bg-blue-500/20 flex items-center justify-center">
+            <Settings className="h-4 w-4 text-blue-500" />
+          </div>
+          <h3 className="text-xl font-semibold text-foreground">AI Configuration</h3>
+        </div>
+
+        <Card className="card-gradient rounded-3xl border-border/40 shadow-xl">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Sparkles className="h-5 w-5 text-primary" />
+              Automatic AI Features
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-4">
+                <h4 className="font-semibold text-foreground">Content Generation</h4>
                 <div className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="bulk-topics">Topics (comma separated) *</Label>
-                    <Textarea
-                      id="bulk-topics"
-                      value={bulkGenerationData.topics}
-                      onChange={(e) => setBulkGenerationData({ ...bulkGenerationData, topics: e.target.value })}
-                      placeholder="JavaScript, React, Node.js, Databases, Algorithms"
-                      className="rounded-2xl"
-                      rows={3}
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-1">
+                      <span className="text-sm font-medium">Auto-generate explanations</span>
+                      <p className="text-xs text-muted-foreground">Automatically add AI explanations to questions</p>
+                    </div>
+                    <Switch
+                      checked={aiSettings.autoGenerateExplanations}
+                      onCheckedChange={(checked) => setAiSettings({ ...aiSettings, autoGenerateExplanations: checked })}
                     />
                   </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label>Question Count</Label>
-                      <Select
-                        value={bulkGenerationData.questionCount.toString()}
-                        onValueChange={(value) => setBulkGenerationData({ ...bulkGenerationData, questionCount: parseInt(value) })}
-                      >
-                        <SelectTrigger className="rounded-2xl">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="5">5 Questions</SelectItem>
-                          <SelectItem value="10">10 Questions</SelectItem>
-                          <SelectItem value="15">15 Questions</SelectItem>
-                          <SelectItem value="20">20 Questions</SelectItem>
-                        </SelectContent>
-                      </Select>
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-1">
+                      <span className="text-sm font-medium">Smart difficulty balancing</span>
+                      <p className="text-xs text-muted-foreground">Maintain balanced difficulty distribution</p>
                     </div>
-                    <div className="space-y-2">
-                      <Label>Difficulty</Label>
-                      <Select
-                        value={bulkGenerationData.difficulty}
-                        onValueChange={(value: any) => setBulkGenerationData({ ...bulkGenerationData, difficulty: value })}
-                      >
-                        <SelectTrigger className="rounded-2xl">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="easy">Easy</SelectItem>
-                          <SelectItem value="medium">Medium</SelectItem>
-                          <SelectItem value="hard">Hard</SelectItem>
-                          <SelectItem value="mixed">Mixed</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
+                    <Switch
+                      checked={aiSettings.smartDifficultyBalancing}
+                      onCheckedChange={(checked) => setAiSettings({ ...aiSettings, smartDifficultyBalancing: checked })}
+                    />
                   </div>
-                  <div className="space-y-2">
-                    <Label>Question Types</Label>
-                    <div className="flex gap-2">
-                      {["mcq", "coding"].map((type) => (
-                        <div key={type} className="flex items-center space-x-2">
-                          <input
-                            type="checkbox"
-                            id={type}
-                            checked={bulkGenerationData.questionTypes.includes(type)}
-                            onChange={(e) => {
-                              if (e.target.checked) {
-                                setBulkGenerationData({
-                                  ...bulkGenerationData,
-                                  questionTypes: [...bulkGenerationData.questionTypes, type],
-                                })
-                              } else {
-                                setBulkGenerationData({
-                                  ...bulkGenerationData,
-                                  questionTypes: bulkGenerationData.questionTypes.filter(t => t !== type),
-                                })
-                              }
-                            }}
-                            className="rounded"
-                          />
-                          <Label htmlFor={type} className="text-sm capitalize">
-                            {type === "mcq" ? "MCQ" : "Coding"}
-                          </Label>
-                        </div>
-                      ))}
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-1">
+                      <span className="text-sm font-medium">Topic-based clustering</span>
+                      <p className="text-xs text-muted-foreground">Group similar questions automatically</p>
                     </div>
+                    <Switch
+                      checked={aiSettings.topicBasedClustering}
+                      onCheckedChange={(checked) => setAiSettings({ ...aiSettings, topicBasedClustering: checked })}
+                    />
                   </div>
-                  {bulkGenerationData.questionTypes.includes("coding") && (
-                    <div className="space-y-2">
-                      <Label>Programming Language</Label>
-                      <Select
-                        value={bulkGenerationData.language}
-                        onValueChange={(value) => setBulkGenerationData({ ...bulkGenerationData, language: value })}
-                      >
-                        <SelectTrigger className="rounded-2xl">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="javascript">JavaScript</SelectItem>
-                          <SelectItem value="python">Python</SelectItem>
-                          <SelectItem value="java">Java</SelectItem>
-                          <SelectItem value="cpp">C++</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  )}
-                  <Button
-                    onClick={handleBulkGeneration}
-                    disabled={isGenerating}
-                    className="w-full rounded-2xl primary-gradient"
-                  >
-                    {isGenerating ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Generating Questions...
-                      </>
-                    ) : (
-                      <>
-                        <Wand2 className="mr-2 h-4 w-4" />
-                        Generate Questions
-                      </>
-                    )}
-                  </Button>
-
-                  {generationResults.length > 0 && (
-                    <div className="space-y-4 mt-4">
-                      <Separator />
-                      <div className="flex items-center justify-between">
-                        <h4 className="font-medium">Generated Questions ({generationResults.length})</h4>
-                        <Badge className="bg-emerald-500/20 text-emerald-400">
-                          <CheckCircle className="mr-1 h-3 w-3" />
-                          Ready to Use
-                        </Badge>
-                      </div>
-                      <div className="text-sm text-muted-foreground">
-                        Questions have been generated successfully. You can now use the individual question builders to add them to your assessment.
-                      </div>
-                    </div>
-                  )}
                 </div>
-              </DialogContent>
-            </Dialog>
-
-            <Button
-              onClick={generateTestCases}
-              variant="outline"
-              className="h-20 flex-col gap-2 rounded-2xl border-border/40 hover:bg-accent/80"
-            >
-              <Code className="h-6 w-6" />
-              <span className="text-sm">Generate Test Cases</span>
-            </Button>
-
-            <Button
-              onClick={analyzeDifficulty}
-              variant="outline"
-              className="h-20 flex-col gap-2 rounded-2xl border-border/40 hover:bg-accent/80"
-            >
-              <Target className="h-6 w-6" />
-              <span className="text-sm">Analyze Difficulty</span>
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-
-      <div className="space-y-8">
-        {groupedFeatures.map((category) => (
-          <div key={category.id} className="space-y-4">
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-2xl bg-primary/20 flex items-center justify-center">
-                <category.icon className="h-4 w-4 text-primary" />
               </div>
-              <h3 className="text-lg font-semibold text-foreground">{category.title}</h3>
-            </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {category.features.map((feature) => (
-                <Card key={feature.id} className="card-gradient rounded-3xl border-border/40 shadow-xl">
-                  <CardHeader className="pb-4">
-                    <div className="flex items-start justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-2xl bg-accent/50 flex items-center justify-center">
-                          <feature.icon className="h-5 w-5 text-foreground" />
-                        </div>
-                        <div>
-                          <CardTitle className="text-base">{feature.title}</CardTitle>
-                          {feature.premium && (
-                            <Badge className="mt-1 rounded-xl bg-gradient-to-r from-amber-500/20 to-orange-500/20 text-amber-400 border-amber-500/30">
-                              Premium
-                            </Badge>
-                          )}
-                        </div>
-                      </div>
-                      <Switch checked={feature.enabled} disabled={feature.premium} />
+              <div className="space-y-4">
+                <h4 className="font-semibold text-foreground">Analytics & Insights</h4>
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-1">
+                      <span className="text-sm font-medium">Real-time analytics</span>
+                      <p className="text-xs text-muted-foreground">Live AI insights during assessment</p>
                     </div>
-                  </CardHeader>
-                  <CardContent className="pt-0 space-y-4">
-                    <p className="text-sm text-muted-foreground">{feature.description}</p>
-                    <Button
-                      onClick={feature.action}
-                      disabled={feature.premium}
-                      variant={feature.enabled ? "default" : "outline"}
-                      size="sm"
-                      className="w-full rounded-xl"
-                    >
-                      {feature.premium ? "Upgrade to Use" : "Use Feature"}
-                    </Button>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {filteredFeatures.length === 0 && (
-        <Card className="card-gradient rounded-3xl border-border/40 shadow-xl">
-          <CardContent className="p-8 text-center space-y-4">
-            <div className="w-16 h-16 rounded-2xl bg-accent/50 mx-auto flex items-center justify-center">
-              <Zap className="h-8 w-8 text-muted-foreground" />
-            </div>
-            <div>
-              <h3 className="text-lg font-semibold text-foreground">No AI Tools Available</h3>
-              <p className="text-muted-foreground mt-2">
-                AI tools will be available once you select an assessment type.
-              </p>
+                    <Switch
+                      checked={aiSettings.realTimeAnalytics}
+                      onCheckedChange={(checked) => setAiSettings({ ...aiSettings, realTimeAnalytics: checked })}
+                    />
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-1">
+                      <span className="text-sm font-medium">Predictive scoring</span>
+                      <p className="text-xs text-muted-foreground">Predict performance patterns</p>
+                    </div>
+                    <Switch
+                      checked={aiSettings.predictiveScoring}
+                      onCheckedChange={(checked) => setAiSettings({ ...aiSettings, predictiveScoring: checked })}
+                    />
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-1">
+                      <span className="text-sm font-medium">Behavior analysis</span>
+                      <p className="text-xs text-muted-foreground">Track candidate behavior patterns</p>
+                    </div>
+                    <Switch
+                      checked={aiSettings.behaviorAnalysis}
+                      onCheckedChange={(checked) => setAiSettings({ ...aiSettings, behaviorAnalysis: checked })}
+                    />
+                  </div>
+                </div>
+              </div>
             </div>
           </CardContent>
         </Card>
-      )}
+      </div>
 
-      <Separator />
-
+      {/* AI Stats Overview */}
       <Card className="card-gradient rounded-3xl border-border/40 shadow-xl">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Sparkles className="h-5 w-5 text-primary" />
-            AI Configuration
+            <BarChart className="h-5 w-5 text-primary" />
+            AI Usage Overview
           </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="space-y-4">
-              <h4 className="font-semibold text-foreground">Content Generation Settings</h4>
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-muted-foreground">Auto-generate explanations</span>
-                  <Switch
-                    checked={aiSettings.autoGenerateExplanations}
-                    onCheckedChange={(checked) => setAiSettings({ ...aiSettings, autoGenerateExplanations: checked })}
-                  />
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-muted-foreground">Smart difficulty balancing</span>
-                  <Switch
-                    checked={aiSettings.smartDifficultyBalancing}
-                    onCheckedChange={(checked) => setAiSettings({ ...aiSettings, smartDifficultyBalancing: checked })}
-                  />
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-muted-foreground">Topic-based question clustering</span>
-                  <Switch
-                    checked={aiSettings.topicBasedClustering}
-                    onCheckedChange={(checked) => setAiSettings({ ...aiSettings, topicBasedClustering: checked })}
-                  />
-                </div>
-              </div>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="text-center p-4 rounded-2xl bg-accent/30">
+              <div className="text-2xl font-bold text-foreground">12</div>
+              <div className="text-sm text-muted-foreground">Questions Generated</div>
             </div>
-
-            <div className="space-y-4">
-              <h4 className="font-semibold text-foreground">Analysis & Insights</h4>
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-muted-foreground">Real-time performance analytics</span>
-                  <Switch
-                    checked={aiSettings.realTimeAnalytics}
-                    onCheckedChange={(checked) => setAiSettings({ ...aiSettings, realTimeAnalytics: checked })}
-                  />
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-muted-foreground">Predictive scoring</span>
-                  <Switch
-                    checked={aiSettings.predictiveScoring}
-                    onCheckedChange={(checked) => setAiSettings({ ...aiSettings, predictiveScoring: checked })}
-                  />
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-muted-foreground">Candidate behavior analysis</span>
-                  <Switch
-                    checked={aiSettings.behaviorAnalysis}
-                    onCheckedChange={(checked) => setAiSettings({ ...aiSettings, behaviorAnalysis: checked })}
-                  />
-                </div>
-              </div>
+            <div className="text-center p-4 rounded-2xl bg-accent/30">
+              <div className="text-2xl font-bold text-foreground">5</div>
+              <div className="text-sm text-muted-foreground">Topics Covered</div>
             </div>
-          </div>
-
-          <Separator />
-
-          <div className="flex items-center justify-between p-4 rounded-2xl bg-gradient-to-r from-primary/10 to-purple/10 border border-primary/20">
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-2xl bg-primary/20 flex items-center justify-center">
-                <Zap className="h-4 w-4 text-primary" />
-              </div>
-              <div>
-                <h4 className="font-semibold text-foreground">AI Credits</h4>
-                <p className="text-sm text-muted-foreground">250 credits remaining this month</p>
-              </div>
+            <div className="text-center p-4 rounded-2xl bg-accent/30">
+              <div className="text-2xl font-bold text-foreground">98%</div>
+              <div className="text-sm text-muted-foreground">Quality Score</div>
             </div>
-            <Button variant="outline" className="rounded-2xl">
-              Upgrade Plan
-            </Button>
+            <div className="text-center p-4 rounded-2xl bg-accent/30">
+              <div className="text-2xl font-bold text-foreground">45s</div>
+              <div className="text-sm text-muted-foreground">Avg. Generation Time</div>
+            </div>
           </div>
         </CardContent>
       </Card>
