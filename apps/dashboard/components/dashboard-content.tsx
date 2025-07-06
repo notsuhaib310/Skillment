@@ -154,20 +154,20 @@ export function DashboardContent({ user }: DashboardContentProps) {
   )
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 pb-8">
       {/* Welcome Section */}
-      <div className="space-y-2">
+      <div className="space-y-3">
         <div className="flex items-center gap-3">
-          <h1 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text">
+          <h1 className="text-3xl lg:text-4xl font-bold tracking-tight bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text">
             Welcome back, {user?.firstName || "User"}
           </h1>
-          <Sparkles className="h-6 w-6 text-primary" />
+          <Sparkles className="h-6 w-6 text-primary animate-pulse" />
         </div>
-        <p className="text-muted-foreground">{"Here's what's happening with your talent assessments today."}</p>
+        <p className="text-muted-foreground text-lg">{"Here's what's happening with your talent assessments today."}</p>
       </div>
 
       {/* Enhanced Metrics Cards */}
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
         <Card className="rounded-3xl border-border/40 shadow-xl backdrop-blur-sm bg-gradient-to-br from-card to-card/50">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-foreground">Total Participants</CardTitle>

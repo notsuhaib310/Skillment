@@ -15,6 +15,7 @@ interface User {
 
 export default function DashboardPage() {
   const [user, setUser] = useState<User | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
     // Check for token in cookie
@@ -32,43 +33,35 @@ export default function DashboardPage() {
         setUser(userData)
       } catch (error) {
         console.error("Error parsing user data:", error)
+        toast.error("Failed to load user data")
         window.location.href = "/auth/login"
       }
+    } else {
+      console.error("No user data found")
+      window.location.href = "/auth/login"
     }
+    
+    setIsLoading(false)
   }, [])
 
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
+          <p className="text-muted-foreground">Loading dashboard...</p>
+        </div>
+      </div>
+    )
+  }
+
   if (!user) {
-    return <div>Loading...</div>
+    return null
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="border-b border-border/40 bg-card/50 backdrop-blur-xl sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-6 py-4">
-          <div className="flex justify-between items-center">
-            <div className="flex items-center space-x-4">
-              {/* <h2 className="text-lg font-semibold text-foreground"></h2> */}
-              <div className="text-sm text-muted-foreground">
-                Logged in as {user.email}
-              </div>
-            </div>
-            <button
-              onClick={() => {
-                Cookies.remove("token")
-                localStorage.removeItem("user")
-                window.location.href = "/auth/login"
-              }}
-              className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-md text-sm font-medium"
-            >
-              Logout
-            </button>
-          </div>
-        </div>
-      </div>
-
-      <div className="py-8">
-        <DashboardContent user={user} />
-      </div>
+    <div className="space-y-6">
+      <DashboardContent user={user} />
     </div>
   )
 }
