@@ -103,7 +103,7 @@ export function CreateAssessmentPage({ onBack }: CreateAssessmentPageProps) {
         ...formData,
         type: selectedType,
         totalQuestions: questions.length,
-        questions: questions,
+        questions: formatQuestionsForBackend(questions),
         status: "draft",
         ...proctoringConfig,
       }
@@ -169,7 +169,7 @@ export function CreateAssessmentPage({ onBack }: CreateAssessmentPageProps) {
         ...formData,
         type: selectedType,
         totalQuestions: questions.length,
-        questions: questions,
+        questions: formatQuestionsForBackend(questions),
         status: "live",
         ...proctoringConfig,
       }
@@ -216,6 +216,71 @@ export function CreateAssessmentPage({ onBack }: CreateAssessmentPageProps) {
     } finally {
       setLoading(false)
     }
+  }
+
+  // Format questions for backend with proper data structure
+  const formatQuestionsForBackend = (questions: any[]) => {
+    return questions.map((question, index) => {
+      const baseQuestion = {
+        question: question.question || question.title || '',
+        type: question.type === 'mcq' ? 'multiple_choice' : question.type,
+        marks: question.marks || 1,
+        order: index + 1,
+        hints: question.hints || [],
+        explanation: question.explanation || '',
+        difficulty: question.difficulty || 'medium',
+        tags: question.tags || [],
+      }
+
+      // Format MCQ questions
+      if (question.type === 'mcq' || question.type === 'multiple_choice') {
+        const mcqData = {
+          question: question.question || '',
+          options: question.options || [],
+          explanation: question.explanation || '',
+          multipleCorrect: question.multipleCorrect || false,
+        }
+
+        return {
+          ...baseQuestion,
+          type: 'multiple_choice',
+          mcqData: mcqData,
+          // Also include legacy fields for backward compatibility
+          options: question.options || [],
+          correctAnswer: question.correctAnswer || []
+        }
+      }
+
+      // Format Coding questions
+      if (question.type === 'coding') {
+        const codingData = {
+          title: question.title || question.question || '',
+          description: question.description || '',
+          timeLimit: question.timeLimit || 60,
+          memoryLimit: question.memoryLimit || 128,
+          languages: question.languages || ['javascript'],
+          starterCode: question.starterCode || {},
+          testCases: question.testCases || [],
+        }
+
+        return {
+          ...baseQuestion,
+          question: question.title || question.question || '',
+          type: 'coding',
+          codingData: codingData
+        }
+      }
+
+      // Add AI metadata if present
+      if (question.aiMetadata) {
+        return {
+          ...baseQuestion,
+          aiMetadata: question.aiMetadata
+        }
+      }
+
+      return baseQuestion
+    })
   }
 
   const renderStepContent = () => {
