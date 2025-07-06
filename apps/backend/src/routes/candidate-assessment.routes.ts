@@ -8,33 +8,13 @@ import type {
   CodingQuestionData 
 } from '../types/assessment';
 import { authenticate } from '../middleware/authenticate';
+import { listAssignedAssessments } from '../controllers/candidate-assessment.controller';
 
 const router = Router();
 const prisma = new PrismaClient();
 
 // Public: List assigned assessments for login
-router.get('/assessments', async (req, res) => {
-  try {
-    console.log('Public /candidate/assessments hit');
-    
-    // This would typically require some form of identification (email, phone, etc.)
-    // For now, return a simple response indicating the endpoint exists
-    return res.json({
-      message: 'Candidate assessment endpoint is available',
-      endpoints: [
-        'GET /candidate/assessments - List assigned assessments',
-        'GET /:assessmentId/candidate/:candidateId - Get assessment details',
-        'POST /:assessmentId/candidate/:candidateId/start - Start assessment',
-        'POST /:assessmentId/candidate/:candidateId/submit - Submit assessment',
-        'POST /:assessmentId/candidate/:candidateId/save - Save answers',
-        'GET /:assessmentId/candidate/:candidateId/progress - Get progress'
-      ]
-    });
-  } catch (error) {
-    console.error('Error in candidate assessments endpoint:', error);
-    return res.status(500).json({ error: 'Failed to fetch assessments' });
-  }
-});
+router.get('/assessments', listAssignedAssessments);
 
 // Protected: All other candidate assessment routes
 router.use(authenticate);

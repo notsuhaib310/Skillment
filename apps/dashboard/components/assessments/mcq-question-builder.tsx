@@ -31,6 +31,7 @@ interface MCQQuestion {
   marks: number
   tags: string[]
   multipleCorrect: boolean
+  type?: string
 }
 
 interface MCQQuestionBuilderProps {
@@ -138,6 +139,7 @@ export function MCQQuestionBuilder({ onAddQuestion }: MCQQuestionBuilderProps) {
     const questionWithId = {
       ...currentQuestion,
       id: Date.now().toString(),
+      type: 'mcq', // Ensure type is set correctly
     }
 
     onAddQuestion(questionWithId);
@@ -157,6 +159,7 @@ export function MCQQuestionBuilder({ onAddQuestion }: MCQQuestionBuilderProps) {
       marks: 1,
       tags: [],
       multipleCorrect: false,
+      type: "mcq",
     });
 
     toast({

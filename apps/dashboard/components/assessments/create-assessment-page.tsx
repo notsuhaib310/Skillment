@@ -232,7 +232,7 @@ export function CreateAssessmentPage({ onBack }: CreateAssessmentPageProps) {
         tags: question.tags || [],
       }
 
-      // Format MCQ questions
+      // Format MCQ questions from MCQQuestionBuilder
       if (question.type === 'mcq' || question.type === 'multiple_choice') {
         const mcqData = {
           question: question.question || '',
@@ -247,11 +247,11 @@ export function CreateAssessmentPage({ onBack }: CreateAssessmentPageProps) {
           mcqData: mcqData,
           // Also include legacy fields for backward compatibility
           options: question.options || [],
-          correctAnswer: question.correctAnswer || []
+          correctAnswer: question.options?.filter((opt: any) => opt.isCorrect).map((opt: any) => opt.id) || []
         }
       }
 
-      // Format Coding questions
+      // Format Coding questions from CodingQuestionBuilder
       if (question.type === 'coding') {
         const codingData = {
           title: question.title || question.question || '',

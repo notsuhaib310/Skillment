@@ -35,6 +35,7 @@ interface CodingQuestion {
   languages: string[]
   starterCode: { [language: string]: string }
   testCases: TestCase[]
+  type?: string
 }
 
 interface CodingQuestionBuilderProps {
@@ -170,6 +171,7 @@ export function CodingQuestionBuilder({ onAddQuestion }: CodingQuestionBuilderPr
     const questionWithId = {
       ...currentQuestion,
       id: Date.now().toString(),
+      type: 'coding', // Ensure type is set correctly
     }
 
     onAddQuestion(questionWithId)
