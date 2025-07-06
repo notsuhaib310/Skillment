@@ -28,6 +28,9 @@ import {
   Ban,
 } from "lucide-react"
 import { sendProctoringEvent } from "@/lib/proctoring"
+import { useFullscreenEnforcement } from "@/hooks/use-fullscreen-enforcement"
+import { useDefensiveProctoring } from "@/hooks/use-defensive-proctoring"
+import DefensiveViolationOverlay from "./defensive-violation-overlay"
 
 interface CodingExamProps {
   candidateData: any
@@ -116,6 +119,41 @@ export default function CodingExam({ candidateData, systemStatus, assessment, on
   const [windowTooSmall, setWindowTooSmall] = useState(false)
   const [tabInactive, setTabInactive] = useState(false)
   const [notFullscreen, setNotFullscreen] = useState(false)
+  const [fullscreenBlocked, setFullscreenBlocked] = useState(false)
+
+  // Use the fullscreen enforcement hook
+  const { enforceFullscreen, exitFullscreen, isFullscreen: checkFullscreen } = useFullscreenEnforcement({
+    enforceOnMount: true,
+    blockEscapeKey: true,
+    monitorVisibility: true,
+    retryDelay: 50
+  });
+
+  // Use the defensive proctoring system
+  const { 
+    violationState, 
+    violationCount, 
+    dismissViolation, 
+    setExamActive 
+  } = useDefensiveProctoring({
+    onViolation: (violation: string) => {
+      console.warn('Coding Exam Violation:', violation);
+      addViolation("warning", violation, "Logged");
+    },
+    onCriticalViolation: (violation: string) => {
+      console.error('Coding Exam Critical Violation:', violation);
+      addViolation("critical", violation, "Enhanced Monitoring");
+      
+      // Auto-submit on 3+ critical violations
+      if (violationCount >= 2) {
+        setTimeout(() => {
+          submitExam(true, `Multiple critical violations: ${violation}`);
+        }, 3000);
+      }
+    },
+    candidateId: candidateData?.candidateId,
+    assessmentTitle: assessment?.title
+  });
 
   // Map backend questions to CodingProblem format expected by the UI
   const problems = (assessment?.questions || []).map((q: any, idx: number) => {
@@ -1006,593 +1044,618 @@ export default function CodingExam({ candidateData, systemStatus, assessment, on
     }
   }, [fontSize])
 
-  // Initial fullscreen entry without warnings
+  // Monitor fullscreen state for UI blocking
   useEffect(() => {
-    const enterInitialFullscreen = async () => {
-      try {
-        if (!document.fullscreenElement) {
-          await document.documentElement.requestFullscreen()
-          setIsFullscreen(true)
-        }
-      } catch (error) {
-        console.error("Initial fullscreen failed:", error)
-      }
-    }
-
-    // Enter fullscreen immediately when component mounts
-    enterInitialFullscreen()
-  }, [])
-
-  useEffect(() => {
-    const checkWindowSize = () => {
-      const minWidth = 1024;
-      const minHeight = 600;
-      if (window.innerWidth < minWidth || window.innerHeight < minHeight) {
-        setWindowTooSmall(true);
-      } else {
-        setWindowTooSmall(false);
-      }
-    };
-    window.addEventListener('resize', checkWindowSize);
-    checkWindowSize();
-    return () => window.removeEventListener('resize', checkWindowSize);
-  }, []);
-
-  useEffect(() => {
-    const handleVisibility = () => {
-      if (document.hidden) {
-        setTabInactive(true);
-      } else {
-        setTabInactive(false);
-      }
-    };
-    document.addEventListener('visibilitychange', handleVisibility);
-    return () => document.removeEventListener('visibilitychange', handleVisibility);
-  }, []);
-
-  useEffect(() => {
-    let interval: NodeJS.Timeout | null = null;
-    const checkFullscreen = async () => {
-      if (!document.fullscreenElement) {
+    const checkFullscreenState = () => {
+      const fullscreenActive = !!document.fullscreenElement;
+      setIsFullscreen(fullscreenActive);
+      
+      if (!fullscreenActive && !examComplete) {
+        // Not in fullscreen and exam is active
+        setFullscreenBlocked(true);
         setNotFullscreen(true);
-        try {
-          await document.documentElement.requestFullscreen();
-        } catch {}
-      } else {
+        
+        // Try to force fullscreen again
+        setTimeout(() => {
+          enforceFullscreen();
+        }, 100);
+      } else if (fullscreenActive) {
+        setFullscreenBlocked(false);
         setNotFullscreen(false);
       }
     };
-    document.addEventListener('fullscreenchange', checkFullscreen);
-    interval = setInterval(checkFullscreen, 1000);
-    checkFullscreen();
-    return () => {
-      document.removeEventListener('fullscreenchange', checkFullscreen);
-      if (interval) clearInterval(interval);
+
+    // Initial check
+    checkFullscreenState();
+
+    // Monitor fullscreen changes
+    const handleFullscreenChange = () => {
+      checkFullscreenState();
     };
-  }, []);
+
+    // Monitor page visibility
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        setTimeout(checkFullscreenState, 100);
+      }
+    };
+
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    // Periodic check every 500ms
+    const interval = setInterval(checkFullscreenState, 500);
+
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      clearInterval(interval);
+    };
+  }, [examComplete, enforceFullscreen]);
 
   return (
-    <div className="h-screen bg-[#0a0b0d] text-white overflow-hidden relative">
-      {(windowTooSmall || tabInactive || notFullscreen) && (
-        <div className="fixed inset-0 z-[99999] flex flex-col items-center justify-center bg-black/95">
-          <div className="bg-red-900 border-4 border-red-600 rounded-2xl p-10 max-w-lg w-full mx-4 animate-pulse text-center shadow-2xl relative">
-            <svg className="mx-auto mb-6 animate-bounce" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" stroke="red" strokeWidth="2" fill="#fff0f0"/><path d="M12 8v4" stroke="red" strokeWidth="2"/><circle cx="12" cy="16" r="1" fill="red"/></svg>
-            <h2 className="text-3xl font-extrabold text-white mb-4 drop-shadow-lg">SECURITY WARNING</h2>
-            <p className="text-lg text-red-300 font-bold mb-6 drop-shadow">{windowTooSmall ? 'Window is too small or minimized.' : tabInactive ? 'Tab is inactive or switched.' : 'You must be in fullscreen mode to continue your exam.'}<br/>Please maximize, return to this tab, and enter fullscreen to continue your exam.</p>
+    <div className="min-h-screen bg-[#0a0b0d] text-white">
+      {/* Defensive Violation Overlay - Takes priority over all other overlays */}
+      {violationState?.isActive && (
+        <DefensiveViolationOverlay
+          violation={violationState}
+          onDismiss={dismissViolation}
+          candidateId={candidateData?.candidateId}
+          assessmentTitle={assessment?.title}
+        />
+      )}
+
+      {/* Fullscreen Enforcement Overlay - Only show if no violation overlay is active */}
+      {fullscreenBlocked && !violationState?.isActive && (
+        <div className="fixed inset-0 bg-black bg-opacity-95 z-40 flex items-center justify-center">
+          <div className="bg-red-900/20 border border-red-500 p-8 rounded-lg text-center max-w-md mx-4">
+            <div className="w-16 h-16 bg-red-500 rounded-full flex items-center justify-center mx-auto mb-4">
+              <AlertTriangle className="w-8 h-8 text-white" />
+            </div>
+            <h2 className="text-2xl font-bold text-red-400 mb-4">Fullscreen Required</h2>
+            <p className="text-red-300 mb-6">
+              You must be in fullscreen mode to attempt this coding exam. Please click the button below to continue.
+            </p>
             <button
-              className="bg-gradient-to-r from-red-600 to-red-800 hover:from-red-700 hover:to-red-900 text-white px-8 py-3 rounded-xl font-bold text-xl shadow-lg border-2 border-white/20 focus:outline-none focus:ring-4 focus:ring-red-500"
-              onClick={async () => {
-                await document.documentElement.requestFullscreen();
-                setWindowTooSmall(false);
-                setTabInactive(false);
-                setNotFullscreen(false);
+              onClick={() => {
+                enforceFullscreen();
               }}
+              className="bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-6 rounded-lg transition-colors"
             >
-              Go Fullscreen
+              Enter Fullscreen to Continue
             </button>
+            <p className="text-red-400 text-sm mt-4">
+              ⚠️ Exam content is hidden until fullscreen mode is activated
+            </p>
           </div>
         </div>
       )}
-      <div className={`${(windowTooSmall || tabInactive || notFullscreen) ? 'blur-sm pointer-events-none select-none' : ''}`}>
-        {/* Critical Warning Popup */}
-        {showCriticalWarning && (
-          <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-[9999]">
-            <div className="bg-red-900 border-2 border-red-500 rounded-lg p-8 max-w-md mx-4 animate-pulse">
-              <div className="flex items-center space-x-4 mb-4">
-                <Skull className="w-8 h-8 text-red-400" />
-                <h2 className="text-xl font-bold text-red-400">CRITICAL WARNING</h2>
+
+      {/* Main Exam Content - Hidden when fullscreen blocked or violation active */}
+      <div className={(fullscreenBlocked || violationState?.isActive) ? 'opacity-0 pointer-events-none' : 'opacity-100'}>
+        <div className="h-screen bg-[#0a0b0d] text-white overflow-hidden relative">
+          {(windowTooSmall || tabInactive || notFullscreen) && (
+            <div className="fixed inset-0 z-[99999] flex flex-col items-center justify-center bg-black/95">
+              <div className="bg-red-900 border-4 border-red-600 rounded-2xl p-10 max-w-lg w-full mx-4 animate-pulse text-center shadow-2xl relative">
+                <svg className="mx-auto mb-6 animate-bounce" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" stroke="red" strokeWidth="2" fill="#fff0f0"/><path d="M12 8v4" stroke="red" strokeWidth="2"/><circle cx="12" cy="16" r="1" fill="red"/></svg>
+                <h2 className="text-3xl font-extrabold text-white mb-4 drop-shadow-lg">SECURITY WARNING</h2>
+                <p className="text-lg text-red-300 font-bold mb-6 drop-shadow">{windowTooSmall ? 'Window is too small or minimized.' : tabInactive ? 'Tab is inactive or switched.' : 'You must be in fullscreen mode to continue your exam.'}<br/>Please maximize, return to this tab, and enter fullscreen to continue your exam.</p>
+                <button
+                  className="bg-gradient-to-r from-red-600 to-red-800 hover:from-red-700 hover:to-red-900 text-white px-8 py-3 rounded-xl font-bold text-xl shadow-lg border-2 border-white/20 focus:outline-none focus:ring-4 focus:ring-red-500"
+                  onClick={async () => {
+                    await document.documentElement.requestFullscreen();
+                    setWindowTooSmall(false);
+                    setTabInactive(false);
+                    setNotFullscreen(false);
+                  }}
+                >
+                  Go Fullscreen
+                </button>
               </div>
-              <p className="text-red-200 mb-6">{warningMessage}</p>
-              <div className="flex justify-center">
-                <Button onClick={() => setShowCriticalWarning(false)} className="bg-red-600 hover:bg-red-700 text-white">
-                  I UNDERSTAND
-                </Button>
-              </div>
             </div>
-          </div>
-        )}
-        {/* Header - Fixed */}
-        <div className="h-16 bg-[#1a1d21] border-b border-[#2a2d31] p-4 flex items-center justify-between">
-          <div className="flex items-center space-x-4">
-            <div className="w-8 h-8 bg-gradient-to-r from-[#ff4d00] to-[#ff6b35] rounded-lg flex items-center justify-center">
-              <Code className="w-4 h-4 text-white" />
-            </div>
-            <h1 className="text-lg font-semibold">Coding Assessment</h1>
-            <Badge className="bg-red-900/30 text-red-400 border-red-500/30">
-              <Shield className="w-3 h-3 mr-1" />
-              Ultra Secure
-            </Badge>
-          </div>
-
-          <div className="flex items-center space-x-6">
-            <div className="flex items-center space-x-2 bg-red-900/30 border border-red-500/30 px-3 py-1 rounded">
-              <Clock className="w-4 h-4 text-red-400" />
-              <span className="font-mono font-bold text-red-400">{formatTime(timeLeft)}</span>
-            </div>
-
-            <div className="flex items-center space-x-2 bg-orange-900/30 border border-orange-500/30 px-3 py-1 rounded">
-              <Clock className="w-4 h-4 text-orange-400" />
-              <span className="font-mono font-bold text-orange-400">{formatTime(problemTimeLeft)}</span>
-            </div>
-
-            {criticalViolations > 0 && (
-              <div className="flex items-center space-x-2 bg-red-900/30 border border-red-500/30 px-3 py-1 rounded animate-pulse">
-                <AlertTriangle className="w-4 h-4 text-red-400" />
-                <span className="text-red-400 font-bold">{criticalViolations}</span>
+          )}
+          <div className={`${(windowTooSmall || tabInactive || notFullscreen) ? 'blur-sm pointer-events-none select-none' : ''}`}>
+            {/* Critical Warning Popup */}
+            {showCriticalWarning && (
+              <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-[9999]">
+                <div className="bg-red-900 border-2 border-red-500 rounded-lg p-8 max-w-md mx-4 animate-pulse">
+                  <div className="flex items-center space-x-4 mb-4">
+                    <Skull className="w-8 h-8 text-red-400" />
+                    <h2 className="text-xl font-bold text-red-400">CRITICAL WARNING</h2>
+                  </div>
+                  <p className="text-red-200 mb-6">{warningMessage}</p>
+                  <div className="flex justify-center">
+                    <Button onClick={() => setShowCriticalWarning(false)} className="bg-red-600 hover:bg-red-700 text-white">
+                      I UNDERSTAND
+                    </Button>
+                  </div>
+                </div>
               </div>
             )}
-
-            {warningViolations > 0 && (
-              <div className="flex items-center space-x-2 bg-yellow-900/30 border border-yellow-500/30 px-3 py-1 rounded">
-                <AlertTriangle className="w-4 h-4 text-yellow-400" />
-                <span className="text-yellow-400 font-bold">{warningViolations}</span>
-              </div>
-            )}
-
-            <div className="flex items-center space-x-2 bg-green-900/30 border border-green-500/30 px-3 py-1 rounded">
-              <Camera className="w-4 h-4 text-green-400" />
-              <Eye className="w-4 h-4 text-green-400" />
-              <Mic className="w-4 h-4 text-green-400" />
-            </div>
-
-            <Button
-              onClick={() => {
-                if (window.confirm("Are you sure you want to end the test? This action cannot be undone.")) {
-                  submitExam(false, "Manual submission by candidate")
-                }
-              }}
-              variant="destructive"
-              size="sm"
-              className="bg-red-600 hover:bg-red-700 text-white border-red-500"
-            >
-              End Test
-            </Button>
-          </div>
-        </div>
-
-        {/* Main Content - Fixed Height */}
-        <div className="h-[calc(100vh-64px)] flex">
-          {/* Left Panel - Problem Description - Fixed Width */}
-          <div className="w-96 border-r border-[#2a2d31] flex flex-col">
-            {/* Problem Header - Fixed */}
-            <div className="h-20 p-4 border-b border-[#2a2d31] flex-shrink-0">
-              <div className="flex items-center justify-between mb-2">
-                <h2 className="text-lg font-bold truncate">{problems[currentProblem].title}</h2>
-                <Badge className={getDifficultyColor(problems[currentProblem].difficulty)}>
-                  {problems[currentProblem].difficulty}
+            {/* Header - Fixed */}
+            <div className="h-16 bg-[#1a1d21] border-b border-[#2a2d31] p-4 flex items-center justify-between">
+              <div className="flex items-center space-x-4">
+                <div className="w-8 h-8 bg-gradient-to-r from-[#ff4d00] to-[#ff6b35] rounded-lg flex items-center justify-center">
+                  <Code className="w-4 h-4 text-white" />
+                </div>
+                <h1 className="text-lg font-semibold">Coding Assessment</h1>
+                <Badge className="bg-red-900/30 text-red-400 border-red-500/30">
+                  <Shield className="w-3 h-3 mr-1" />
+                  Ultra Secure
                 </Badge>
               </div>
-              <div className="flex items-center space-x-4 text-xs text-gray-400">
-                <span>
-                  Problem {currentProblem + 1} of {problems.length}
-                </span>
-                <span>{problems[currentProblem].marks} marks</span>
-              </div>
-              <Progress value={progress} className="h-1 mt-2 bg-[#2a2d31]" />
-            </div>
 
-            {/* Tabs - Fixed */}
-            <div className="h-12 flex border-b border-[#2a2d31] flex-shrink-0">
-              {[
-                { id: "description", label: "Description", icon: FileText },
-                { id: "submissions", label: "Submissions", icon: CheckCircle },
-              ].map((tab) => (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id as any)}
-                  className={`flex items-center space-x-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
-                    activeTab === tab.id
-                      ? "border-[#ff4d00] text-[#ff4d00]"
-                      : "border-transparent text-gray-400 hover:text-gray-300"
-                  }`}
-                >
-                  <tab.icon className="w-4 h-4" />
-                  <span>{tab.label}</span>
-                </button>
-              ))}
-            </div>
-
-            {/* Tab Content - ONLY SCROLLABLE SECTION */}
-            <div className="flex-1 overflow-y-auto p-4">
-              {activeTab === "description" && (
-                <div className="space-y-6">
-                  <div>
-                    <p className="text-gray-300 leading-relaxed whitespace-pre-line">
-                      {problems[currentProblem].description}
-                    </p>
-                  </div>
-
-                  <div>
-                    <h3 className="text-lg font-semibold mb-3">Examples</h3>
-                    {problems[currentProblem].examples.map((example: any, index: number) => (
-                      <div key={index} className="mb-4 p-4 bg-[#1a1d21] rounded-lg border border-[#2a2d31]">
-                        <div className="mb-2">
-                          <strong className="text-gray-300">Input:</strong>
-                          <code className="ml-2 text-[#ff4d00]">{example.input}</code>
-                        </div>
-                        <div className="mb-2">
-                          <strong className="text-gray-300">Output:</strong>
-                          <code className="ml-2 text-[#ff4d00]">{example.output}</code>
-                        </div>
-                        {example.explanation && (
-                          <div>
-                            <strong className="text-gray-300">Explanation:</strong>
-                            <span className="ml-2 text-gray-400">{example.explanation}</span>
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-
-                  <div>
-                    <h3 className="text-lg font-semibold mb-3">Constraints</h3>
-                    <ul className="space-y-1">
-                      {problems[currentProblem].constraints.map((constraint: any, index: number) => (
-                        <li key={index} className="text-gray-400">
-                          • {constraint}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                </div>
-              )}
-
-              {activeTab === "submissions" && (
-                <div className="space-y-4">
-                  {submissions.length === 0 ? (
-                    <div className="text-center text-gray-400 py-8">
-                      <CheckCircle className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                      <p>No submissions yet</p>
-                    </div>
-                  ) : (
-                    submissions.map((submission) => (
-                      <div key={submission.id} className="p-4 bg-[#1a1d21] rounded-lg border border-[#2a2d31]">
-                        <div className="flex items-center justify-between mb-2">
-                          <Badge
-                            className={
-                              submission.status === "Accepted"
-                                ? "bg-green-900/30 text-green-400 border-green-500/30"
-                                : "bg-yellow-900/30 text-yellow-400 border-yellow-500/30"
-                            }
-                          >
-                            {submission.status}
-                          </Badge>
-                          <span className="text-sm text-gray-400">
-                            {new Date(submission.timestamp).toLocaleTimeString()}
-                          </span>
-                        </div>
-                        <div className="flex items-center space-x-4 text-sm text-gray-400">
-                          <span>Score: {submission.score}%</span>
-                          <span>
-                            Tests: {submission.passedTests}/{submission.totalTests}
-                          </span>
-                          <span>Runtime: {submission.runtime}ms</span>
-                          <span>Memory: {submission.memory}KB</span>
-                        </div>
-                      </div>
-                    ))
-                  )}
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Middle Panel - Code Editor - Flexible Width */}
-          <div className="flex-1 flex flex-col">
-            {/* Editor Header - Fixed */}
-            <div className="h-14 p-4 border-b border-[#2a2d31] flex items-center justify-between flex-shrink-0">
-              <div className="flex items-center space-x-4">
-                <select
-                  value={language}
-                  onChange={(e) => setLanguage(e.target.value)}
-                  className="bg-[#2a2d31] border border-[#3a3d41] rounded px-3 py-1 text-sm text-white"
-                >
-                  {languages.map((lang) => (
-                    <option key={lang.id} value={lang.id}>
-                      {lang.name}
-                    </option>
-                  ))}
-                </select>
-
-                <div className="flex items-center space-x-2">
-                  <button
-                    onClick={() => setFontSize((prev) => Math.max(prev - 2, 10))}
-                    className="p-1 text-gray-400 hover:text-white"
-                  >
-                    <ZoomOut className="w-4 h-4" />
-                  </button>
-                  <span className="text-sm text-gray-400 min-w-[3rem] text-center">{fontSize}px</span>
-                  <button
-                    onClick={() => setFontSize((prev) => Math.min(prev + 2, 24))}
-                    className="p-1 text-gray-400 hover:text-white"
-                  >
-                    <ZoomIn className="w-4 h-4" />
-                  </button>
+              <div className="flex items-center space-x-6">
+                <div className="flex items-center space-x-2 bg-red-900/30 border border-red-500/30 px-3 py-1 rounded">
+                  <Clock className="w-4 h-4 text-red-400" />
+                  <span className="font-mono font-bold text-red-400">{formatTime(timeLeft)}</span>
                 </div>
 
-                {editorLoaded && (
-                  <Badge className="bg-green-900/30 text-green-400 border-green-500/30 text-xs">Editor Ready</Badge>
+                <div className="flex items-center space-x-2 bg-orange-900/30 border border-orange-500/30 px-3 py-1 rounded">
+                  <Clock className="w-4 h-4 text-orange-400" />
+                  <span className="font-mono font-bold text-orange-400">{formatTime(problemTimeLeft)}</span>
+                </div>
+
+                {criticalViolations > 0 && (
+                  <div className="flex items-center space-x-2 bg-red-900/30 border border-red-500/30 px-3 py-1 rounded animate-pulse">
+                    <AlertTriangle className="w-4 h-4 text-red-400" />
+                    <span className="text-red-400 font-bold">{criticalViolations}</span>
+                  </div>
                 )}
-              </div>
 
-              <div className="flex items-center space-x-2">
-                <Button
-                  onClick={runCode}
-                  disabled={isRunning || !editorLoaded}
-                  variant="outline"
-                  size="sm"
-                  className="border-[#2a2d31] text-gray-300 hover:bg-[#2a2d31]"
-                >
-                  {isRunning ? (
-                    <>
-                      <Square className="w-4 h-4 mr-2" />
-                      Running...
-                    </>
-                  ) : (
-                    <>
-                      <Play className="w-4 h-4 mr-2" />
-                      Run
-                    </>
-                  )}
-                </Button>
-
-                <Button
-                  onClick={submitCode}
-                  disabled={isSubmitting || !editorLoaded}
-                  className="bg-gradient-to-r from-[#ff4d00] to-[#ff6b35] hover:from-[#e63900] hover:to-[#ff5722] text-white"
-                  size="sm"
-                >
-                  {isSubmitting ? "Submitting..." : "Submit"}
-                </Button>
-              </div>
-            </div>
-
-            {/* Monaco Editor - Fixed Height */}
-            <div className="flex-1 relative bg-[#1e1e1e]">
-              <div ref={editorRef} className="absolute inset-0" />
-              {!editorLoaded && (
-                <div className="absolute inset-0 flex items-center justify-center bg-[#1e1e1e]">
-                  <div className="text-center">
-                    <div className="w-8 h-8 border-2 border-[#ff6b35] border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-                    <p className="text-gray-400">Loading Editor...</p>
+                {warningViolations > 0 && (
+                  <div className="flex items-center space-x-2 bg-yellow-900/30 border border-yellow-500/30 px-3 py-1 rounded">
+                    <AlertTriangle className="w-4 h-4 text-yellow-400" />
+                    <span className="text-yellow-400 font-bold">{warningViolations}</span>
                   </div>
+                )}
+
+                <div className="flex items-center space-x-2 bg-green-900/30 border border-green-500/30 px-3 py-1 rounded">
+                  <Camera className="w-4 h-4 text-green-400" />
+                  <Eye className="w-4 h-4 text-green-400" />
+                  <Mic className="w-4 h-4 text-green-400" />
                 </div>
-              )}
+
+                <Button
+                  onClick={() => {
+                    if (window.confirm("Are you sure you want to end the test? This action cannot be undone.")) {
+                      submitExam(false, "Manual submission by candidate")
+                    }
+                  }}
+                  variant="destructive"
+                  size="sm"
+                  className="bg-red-600 hover:bg-red-700 text-white border-red-500"
+                >
+                  End Test
+                </Button>
+              </div>
             </div>
 
-            {/* Test Cases Section - Fixed Height */}
-            <div className="h-64 border-t border-[#2a2d31] bg-[#1a1d21] flex-shrink-0">
-              <div className="h-10 flex items-center justify-between p-3 border-b border-[#2a2d31]">
-                <div className="flex items-center space-x-4">
-                  <button className="flex items-center space-x-2 text-sm font-medium text-[#ff4d00]">
-                    <TestTube className="w-4 h-4" />
-                    <span>Test Cases</span>
-                  </button>
-                  <div className="flex items-center space-x-2 text-xs">
-                    <span className="text-gray-400">
-                      Passed: {testResults.filter((t) => t.status === "passed").length}/{testResults.length}
+            {/* Main Content - Fixed Height */}
+            <div className="h-[calc(100vh-64px)] flex">
+              {/* Left Panel - Problem Description - Fixed Width */}
+              <div className="w-96 border-r border-[#2a2d31] flex flex-col">
+                {/* Problem Header - Fixed */}
+                <div className="h-20 p-4 border-b border-[#2a2d31] flex-shrink-0">
+                  <div className="flex items-center justify-between mb-2">
+                    <h2 className="text-lg font-bold truncate">{problems[currentProblem].title}</h2>
+                    <Badge className={getDifficultyColor(problems[currentProblem].difficulty)}>
+                      {problems[currentProblem].difficulty}
+                    </Badge>
+                  </div>
+                  <div className="flex items-center space-x-4 text-xs text-gray-400">
+                    <span>
+                      Problem {currentProblem + 1} of {problems.length}
                     </span>
+                    <span>{problems[currentProblem].marks} marks</span>
                   </div>
+                  <Progress value={progress} className="h-1 mt-2 bg-[#2a2d31]" />
                 </div>
-              </div>
 
-              <div className="h-[calc(100%-40px)] flex">
-                {/* Test Cases List */}
-                <div className="w-1/3 border-r border-[#2a2d31] p-2 overflow-y-auto">
-                  <div className="space-y-2">
-                    {testResults.map((testCase, index) => (
-                      <div
-                        key={testCase.id}
-                        className={`p-3 rounded border text-sm ${
-                          testCase.status === "passed"
-                            ? "bg-green-900/20 border-green-500/30 text-green-400"
-                            : testCase.status === "failed"
-                              ? "bg-red-900/20 border-red-500/30 text-red-400"
-                              : testCase.status === "running"
-                                ? "bg-yellow-900/20 border-yellow-500/30 text-yellow-400"
-                                : "bg-[#2a2d31] border-[#3a3d41] text-gray-400"
-                        }`}
-                      >
-                        <div className="flex items-center justify-between mb-1">
-                          <span className="font-medium">Test Case {index + 1}</span>
-                          <div className="flex items-center space-x-1">
-                            {testCase.type === "private" ? <Lock className="w-3 h-3" /> : <Unlock className="w-3 h-3" />}
-                            {testCase.status === "passed" && <Check className="w-3 h-3" />}
-                            {testCase.status === "failed" && <X className="w-3 h-3" />}
-                            {testCase.status === "running" && (
-                              <div className="w-3 h-3 border border-current border-t-transparent rounded-full animate-spin"></div>
+                {/* Tabs - Fixed */}
+                <div className="h-12 flex border-b border-[#2a2d31] flex-shrink-0">
+                  {[
+                    { id: "description", label: "Description", icon: FileText },
+                    { id: "submissions", label: "Submissions", icon: CheckCircle },
+                  ].map((tab) => (
+                    <button
+                      key={tab.id}
+                      onClick={() => setActiveTab(tab.id as any)}
+                      className={`flex items-center space-x-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
+                        activeTab === tab.id
+                          ? "border-[#ff4d00] text-[#ff4d00]"
+                          : "border-transparent text-gray-400 hover:text-gray-300"
+                      }`}
+                    >
+                      <tab.icon className="w-4 h-4" />
+                      <span>{tab.label}</span>
+                    </button>
+                  ))}
+                </div>
+
+                {/* Tab Content - ONLY SCROLLABLE SECTION */}
+                <div className="flex-1 overflow-y-auto p-4">
+                  {activeTab === "description" && (
+                    <div className="space-y-6">
+                      <div>
+                        <p className="text-gray-300 leading-relaxed whitespace-pre-line">
+                          {problems[currentProblem].description}
+                        </p>
+                      </div>
+
+                      <div>
+                        <h3 className="text-lg font-semibold mb-3">Examples</h3>
+                        {problems[currentProblem].examples.map((example: any, index: number) => (
+                          <div key={index} className="mb-4 p-4 bg-[#1a1d21] rounded-lg border border-[#2a2d31]">
+                            <div className="mb-2">
+                              <strong className="text-gray-300">Input:</strong>
+                              <code className="ml-2 text-[#ff4d00]">{example.input}</code>
+                            </div>
+                            <div className="mb-2">
+                              <strong className="text-gray-300">Output:</strong>
+                              <code className="ml-2 text-[#ff4d00]">{example.output}</code>
+                            </div>
+                            {example.explanation && (
+                              <div>
+                                <strong className="text-gray-300">Explanation:</strong>
+                                <span className="ml-2 text-gray-400">{example.explanation}</span>
+                              </div>
                             )}
                           </div>
-                        </div>
-                        <div className="text-xs opacity-75">
-                          {testCase.type === "public" ? "Public Test" : "Private Test"}
-                        </div>
-                        {testCase.runtime !== undefined && (
-                          <div className="text-xs opacity-75 mt-1">
-                            {testCase.runtime}ms • {testCase.memory}KB
-                          </div>
-                        )}
+                        ))}
                       </div>
-                    ))}
-                  </div>
-                </div>
 
-                {/* Console Output */}
-                <div className="flex-1 p-4 overflow-y-auto">
-                  {consoleOutput.length === 0 ? (
-                    <div className="text-gray-400 text-sm">Click "Run" to test your code against all test cases</div>
-                  ) : (
-                    <div className="space-y-1">
-                      {consoleOutput.map((line, index) => (
-                        <div key={index} className="text-sm font-mono text-gray-300">
-                          {line}
+                      <div>
+                        <h3 className="text-lg font-semibold mb-3">Constraints</h3>
+                        <ul className="space-y-1">
+                          {problems[currentProblem].constraints.map((constraint: any, index: number) => (
+                            <li key={index} className="text-gray-400">
+                              • {constraint}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    </div>
+                  )}
+
+                  {activeTab === "submissions" && (
+                    <div className="space-y-4">
+                      {submissions.length === 0 ? (
+                        <div className="text-center text-gray-400 py-8">
+                          <CheckCircle className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                          <p>No submissions yet</p>
                         </div>
-                      ))}
+                      ) : (
+                        submissions.map((submission) => (
+                          <div key={submission.id} className="p-4 bg-[#1a1d21] rounded-lg border border-[#2a2d31]">
+                            <div className="flex items-center justify-between mb-2">
+                              <Badge
+                                className={
+                                  submission.status === "Accepted"
+                                    ? "bg-green-900/30 text-green-400 border-green-500/30"
+                                    : "bg-yellow-900/30 text-yellow-400 border-yellow-500/30"
+                                }
+                              >
+                                {submission.status}
+                              </Badge>
+                              <span className="text-sm text-gray-400">
+                                {new Date(submission.timestamp).toLocaleTimeString()}
+                              </span>
+                            </div>
+                            <div className="flex items-center space-x-4 text-sm text-gray-400">
+                              <span>Score: {submission.score}%</span>
+                              <span>
+                                Tests: {submission.passedTests}/{submission.totalTests}
+                              </span>
+                              <span>Runtime: {submission.runtime}ms</span>
+                              <span>Memory: {submission.memory}KB</span>
+                            </div>
+                          </div>
+                        ))
+                      )}
                     </div>
                   )}
                 </div>
               </div>
-            </div>
-          </div>
 
-          {/* Right Panel - Monitoring Sidebar - Fixed Width */}
-          <div className="w-80 bg-[#1a1d21] border-l border-[#2a2d31] p-4 flex flex-col">
-            <div className="mb-6 flex-shrink-0">
-              <h3 className="text-sm font-medium text-gray-300 mb-2">Live Monitoring</h3>
-              <video
-                ref={videoRef}
-                autoPlay
-                muted
-                className="w-full h-32 bg-[#0a0b0d] rounded object-cover border border-[#2a2d31]"
-              />
-              <div className="mt-2 text-xs text-green-400 text-center">
-                <Eye className="w-3 h-3 inline mr-1" />
-                AI Monitoring Active
-              </div>
-              <div className="mt-1 flex justify-center space-x-2 text-xs">
-                {faceDetectionActive && (
-                  <Badge className="bg-blue-900/30 text-blue-400 border-blue-500/30 text-xs">FACE</Badge>
-                )}
-                {eyeTrackingActive && (
-                  <Badge className="bg-purple-900/30 text-purple-400 border-purple-500/30 text-xs">EYE</Badge>
-                )}
-              </div>
-            </div>
+              {/* Middle Panel - Code Editor - Flexible Width */}
+              <div className="flex-1 flex flex-col">
+                {/* Editor Header - Fixed */}
+                <div className="h-14 p-4 border-b border-[#2a2d31] flex items-center justify-between flex-shrink-0">
+                  <div className="flex items-center space-x-4">
+                    <select
+                      value={language}
+                      onChange={(e) => setLanguage(e.target.value)}
+                      className="bg-[#2a2d31] border border-[#3a3d41] rounded px-3 py-1 text-sm text-white"
+                    >
+                      {languages.map((lang) => (
+                        <option key={lang.id} value={lang.id}>
+                          {lang.name}
+                        </option>
+                      ))}
+                    </select>
 
-            <div className="mb-6 flex-shrink-0">
-              <h3 className="text-sm font-medium text-gray-300 mb-3">Problems</h3>
-              <div className="space-y-2">
-                {problems.map((problem: any, index: number) => (
-                  <button
-                    key={index}
-                    onClick={() => {
-                      setCurrentProblem(index)
-                      setProblemTimeLeft(problem.timeLimit * 60)
-                    }}
-                    className={`w-full text-left p-3 rounded border transition-colors ${
-                      index === currentProblem
-                        ? "bg-gradient-to-r from-[#ff4d00] to-[#ff6b35] text-white border-transparent"
-                        : submissions.some((s) => s.id === problem.id)
-                          ? "bg-green-600 text-white border-transparent"
-                          : "bg-[#2a2d31] text-gray-300 border-[#3a3d41] hover:border-[#ff4d00]/30"
-                    }`}
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="font-medium text-sm">{problem.title}</span>
-                      <Badge className={`text-xs ${getDifficultyColor(problem.difficulty)}`}>{problem.difficulty}</Badge>
+                    <div className="flex items-center space-x-2">
+                      <button
+                        onClick={() => setFontSize((prev) => Math.max(prev - 2, 10))}
+                        className="p-1 text-gray-400 hover:text-white"
+                      >
+                        <ZoomOut className="w-4 h-4" />
+                      </button>
+                      <span className="text-sm text-gray-400 min-w-[3rem] text-center">{fontSize}px</span>
+                      <button
+                        onClick={() => setFontSize((prev) => Math.min(prev + 2, 24))}
+                        className="p-1 text-gray-400 hover:text-white"
+                      >
+                        <ZoomIn className="w-4 h-4" />
+                      </button>
                     </div>
-                    <div className="text-xs opacity-75 mt-1">
-                      {problem.marks} marks • {problem.timeLimit}min
-                    </div>
-                  </button>
-                ))}
-              </div>
-            </div>
 
-            <div className="bg-[#0a0b0d] p-4 rounded border border-[#2a2d31] mb-4 flex-shrink-0">
-              <h3 className="text-sm font-medium text-gray-300 mb-3">Security Status</h3>
-              <div className="space-y-2 text-xs">
-                <div className="flex items-center justify-between">
-                  <span className="text-gray-400">Fullscreen</span>
-                  <Badge
-                    className={
-                      isFullscreen
-                        ? "bg-green-900/30 text-green-400 border-green-500/30"
-                        : "bg-red-900/30 text-red-400 border-red-500/30"
-                    }
-                  >
-                    {isFullscreen ? "Active" : "Violated"}
-                  </Badge>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-gray-400">Tab Switches</span>
-                  <Badge
-                    className={
-                      tabSwitchCount === 0
-                        ? "bg-green-900/30 text-green-400 border-green-500/30"
-                        : "bg-red-900/30 text-red-400 border-red-500/30"
-                    }
-                  >
-                    {tabSwitchCount}
-                  </Badge>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-gray-400">Critical Violations</span>
-                  <Badge
-                    className={
-                      criticalViolations === 0
-                        ? "bg-green-900/30 text-green-400 border-green-500/30"
-                        : "bg-red-900/30 text-red-400 border-red-500/30"
-                    }
-                  >
-                    {criticalViolations}
-                  </Badge>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-gray-400">Warnings</span>
-                  <Badge
-                    className={
-                      warningViolations === 0
-                        ? "bg-green-900/30 text-green-400 border-green-500/30"
-                        : "bg-yellow-900/30 text-yellow-400 border-yellow-500/30"
-                    }
-                  >
-                    {warningViolations}
-                  </Badge>
-                </div>
-              </div>
-            </div>
+                    {editorLoaded && (
+                      <Badge className="bg-green-900/30 text-green-400 border-green-500/30 text-xs">Editor Ready</Badge>
+                    )}
+                  </div>
 
-            {violations.length > 0 && (
-              <div className="bg-[#0a0b0d] p-4 rounded border border-[#2a2d31] flex-1 min-h-0">
-                <h3 className="text-sm font-medium text-gray-300 mb-2">Security Alerts</h3>
-                <div className="space-y-1 h-full overflow-y-auto">
-                  {violations
-                    .slice(-10)
-                    .reverse()
-                    .map((violation: any, index: number) => (
-                      <div key={violation.id} className={`text-xs ${getViolationColor(violation.type)}`}>
-                        <div className="font-medium">{violation.type.toUpperCase()}</div>
-                        <div className="opacity-75">{violation.message}</div>
-                        <div className="opacity-50">{violation.timestamp.toLocaleTimeString()}</div>
+                  <div className="flex items-center space-x-2">
+                    <Button
+                      onClick={runCode}
+                      disabled={isRunning || !editorLoaded}
+                      variant="outline"
+                      size="sm"
+                      className="border-[#2a2d31] text-gray-300 hover:bg-[#2a2d31]"
+                    >
+                      {isRunning ? (
+                        <>
+                          <Square className="w-4 h-4 mr-2" />
+                          Running...
+                        </>
+                      ) : (
+                        <>
+                          <Play className="w-4 h-4 mr-2" />
+                          Run
+                        </>
+                      )}
+                    </Button>
+
+                    <Button
+                      onClick={submitCode}
+                      disabled={isSubmitting || !editorLoaded}
+                      className="bg-gradient-to-r from-[#ff4d00] to-[#ff6b35] hover:from-[#e63900] hover:to-[#ff5722] text-white"
+                      size="sm"
+                    >
+                      {isSubmitting ? "Submitting..." : "Submit"}
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Monaco Editor - Fixed Height */}
+                <div className="flex-1 relative bg-[#1e1e1e]">
+                  <div ref={editorRef} className="absolute inset-0" />
+                  {!editorLoaded && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-[#1e1e1e]">
+                      <div className="text-center">
+                        <div className="w-8 h-8 border-2 border-[#ff6b35] border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+                        <p className="text-gray-400">Loading Editor...</p>
                       </div>
-                    ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Test Cases Section - Fixed Height */}
+                <div className="h-64 border-t border-[#2a2d31] bg-[#1a1d21] flex-shrink-0">
+                  <div className="h-10 flex items-center justify-between p-3 border-b border-[#2a2d31]">
+                    <div className="flex items-center space-x-4">
+                      <button className="flex items-center space-x-2 text-sm font-medium text-[#ff4d00]">
+                        <TestTube className="w-4 h-4" />
+                        <span>Test Cases</span>
+                      </button>
+                      <div className="flex items-center space-x-2 text-xs">
+                        <span className="text-gray-400">
+                          Passed: {testResults.filter((t) => t.status === "passed").length}/{testResults.length}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="h-[calc(100%-40px)] flex">
+                    {/* Test Cases List */}
+                    <div className="w-1/3 border-r border-[#2a2d31] p-2 overflow-y-auto">
+                      <div className="space-y-2">
+                        {testResults.map((testCase, index) => (
+                          <div
+                            key={testCase.id}
+                            className={`p-3 rounded border text-sm ${
+                              testCase.status === "passed"
+                                ? "bg-green-900/20 border-green-500/30 text-green-400"
+                                : testCase.status === "failed"
+                                  ? "bg-red-900/20 border-red-500/30 text-red-400"
+                                  : testCase.status === "running"
+                                    ? "bg-yellow-900/20 border-yellow-500/30 text-yellow-400"
+                                    : "bg-[#2a2d31] border-[#3a3d41] text-gray-400"
+                            }`}
+                          >
+                            <div className="flex items-center justify-between mb-1">
+                              <span className="font-medium">Test Case {index + 1}</span>
+                              <div className="flex items-center space-x-1">
+                                {testCase.type === "private" ? <Lock className="w-3 h-3" /> : <Unlock className="w-3 h-3" />}
+                                {testCase.status === "passed" && <Check className="w-3 h-3" />}
+                                {testCase.status === "failed" && <X className="w-3 h-3" />}
+                                {testCase.status === "running" && (
+                                  <div className="w-3 h-3 border border-current border-t-transparent rounded-full animate-spin"></div>
+                                )}
+                              </div>
+                            </div>
+                            <div className="text-xs opacity-75">
+                              {testCase.type === "public" ? "Public Test" : "Private Test"}
+                            </div>
+                            {testCase.runtime !== undefined && (
+                              <div className="text-xs opacity-75 mt-1">
+                                {testCase.runtime}ms • {testCase.memory}KB
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Console Output */}
+                    <div className="flex-1 p-4 overflow-y-auto">
+                      {consoleOutput.length === 0 ? (
+                        <div className="text-gray-400 text-sm">Click "Run" to test your code against all test cases</div>
+                      ) : (
+                        <div className="space-y-1">
+                          {consoleOutput.map((line, index) => (
+                            <div key={index} className="text-sm font-mono text-gray-300">
+                              {line}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 </div>
               </div>
+
+              {/* Right Panel - Monitoring Sidebar - Fixed Width */}
+              <div className="w-80 bg-[#1a1d21] border-l border-[#2a2d31] p-4 flex flex-col">
+                <div className="mb-6 flex-shrink-0">
+                  <h3 className="text-sm font-medium text-gray-300 mb-2">Live Monitoring</h3>
+                  <video
+                    ref={videoRef}
+                    autoPlay
+                    muted
+                    className="w-full h-32 bg-[#0a0b0d] rounded object-cover border border-[#2a2d31]"
+                  />
+                  <div className="mt-2 text-xs text-green-400 text-center">
+                    <Eye className="w-3 h-3 inline mr-1" />
+                    AI Monitoring Active
+                  </div>
+                  <div className="mt-1 flex justify-center space-x-2 text-xs">
+                    {faceDetectionActive && (
+                      <Badge className="bg-blue-900/30 text-blue-400 border-blue-500/30 text-xs">FACE</Badge>
+                    )}
+                    {eyeTrackingActive && (
+                      <Badge className="bg-purple-900/30 text-purple-400 border-purple-500/30 text-xs">EYE</Badge>
+                    )}
+                  </div>
+                </div>
+
+                <div className="mb-6 flex-shrink-0">
+                  <h3 className="text-sm font-medium text-gray-300 mb-3">Problems</h3>
+                  <div className="space-y-2">
+                    {problems.map((problem: any, index: number) => (
+                      <button
+                        key={index}
+                        onClick={() => {
+                          setCurrentProblem(index)
+                          setProblemTimeLeft(problem.timeLimit * 60)
+                        }}
+                        className={`w-full text-left p-3 rounded border transition-colors ${
+                          index === currentProblem
+                            ? "bg-gradient-to-r from-[#ff4d00] to-[#ff6b35] text-white border-transparent"
+                            : submissions.some((s) => s.id === problem.id)
+                              ? "bg-green-600 text-white border-transparent"
+                              : "bg-[#2a2d31] text-gray-300 border-[#3a3d41] hover:border-[#ff4d00]/30"
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="font-medium text-sm">{problem.title}</span>
+                          <Badge className={`text-xs ${getDifficultyColor(problem.difficulty)}`}>{problem.difficulty}</Badge>
+                        </div>
+                        <div className="text-xs opacity-75 mt-1">
+                          {problem.marks} marks • {problem.timeLimit}min
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="bg-[#0a0b0d] p-4 rounded border border-[#2a2d31] mb-4 flex-shrink-0">
+                  <h3 className="text-sm font-medium text-gray-300 mb-3">Security Status</h3>
+                  <div className="space-y-2 text-xs">
+                    <div className="flex items-center justify-between">
+                      <span className="text-gray-400">Fullscreen</span>
+                      <Badge
+                        className={
+                          isFullscreen
+                            ? "bg-green-900/30 text-green-400 border-green-500/30"
+                            : "bg-red-900/30 text-red-400 border-red-500/30"
+                        }
+                      >
+                        {isFullscreen ? "Active" : "Violated"}
+                      </Badge>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-gray-400">Tab Switches</span>
+                      <Badge
+                        className={
+                          tabSwitchCount === 0
+                            ? "bg-green-900/30 text-green-400 border-green-500/30"
+                            : "bg-red-900/30 text-red-400 border-red-500/30"
+                        }
+                      >
+                        {tabSwitchCount}
+                      </Badge>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-gray-400">Critical Violations</span>
+                      <Badge
+                        className={
+                          criticalViolations === 0
+                            ? "bg-green-900/30 text-green-400 border-green-500/30"
+                            : "bg-red-900/30 text-red-400 border-red-500/30"
+                        }
+                      >
+                        {criticalViolations}
+                      </Badge>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-gray-400">Warnings</span>
+                      <Badge
+                        className={
+                          warningViolations === 0
+                            ? "bg-green-900/30 text-green-400 border-green-500/30"
+                            : "bg-yellow-900/30 text-yellow-400 border-yellow-500/30"
+                        }
+                      >
+                        {warningViolations}
+                      </Badge>
+                    </div>
+                  </div>
+                </div>
+
+                {violations.length > 0 && (
+                  <div className="bg-[#0a0b0d] p-4 rounded border border-[#2a2d31] flex-1 min-h-0">
+                    <h3 className="text-sm font-medium text-gray-300 mb-2">Security Alerts</h3>
+                    <div className="space-y-1 h-full overflow-y-auto">
+                      {violations
+                        .slice(-10)
+                        .reverse()
+                        .map((violation: any, index: number) => (
+                          <div key={violation.id} className={`text-xs ${getViolationColor(violation.type)}`}>
+                            <div className="font-medium">{violation.type.toUpperCase()}</div>
+                            <div className="opacity-75">{violation.message}</div>
+                            <div className="opacity-50">{violation.timestamp.toLocaleTimeString()}</div>
+                          </div>
+                        ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Security Warnings - Fixed Position */}
+            {criticalViolations > 0 && (
+              <Alert className="fixed bottom-4 right-4 w-96 bg-red-900/20 border-red-500/50 z-50 animate-pulse">
+                <AlertTriangle className="h-4 w-4 text-red-400" />
+                <AlertDescription className="text-red-400">
+                  <strong>CRITICAL ALERT:</strong> {criticalViolations} critical violation(s) detected. Exam will auto-submit
+                  after 5 critical violations.
+                </AlertDescription>
+              </Alert>
             )}
           </div>
         </div>
-
-        {/* Security Warnings - Fixed Position */}
-        {criticalViolations > 0 && (
-          <Alert className="fixed bottom-4 right-4 w-96 bg-red-900/20 border-red-500/50 z-50 animate-pulse">
-            <AlertTriangle className="h-4 w-4 text-red-400" />
-            <AlertDescription className="text-red-400">
-              <strong>CRITICAL ALERT:</strong> {criticalViolations} critical violation(s) detected. Exam will auto-submit
-              after 5 critical violations.
-            </AlertDescription>
-          </Alert>
-        )}
       </div>
     </div>
   )
