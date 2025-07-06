@@ -118,18 +118,23 @@ export default function CodingExam({ candidateData, systemStatus, assessment, on
   const [notFullscreen, setNotFullscreen] = useState(false)
 
   // Map backend questions to CodingProblem format expected by the UI
-  const problems = (assessment?.questions || []).map((q: any, idx: number) => ({
-    id: q.id || idx + 1,
-    title: q.question || `Problem ${idx + 1}`,
-    description: q.explanation || q.question || '',
-    difficulty: q.difficulty || 'Easy',
-    examples: q.examples || [], // If backend has examples field, else []
-    constraints: q.constraints || q.hints || [], // Use hints as constraints if present
-    testCases: q.testCases || [], // If backend has testCases field, else []
-    starterCode: q.starterCode || { javascript: '', python: '', java: '', cpp: '' },
-    timeLimit: q.timeLimit || assessment.duration || 30,
-    marks: q.marks || 1,
-  }));
+  const problems = (assessment?.questions || []).map((q: any, idx: number) => {
+    // Handle both new format (with codingData) and legacy format
+    const codingData = q.codingData || q;
+    
+    return {
+      id: q.id || idx + 1,
+      title: codingData.title || codingData.question || `Problem ${idx + 1}`,
+      description: codingData.description || codingData.explanation || codingData.question || '',
+      difficulty: codingData.difficulty || 'Easy',
+      examples: codingData.examples || [], // If backend has examples field, else []
+      constraints: codingData.constraints || codingData.hints || [], // Use hints as constraints if present
+      testCases: codingData.testCases || [], // If backend has testCases field, else []
+      starterCode: codingData.starterCode || { javascript: '', python: '', java: '', cpp: '' },
+      timeLimit: codingData.timeLimit || assessment.duration || 30,
+      marks: codingData.marks || q.marks || 1,
+    };
+  });
 
   const languages = [
     { id: "javascript", name: "JavaScript", monacoId: "javascript" },

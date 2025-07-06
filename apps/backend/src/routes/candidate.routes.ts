@@ -60,6 +60,16 @@ router.post('/fix-credential-ids', (req, res) => {
   return candidateController.fixCredentialIds(req, res);
 });
 
+router.get('/list-credentials', (req, res) => {
+  console.log('Listing all credentials for debugging');
+  return candidateController.listCredentials(req, res);
+});
+
+router.post('/test-credentials', (req, res) => {
+  console.log('Testing specific credentials');
+  return candidateController.testCredentials(req, res);
+});
+
 console.log('Candidate routes setup complete');
 
 export default router; 

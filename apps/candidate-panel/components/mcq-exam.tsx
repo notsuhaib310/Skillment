@@ -35,6 +35,18 @@ export default function MCQExam({ assessment, onComplete, onBack }: MCQExamProps
   const questions = assessment?.questions || []
   const currentQuestion = questions[currentQuestionIndex]
   
+  // Extract MCQ data from question structure
+  const getMCQData = (question: any) => {
+    // Handle both new format (with mcqData) and legacy format
+    if (question?.mcqData) {
+      return question.mcqData
+    }
+    // Legacy format - return as-is
+    return question
+  }
+
+  const mcqData = currentQuestion ? getMCQData(currentQuestion) : null
+  
   useEffect(() => {
     // Enter fullscreen if required
     if (assessment?.fullscreenMode && !isFullscreen) {
@@ -215,14 +227,14 @@ export default function MCQExam({ assessment, onComplete, onBack }: MCQExamProps
                       <Badge variant="outline" className="text-xs">
                         Question {currentQuestionIndex + 1}
                       </Badge>
-                      {currentQuestion?.marks && (
+                      {(mcqData?.marks || currentQuestion?.marks) && (
                         <Badge className="bg-blue-500/20 text-blue-400 border-blue-500/30 text-xs">
-                          {currentQuestion.marks} marks
+                          {mcqData?.marks || currentQuestion?.marks} marks
                         </Badge>
                       )}
                     </div>
                     <CardTitle className="text-white text-lg leading-relaxed">
-                      {currentQuestion?.question}
+                      {mcqData?.question || currentQuestion?.question}
                     </CardTitle>
                   </div>
                   <Button
@@ -241,13 +253,13 @@ export default function MCQExam({ assessment, onComplete, onBack }: MCQExamProps
               </CardHeader>
               
               <CardContent className="space-y-4">
-                {currentQuestion?.options && (
+                {(mcqData?.options || currentQuestion?.options) && (
                   <RadioGroup
                     value={answers[currentQuestion.id] || ""}
                     onValueChange={handleAnswerChange}
                     className="space-y-3"
                   >
-                    {Object.entries(currentQuestion.options).map(([key, value]: [string, any]) => (
+                    {Object.entries(mcqData?.options || currentQuestion?.options).map(([key, value]: [string, any]) => (
                       <div key={key} className="flex items-center space-x-3 p-3 rounded-lg hover:bg-white/5 border border-white/10">
                         <RadioGroupItem 
                           value={key} 
@@ -267,10 +279,19 @@ export default function MCQExam({ assessment, onComplete, onBack }: MCQExamProps
                 )}
 
                 {/* Hints */}
-                {currentQuestion?.hints && currentQuestion.hints.length > 0 && (
+                {(mcqData?.hints || currentQuestion?.hints) && (mcqData?.hints?.length > 0 || currentQuestion?.hints?.length > 0) && (
                   <Alert className="bg-blue-900/20 border-blue-500/50 mt-6">
                     <AlertDescription className="text-blue-200">
-                      <strong>Hint:</strong> {currentQuestion.hints[0]}
+                      <strong>Hint:</strong> {mcqData?.hints?.[0] || currentQuestion?.hints?.[0]}
+                    </AlertDescription>
+                  </Alert>
+                )}
+                
+                {/* Explanation */}
+                {mcqData?.explanation && (
+                  <Alert className="bg-green-900/20 border-green-500/50 mt-4">
+                    <AlertDescription className="text-green-200">
+                      <strong>Explanation:</strong> {mcqData.explanation}
                     </AlertDescription>
                   </Alert>
                 )}

@@ -1,7 +1,10 @@
 import { emailService } from '../services/email.service';
 import bcrypt from 'bcryptjs';
+import jwt from 'jsonwebtoken';
 import { PrismaClient } from '@prisma/client';
 const prisma = new PrismaClient();
+
+const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
 
 export class CandidateController {
   // Allocate candidates to an assessment
@@ -43,6 +46,8 @@ export class CandidateController {
         const candidateId = `CAND${Date.now()}${Math.random().toString(36).substr(2, 4).toUpperCase()}`;
         const password = Math.random().toString(36).slice(-8);
         const hashedPassword = await bcrypt.hash(password, 10);
+        
+        console.log(`Creating candidate with ID: ${candidateId}, Password: ${password}`);
 
         // Create candidate
         const candidate = await prisma.candidate.create({
@@ -153,43 +158,151 @@ export class CandidateController {
   // Get candidate assessment
   async getCandidateAssessment(req, res) {
     try {
-      const { candidateId } = req.query;
+      const { email, candidateId } = req.query;
       
-      if (!candidateId) {
-        return res.status(400).json({ error: 'Candidate ID is required' });
-      }
-
-      // Find candidate by credential
-      const credential = await prisma.credential.findUnique({
-        where: { candidateId: candidateId }
-      });
-
-      if (!credential) {
-        return res.status(404).json({ error: 'Candidate not found' });
-      }
-
-      const candidate = await prisma.candidate.findFirst({
-        where: { email: credential.email },
-        include: {
+      // Demo case
+      if (email === 'demo@skillment.in' || candidateId === 'demo') {
+        return res.json([{
+          id: 'demo-assignment',
+          candidate: {
+            id: 'demo',
+            name: 'Demo Candidate',
+            email: 'demo@skillment.in',
+            status: 'invited'
+          },
           assessment: {
-            include: {
-              questions: {
-                orderBy: { order: 'asc' }
+            id: 'demo-assessment',
+            title: 'Demo Assessment',
+            description: 'A sample assessment for testing',
+            type: 'mcq',
+            duration: 30,
+            totalQuestions: 5,
+            totalMarks: 50,
+            questions: [
+              {
+                id: 'q1',
+                question: 'What is the capital of France?',
+                type: 'multiple_choice',
+                marks: 10,
+                options: {
+                  a: 'London',
+                  b: 'Berlin',
+                  c: 'Paris',
+                  d: 'Madrid'
+                },
+                correctAnswer: 'c'
+              },
+              {
+                id: 'q2',
+                question: 'Which of the following is a JavaScript framework?',
+                type: 'multiple_choice',
+                marks: 10,
+                options: {
+                  a: 'React',
+                  b: 'Python',
+                  c: 'Java',
+                  d: 'SQL'
+                },
+                correctAnswer: 'a'
+              },
+              {
+                id: 'q3',
+                question: 'What does HTML stand for?',
+                type: 'multiple_choice',
+                marks: 10,
+                options: {
+                  a: 'High Tech Modern Language',
+                  b: 'Hyper Text Markup Language',
+                  c: 'Home Tool Markup Language',
+                  d: 'Hyperlinks and Text Markup Language'
+                },
+                correctAnswer: 'b'
+              },
+              {
+                id: 'q4',
+                question: 'Which CSS property is used to change background color?',
+                type: 'multiple_choice',
+                marks: 10,
+                options: {
+                  a: 'color',
+                  b: 'bgcolor',
+                  c: 'background-color',
+                  d: 'background'
+                },
+                correctAnswer: 'c'
+              },
+              {
+                id: 'q5',
+                question: 'What is 2 + 2?',
+                type: 'multiple_choice',
+                marks: 10,
+                options: {
+                  a: '3',
+                  b: '4',
+                  c: '5',
+                  d: '6'
+                },
+                correctAnswer: 'b'
+              }
+            ]
+          }
+        }]);
+      }
+      
+      if (!email && !candidateId) {
+        return res.status(400).json({ error: 'Email or candidate ID is required' });
+      }
+
+      let candidate;
+      
+      if (candidateId) {
+        // Find candidate by credential
+        const credential = await prisma.credential.findUnique({
+          where: { candidateId: candidateId }
+        });
+
+        if (!credential) {
+          return res.status(404).json({ error: 'Candidate not found' });
+        }
+
+        candidate = await prisma.candidate.findFirst({
+          where: { email: credential.email },
+          include: {
+            assessment: {
+              include: {
+                questions: {
+                  orderBy: { order: 'asc' }
+                }
               }
             }
           }
-        }
-      });
+        });
+      } else if (email) {
+        candidate = await prisma.candidate.findFirst({
+          where: { email: email },
+          include: {
+            assessment: {
+              include: {
+                questions: {
+                  orderBy: { order: 'asc' }
+                }
+              }
+            }
+          }
+        });
+      }
 
       if (!candidate) {
         return res.status(404).json({ error: 'Candidate not found' });
       }
 
       return res.json([{
+        id: candidate.id,
         candidate: candidate,
         assessment: candidate.assessment
       }]);
     } catch (error) {
+      console.error('Error fetching candidate assessment:', error);
       return res.status(500).json({ error: 'Failed to fetch candidate assessment' });
     }
   }
@@ -427,28 +540,60 @@ export class CandidateController {
   async loginCandidate(req, res) {
     try {
       const { candidateId, password } = req.body;
+      console.log('Login attempt:', { candidateId, passwordLength: password?.length });
+      
       if (!candidateId || !password) {
         return res.status(400).json({ error: 'Candidate ID and password are required' });
       }
       
       // Demo credential fallback
       if (candidateId === 'demo' && password === 'demo1234') {
-        return res.json({ success: true, candidate: {
-          id: 'demo',
-          name: 'Demo Candidate',
-          email: 'demo@skillment.in',
-          assessmentId: 'demo-assessment',
-          status: 'invited',
-        }});
+        console.log('Demo login successful');
+        const demoToken = jwt.sign(
+          { 
+            candidateId: 'demo',
+            email: 'demo@skillment.in',
+            type: 'candidate'
+          },
+          JWT_SECRET,
+          { expiresIn: '24h' }
+        );
+        
+        return res.json({ 
+          success: true, 
+          candidate: {
+            id: 'demo',
+            candidateId: 'demo',
+            name: 'Demo Candidate',
+            email: 'demo@skillment.in',
+            assessmentId: 'demo-assessment',
+            status: 'invited',
+          },
+          token: demoToken
+        });
       }
       
+      // First check if the credential exists
       let credential = await prisma.credential.findUnique({ where: { candidateId } });
+      console.log('Credential lookup result:', credential ? 'FOUND' : 'NOT FOUND');
       
       if (!credential) {
-        return res.status(401).json({ error: 'Invalid credentials (no credential found for candidateId)' });
+        // Also try to find all credentials to debug
+        const allCredentials = await prisma.credential.findMany({
+          select: { candidateId: true, email: true }
+        });
+        console.log('All available credentials:', allCredentials);
+        
+        return res.status(401).json({ 
+          error: `Invalid credentials - Candidate ID '${candidateId}' not found`,
+          debug: `Available IDs: ${allCredentials.map(c => c.candidateId).join(', ')}`
+        });
       }
       
+      console.log('Found credential for email:', credential.email);
+      
       const valid = await bcrypt.compare(password, credential.passwordHash);
+      console.log('Password validation:', valid ? 'SUCCESS' : 'FAILED');
       
       if (!valid) {
         return res.status(401).json({ error: 'Invalid credentials (password mismatch)' });
@@ -477,12 +622,35 @@ export class CandidateController {
         }
       });
       
+      console.log('Candidate lookup result:', candidate ? 'FOUND' : 'NOT FOUND');
+      
       if (!candidate) {
         return res.status(401).json({ error: 'Invalid credentials (candidate missing)' });
       }
       
-      return res.json({ success: true, candidate });
+      console.log('Login successful for:', candidate.name);
+      
+      // Generate JWT token for the candidate
+      const token = jwt.sign(
+        { 
+          candidateId: candidate.id,
+          email: candidate.email,
+          type: 'candidate'
+        },
+        JWT_SECRET,
+        { expiresIn: '24h' }
+      );
+      
+      return res.json({ 
+        success: true, 
+        candidate: {
+          ...candidate,
+          candidateId: candidateId // Include the login ID for reference
+        },
+        token 
+      });
     } catch (err) {
+      console.error('Login error:', err);
       return res.status(500).json({ error: 'Server error' });
     }
   }
@@ -550,6 +718,112 @@ export class CandidateController {
     } catch (error) {
       console.error('Test email error:', error);
       return res.status(500).json({ error: 'Failed to send test email' });
+    }
+  }
+
+  // Debug: List all credentials in database
+  async listCredentials(req, res) {
+    try {
+      const credentials = await prisma.credential.findMany({
+        select: {
+          candidateId: true,
+          email: true,
+          createdAt: true
+        },
+        orderBy: { createdAt: 'desc' }
+      });
+      
+      console.log('All credentials in database:', credentials);
+      
+      return res.json({
+        success: true,
+        count: credentials.length,
+        credentials: credentials
+      });
+    } catch (error) {
+      console.error('Error listing credentials:', error);
+      return res.status(500).json({ error: 'Failed to list credentials' });
+    }
+  }
+
+  // Debug: Test specific credentials
+  async testCredentials(req, res) {
+    try {
+      const { candidateId, password } = req.body;
+      console.log('Testing credentials:', { candidateId, passwordLength: password?.length });
+      
+      // Step 1: Check if credential exists
+      const credential = await prisma.credential.findUnique({ 
+        where: { candidateId } 
+      });
+      
+      if (!credential) {
+        const allCreds = await prisma.credential.findMany({
+          select: { candidateId: true, email: true }
+        });
+        return res.json({
+          success: false,
+          step: 'credential_lookup',
+          result: 'NOT_FOUND',
+          message: `Candidate ID '${candidateId}' not found`,
+          availableIds: allCreds.map(c => c.candidateId)
+        });
+      }
+      
+      console.log('Found credential for:', credential.email);
+      
+      // Step 2: Test password
+      const passwordValid = await bcrypt.compare(password, credential.passwordHash);
+      
+      if (!passwordValid) {
+        return res.json({
+          success: false,
+          step: 'password_validation',
+          result: 'INVALID',
+          message: 'Password does not match',
+          credentialEmail: credential.email
+        });
+      }
+      
+      console.log('Password validation successful');
+      
+      // Step 3: Find candidate
+      const candidate = await prisma.candidate.findFirst({
+        where: { email: credential.email },
+        include: { assessment: true }
+      });
+      
+      if (!candidate) {
+        return res.json({
+          success: false,
+          step: 'candidate_lookup',
+          result: 'NOT_FOUND',
+          message: 'No candidate found for this email',
+          credentialEmail: credential.email
+        });
+      }
+      
+      console.log('Found candidate:', candidate.name);
+      
+      return res.json({
+        success: true,
+        message: 'Credentials are valid!',
+        candidate: {
+          id: candidate.id,
+          name: candidate.name,
+          email: candidate.email,
+          status: candidate.status,
+          assessment: candidate.assessment?.title || 'No assessment'
+        }
+      });
+      
+    } catch (error) {
+      console.error('Error testing credentials:', error);
+      return res.status(500).json({ 
+        success: false,
+        error: 'Server error during testing',
+        details: error.message 
+      });
     }
   }
 } 

@@ -14,8 +14,14 @@ interface ExamSummaryProps {
 export default function ExamSummary({ results, onComplete }: ExamSummaryProps) {
   const [showDetails, setShowDetails] = useState(false)
   const [countdown, setCountdown] = useState(10)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [submitError, setSubmitError] = useState("")
+  const [submitSuccess, setSubmitSuccess] = useState(false)
 
   useEffect(() => {
+    // Submit results to backend first
+    submitResultsToBackend()
+    
     // Auto-proceed countdown
     const timer = setInterval(() => {
       setCountdown((prev) => {
@@ -29,6 +35,56 @@ export default function ExamSummary({ results, onComplete }: ExamSummaryProps) {
 
     return () => clearInterval(timer)
   }, [onComplete])
+
+  const submitResultsToBackend = async () => {
+    if (isSubmitting) return
+    
+    setIsSubmitting(true)
+    setSubmitError("")
+
+    try {
+      const token = sessionStorage.getItem('authToken')
+      const candidateData = JSON.parse(sessionStorage.getItem('candidateData') || '{}')
+      const selectedAssessment = JSON.parse(sessionStorage.getItem('selectedAssessment') || '{}')
+      
+      const submissionData = {
+        candidateId: candidateData.candidateId || candidateData.id,
+        assessmentId: selectedAssessment.id,
+        answers: results.answers,
+        violations: results.violations || 0,
+        violationLogs: results.violationLogs || [],
+        timeSpent: results.timeSpent || 0,
+        autoSubmit: results.autoSubmit || false,
+        reason: results.reason || "",
+        score: results.score || 0,
+        totalQuestions: results.totalQuestions || 0,
+        timestamp: results.timestamp || new Date().toISOString(),
+      }
+
+      const response = await fetch(`http://localhost:5000/api/assessments/${selectedAssessment.id}/candidate/${candidateData.candidateId || candidateData.id}/submit`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(submissionData)
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to submit assessment results')
+      }
+
+      const responseData = await response.json()
+      console.log('Assessment submitted successfully:', responseData)
+      setSubmitSuccess(true)
+      
+    } catch (error: any) {
+      console.error('Failed to submit assessment:', error)
+      setSubmitError(error.message)
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60)
@@ -70,6 +126,28 @@ export default function ExamSummary({ results, onComplete }: ExamSummaryProps) {
             </div>
             <h1 className="text-3xl font-bold text-white mb-2">Assessment Complete</h1>
             <p className="text-gray-400">Your responses have been submitted and analyzed</p>
+
+            {/* Submission Status */}
+            <div className="mt-4 p-3 bg-white/5 rounded-lg border border-white/10">
+              {isSubmitting && (
+                <div className="flex items-center justify-center gap-2 text-blue-400">
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-400"></div>
+                  <span className="text-sm">Submitting results to server...</span>
+                </div>
+              )}
+              {submitSuccess && !isSubmitting && (
+                <div className="flex items-center justify-center gap-2 text-green-400">
+                  <CheckCircle className="h-4 w-4" />
+                  <span className="text-sm">Results submitted successfully!</span>
+                </div>
+              )}
+              {submitError && !isSubmitting && (
+                <div className="flex items-center justify-center gap-2 text-red-400">
+                  <XCircle className="h-4 w-4" />
+                  <span className="text-sm">Failed to submit: {submitError}</span>
+                </div>
+              )}
+            </div>
 
             {/* Auto-proceed countdown */}
             <div className="mt-4 p-3 bg-white/5 rounded-lg border border-white/10">

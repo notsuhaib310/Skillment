@@ -57,6 +57,7 @@ export default function CandidateLogin({ onSuccess }: CandidateLoginProps) {
     setError("")
 
     try {
+      // First authenticate the candidate
       const res = await fetch('http://localhost:5000/api/candidates/login', {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -64,12 +65,36 @@ export default function CandidateLogin({ onSuccess }: CandidateLoginProps) {
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || "Login failed")
+      
       // Fetch assigned assessment for this candidate
-      const assessmentRes = await fetch(`http://localhost:5000/api/candidate/assessments?candidateId=${encodeURIComponent(formData.candidateId)}`)
+      const assessmentRes = await fetch(`http://localhost:5000/api/candidate/assessments?email=${encodeURIComponent(data.candidate.email)}`, {
+        headers: {
+          'Authorization': `Bearer ${data.token}`,
+          'Content-Type': 'application/json'
+        }
+      })
+      
+      if (!assessmentRes.ok) {
+        throw new Error("Failed to fetch assigned assessments")
+      }
+      
       const assigned = await assessmentRes.json()
       console.log('Assigned assessments:', assigned)
-      // Pass assessment data to onSuccess, set assessmentType from assignedAssessment.type
-      onSuccess({ ...data.candidate, assessmentType: assigned[0]?.assessment?.type, assignedAssessment: assigned[0]?.assessment })
+      
+      if (!assigned || assigned.length === 0) {
+        throw new Error("No assessments assigned to your account")
+      }
+      
+      // Store auth token for future requests
+      sessionStorage.setItem('authToken', data.token)
+      
+      // Pass complete data to onSuccess
+      onSuccess({ 
+        ...data.candidate, 
+        token: data.token,
+        assessmentType: assigned[0]?.assessment?.type || 'mcq',
+        assignedAssessment: assigned[0]?.assessment 
+      })
     } catch (err: any) {
       setError(err.message)
     } finally {

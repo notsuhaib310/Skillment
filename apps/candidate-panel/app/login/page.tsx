@@ -9,7 +9,8 @@ export default function LoginPage() {
   const handleLoginSuccess = (data: any) => {
     // Store candidate data in sessionStorage for access across routes
     sessionStorage.setItem("candidateData", JSON.stringify(data))
-    router.push("/system-checks")
+    // Redirect to dashboard to show available assessments
+    router.push("/dashboard")
   }
 
   return <CandidateLogin onSuccess={handleLoginSuccess} />

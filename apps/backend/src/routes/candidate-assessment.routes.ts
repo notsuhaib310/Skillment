@@ -8,13 +8,30 @@ import type {
   CodingQuestionData 
 } from '../types/assessment';
 import { authenticate } from '../middleware/authenticate';
-import { listAssignedAssessments } from '../controllers/candidate-assessment.controller';
 
 const router = Router();
 const prisma = new PrismaClient();
 
 // Public: List assigned assessments for login
-router.get('/assessments', listAssignedAssessments);
+router.get('/assessments', async (req, res) => {
+  try {
+    const { email, userId } = req.query;
+    const where: any = {};
+    if (email) where.email = email;
+    if (userId) where.userId = userId;
+    
+    const candidates = await prisma.candidate.findMany({
+      where,
+      include: { assessment: { include: { questions: true } } },
+      orderBy: { createdAt: 'desc' },
+    });
+    
+    return res.json(candidates);
+  } catch (error) {
+    console.error('Error in assessments route:', error);
+    return res.status(500).json({ error: 'Failed to fetch assessments' });
+  }
+});
 
 // Protected: All other candidate assessment routes
 router.use(authenticate);
