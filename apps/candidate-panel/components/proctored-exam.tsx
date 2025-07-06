@@ -10,6 +10,9 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Progress } from "@/components/ui/progress"
 import { Clock, Camera, AlertTriangle, Eye, Shield, ChevronRight, Mic } from "lucide-react"
 import { sendProctoringEvent } from "@/lib/proctoring"
+import { useFullscreenEnforcement } from "@/hooks/use-fullscreen-enforcement"
+import { useDefensiveProctoring } from "@/hooks/use-defensive-proctoring"
+import DefensiveViolationOverlay from "./defensive-violation-overlay"
 
 interface ProctoredExamProps {
   candidateData: any
@@ -19,54 +22,142 @@ interface ProctoredExamProps {
 
 export default function ProctoredExam({ candidateData, systemStatus, onComplete }: ProctoredExamProps) {
   const [currentQuestion, setCurrentQuestion] = useState(0)
-  const [answers, setAnswers] = useState<Record<string, string>>({})
-  const [timeLeft, setTimeLeft] = useState(30 * 60) // 30 minutes total
-  const [questionTimeLeft, setQuestionTimeLeft] = useState(120) // Question timer
+  const [currentAnswer, setCurrentAnswer] = useState("")
+  const [answers, setAnswers] = useState<{ [key: string]: string }>({})
+  const [savedAnswers, setSavedAnswers] = useState<{ [key: string]: boolean }>({})
+  const [timeLeft, setTimeLeft] = useState(30 * 60) // 30 minutes in seconds
+  const [questionTimeLeft, setQuestionTimeLeft] = useState(120) // 2 minutes per question
   const [violations, setViolations] = useState(0)
   const [violationLogs, setViolationLogs] = useState<string[]>([])
   const [showSummary, setShowSummary] = useState(false)
   const [examComplete, setExamComplete] = useState(false)
+  const [formattedQuestions, setFormattedQuestions] = useState<any[]>([])
+  const [isFullscreen, setIsFullscreen] = useState(false)
+  const [fullscreenBlocked, setFullscreenBlocked] = useState(false)
   const videoRef = useRef<HTMLVideoElement>(null)
-  const [currentAnswer, setCurrentAnswer] = useState("")
-  const [savedAnswers, setSavedAnswers] = useState<Record<string, boolean>>({})
+
+  // Use the fullscreen enforcement hook
+  const { enforceFullscreen, exitFullscreen, isFullscreen: checkFullscreen } = useFullscreenEnforcement({
+    enforceOnMount: true,
+    blockEscapeKey: true,
+    monitorVisibility: true,
+    retryDelay: 50
+  });
+
+  // Use the defensive proctoring system
+  const { 
+    violationState, 
+    violationCount, 
+    dismissViolation, 
+    setExamActive 
+  } = useDefensiveProctoring({
+    onViolation: (violation) => {
+      setViolations(prev => prev + 1);
+      setViolationLogs(prev => [...prev, `${new Date().toLocaleTimeString()}: ${violation}`]);
+    },
+    onCriticalViolation: (violation) => {
+      setViolations(prev => prev + 2);
+      setViolationLogs(prev => [...prev, `${new Date().toLocaleTimeString()}: CRITICAL - ${violation}`]);
+      
+      // Auto-submit on 3+ critical violations
+      if (violationCount >= 2) {
+        setTimeout(() => {
+          submitExam(true, `Multiple critical violations: ${violation}`);
+        }, 3000);
+      }
+    },
+    candidateId: candidateData?.candidateId,
+    assessmentTitle: candidateData?.assignedAssessment?.title
+  });
+
+  // Monitor fullscreen state for UI blocking
+  useEffect(() => {
+    const checkFullscreenState = () => {
+      const fullscreenActive = !!document.fullscreenElement;
+      setIsFullscreen(fullscreenActive);
+      
+      if (!fullscreenActive && !examComplete) {
+        // Not in fullscreen and exam is active
+        setFullscreenBlocked(true);
+        
+        // Try to force fullscreen again
+        setTimeout(() => {
+          enforceFullscreen();
+        }, 100);
+      } else if (fullscreenActive) {
+        setFullscreenBlocked(false);
+      }
+    };
+
+    // Initial check
+    checkFullscreenState();
+
+    // Monitor fullscreen changes
+    const handleFullscreenChange = () => {
+      checkFullscreenState();
+    };
+
+    // Monitor page visibility
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        setTimeout(checkFullscreenState, 100);
+      }
+    };
+
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    // Periodic check every 500ms
+    const interval = setInterval(checkFullscreenState, 500);
+
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      clearInterval(interval);
+    };
+  }, [examComplete, enforceFullscreen]);
 
   // Get questions from assessment data - ensure we have proper question structure
   const questions = candidateData?.assignedAssessment?.questions || []
   
   // Format questions to ensure they have proper structure
-  const formattedQuestions = questions.map((q: any, index: number) => {
-    // Handle different possible question structures
-    let options = [];
-    
-    if (q.options) {
-      // If options already exist (from backend formatting)
-      if (Array.isArray(q.options)) {
-        options = q.options;
-      } else if (typeof q.options === 'object') {
-        // Convert object to array (legacy format)
-        options = Object.entries(q.options).map(([key, value]) => ({
-          id: key,
-          text: value
-        }));
+  useEffect(() => {
+    const formatted = questions.map((q: any, index: number) => {
+      // Handle different possible question structures
+      let options = [];
+      
+      if (q.options) {
+        // If options already exist (from backend formatting)
+        if (Array.isArray(q.options)) {
+          options = q.options;
+        } else if (typeof q.options === 'object') {
+          // Convert object to array (legacy format)
+          options = Object.entries(q.options).map(([key, value]) => ({
+            id: key,
+            text: value
+          }));
+        }
+      } else if (q.mcqData && q.mcqData.options) {
+        // Get from mcqData structure
+        options = q.mcqData.options;
       }
-    } else if (q.mcqData && q.mcqData.options) {
-      // Get from mcqData structure
-      options = q.mcqData.options;
-    }
+      
+      return {
+        id: q.id || `q${index + 1}`,
+        question: q.question || '',
+        type: q.type || 'multiple_choice',
+        marks: q.marks || 1,
+        options: options,
+        timeLimit: q.timeLimit || 120, // 2 minutes default
+        difficulty: q.difficulty || 'Medium',
+        category: q.category || 'General',
+        explanation: q.explanation || '',
+        multipleCorrect: q.multipleCorrect || false
+      };
+    });
     
-    return {
-      id: q.id || `q${index + 1}`,
-      question: q.question || '',
-      type: q.type || 'multiple_choice',
-      marks: q.marks || 1,
-      options: options,
-      timeLimit: q.timeLimit || 120, // 2 minutes default
-      difficulty: q.difficulty || 'Medium',
-      category: q.category || 'General',
-      explanation: q.explanation || '',
-      multipleCorrect: q.multipleCorrect || false
-    };
-  });
+    setFormattedQuestions(formatted);
+  }, [questions]);
   
   // Debug logging disabled for security
   // console.log('Formatted questions for proctored exam:', formattedQuestions)
@@ -548,397 +639,436 @@ export default function ProctoredExam({ candidateData, systemStatus, onComplete 
 
   return (
     <div className="min-h-screen bg-[#0a0b0d] text-white">
-      {/* Ultra-Secure Header */}
-      <div className="bg-[#1a1d21] border-b border-[#2a2d31] p-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-4">
-            <div className="w-8 h-8 bg-gradient-to-r from-[#ff4d00] to-[#ff6b35] rounded-lg flex items-center justify-center">
-              <span className="text-white font-bold text-sm">S</span>
+      {/* Defensive Violation Overlay - Takes priority over all other overlays */}
+      {violationState?.isActive && (
+        <DefensiveViolationOverlay
+          violation={violationState}
+          onDismiss={dismissViolation}
+          candidateId={candidateData?.candidateId}
+          assessmentTitle={candidateData?.assignedAssessment?.title}
+        />
+      )}
+
+      {/* Fullscreen Enforcement Overlay - Only show if no violation overlay is active */}
+      {fullscreenBlocked && !violationState?.isActive && (
+        <div className="fixed inset-0 bg-black bg-opacity-95 z-40 flex items-center justify-center">
+          <div className="bg-red-900/20 border border-red-500 p-8 rounded-lg text-center max-w-md mx-4">
+            <div className="w-16 h-16 bg-red-500 rounded-full flex items-center justify-center mx-auto mb-4">
+              <AlertTriangle className="w-8 h-8 text-white" />
             </div>
-            <h1 className="text-lg font-semibold">Skillment Assessment</h1>
-            <Badge className="bg-red-900/30 text-red-400 border-red-500/30">
-              <Shield className="w-3 h-3 mr-1" />
-              Ultra Secure
-            </Badge>
-          </div>
-
-          <div className="flex items-center space-x-6">
-            {/* Total Timer */}
-            <div className="flex items-center space-x-2 bg-red-900/30 border border-red-500/30 px-3 py-1 rounded">
-              <Clock className="w-4 h-4 text-red-400" />
-              <span className="font-mono font-bold text-red-400">{formatTime(timeLeft)}</span>
-            </div>
-
-            {/* Question Timer */}
-            <div className="flex items-center space-x-2 bg-orange-900/30 border border-orange-500/30 px-3 py-1 rounded">
-              <Clock className="w-4 h-4 text-orange-400" />
-              <span
-                className={`font-mono font-bold ${getTimerColor(questionTimeLeft, questions[currentQuestion].timeLimit)}`}
-              >
-                {formatTime(questionTimeLeft)}
-              </span>
-            </div>
-
-            {/* Violations Counter */}
-            {violations > 0 && (
-              <div className="flex items-center space-x-2 bg-yellow-900/30 border border-yellow-500/30 px-3 py-1 rounded">
-                <AlertTriangle className="w-4 h-4 text-yellow-400" />
-                <span className="text-yellow-400 font-bold">{violations}</span>
-              </div>
-            )}
-
-            {/* Live Monitoring */}
-            <div className="flex items-center space-x-2 bg-green-900/30 border border-green-500/30 px-3 py-1 rounded">
-              <Camera className="w-4 h-4 text-green-400" />
-              <Eye className="w-4 h-4 text-green-400" />
-              <Mic className="w-4 h-4 text-green-400" />
-            </div>
-
-            {/* Summary Button */}
-            <Button
-              onClick={toggleSummary}
-              variant="outline"
-              size="sm"
-              className="border-[#2a2d31] text-gray-300 hover:bg-[#2a2d31]"
+            <h2 className="text-2xl font-bold text-red-400 mb-4">Fullscreen Required</h2>
+            <p className="text-red-300 mb-6">
+              You must be in fullscreen mode to attempt this exam. Please click the button below to continue.
+            </p>
+            <button
+              onClick={() => {
+                enforceFullscreen();
+              }}
+              className="bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-6 rounded-lg transition-colors"
             >
-              Summary
-            </Button>
+              Enter Fullscreen to Continue
+            </button>
+            <p className="text-red-400 text-sm mt-4">
+              ⚠️ Exam content is hidden until fullscreen mode is activated
+            </p>
           </div>
         </div>
-      </div>
+      )}
 
-      <div className="flex h-[calc(100vh-80px)]">
-        {/* Main Content */}
-        <div className="flex-1 p-6">
-          {/* Progress */}
-          <div className="mb-6">
-            <div className="flex justify-between items-center mb-2">
-              <span className="text-sm text-gray-400">
-              Question {currentQuestion + 1} of {formattedQuestions.length}
-              </span>
-              <span className="text-sm text-gray-400">{answeredCount} answered</span>
+      {/* Main Exam Content - Hidden when fullscreen blocked or violation active */}
+      <div className={(fullscreenBlocked || violationState?.isActive) ? 'opacity-0 pointer-events-none' : 'opacity-100'}>
+        {/* Ultra-Secure Header */}
+        <div className="bg-[#1a1d21] border-b border-[#2a2d31] p-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-4">
+              <div className="w-8 h-8 bg-gradient-to-r from-[#ff4d00] to-[#ff6b35] rounded-lg flex items-center justify-center">
+                <span className="text-white font-bold text-sm">S</span>
+              </div>
+              <h1 className="text-lg font-semibold">Skillment Assessment</h1>
+              <Badge className="bg-red-900/30 text-red-400 border-red-500/30">
+                <Shield className="w-3 h-3 mr-1" />
+                Ultra Secure
+              </Badge>
             </div>
-            <Progress value={progress} className="h-2 bg-[#2a2d31]" />
-          </div>
 
-          {/* Security Warnings */}
-          {violations > 0 && (
-            <Alert className="mb-6 bg-red-900/20 border-red-500/50">
-              <AlertTriangle className="h-4 w-4 text-red-400" />
-              <AlertDescription className="text-red-400">
-                <strong>Security Alert:</strong> {violations} violation(s) detected.
-                {violations >= 2 && " Exam will auto-submit on next violation."}
-              </AlertDescription>
-            </Alert>
-          )}
-
-          {/* Question Card */}
-          <Card className="bg-[#1a1d21] border-[#2a2d31]">
-            <CardContent className="p-8">
-              <div className="flex justify-between items-start mb-6">
-                <h2 className="text-2xl font-bold text-white">Question {currentQuestion + 1}</h2>
-                <div className="text-right">
-                  <div className="text-sm text-gray-400">Time Remaining</div>
-                  <div
-                    className={`text-xl font-mono font-bold ${formattedQuestions[currentQuestion] ? getTimerColor(questionTimeLeft, formattedQuestions[currentQuestion].timeLimit) : 'text-gray-400'}`}
-                  >
-                    {formatTime(questionTimeLeft)}
-                  </div>
-                  <div className="text-xs text-gray-500">Marks: {formattedQuestions[currentQuestion]?.marks || 0}</div>
-                </div>
+            <div className="flex items-center space-x-6">
+              {/* Total Timer */}
+              <div className="flex items-center space-x-2 bg-red-900/30 border border-red-500/30 px-3 py-1 rounded">
+                <Clock className="w-4 h-4 text-red-400" />
+                <span className="font-mono font-bold text-red-400">{formatTime(timeLeft)}</span>
               </div>
 
-              {formattedQuestions[currentQuestion] ? (
-                <>
-                  <p className="text-xl text-gray-200 mb-8">{formattedQuestions[currentQuestion].question}</p>
-
-                  {formattedQuestions[currentQuestion].type === "multiple_choice" && formattedQuestions[currentQuestion].options && formattedQuestions[currentQuestion].options.length > 0 ? (
-                <RadioGroup
-                  value={answers[formattedQuestions[currentQuestion].id] || ""}
-                  onValueChange={handleAnswerChange}
-                  className="space-y-4"
+              {/* Question Timer */}
+              <div className="flex items-center space-x-2 bg-orange-900/30 border border-orange-500/30 px-3 py-1 rounded">
+                <Clock className="w-4 h-4 text-orange-400" />
+                <span
+                  className={`font-mono font-bold ${getTimerColor(questionTimeLeft, questions[currentQuestion].timeLimit)}`}
                 >
-                      {formattedQuestions[currentQuestion].options?.map((option: any, index: number) => {
-                        // Handle different option formats
-                        let optionValue = '';
-                        let optionText = '';
-                        
-                        if (typeof option === 'string') {
-                          optionValue = option;
-                          optionText = option;
-                        } else if (option && typeof option === 'object') {
-                          optionValue = option.id || option.value || `option-${index}`;
-                          optionText = option.text || option.label || option.id || option.value || `Option ${index + 1}`;
-                        }
-                        
-                        return (
-                    <div
-                      key={index}
-                      className="flex items-center space-x-4 p-4 rounded-lg border border-[#2a2d31] hover:border-[#ff4d00]/30 hover:bg-[#ff4d00]/5 transition-colors cursor-pointer"
-                    >
-                      <RadioGroupItem
-                              value={optionValue}
-                        id={`option-${index}`}
-                        className="border-gray-500 text-[#ff4d00]"
-                      />
-                      <Label htmlFor={`option-${index}`} className="flex-1 text-gray-200 cursor-pointer text-lg">
-                              <span className="font-medium mr-2">{String.fromCharCode(65 + index)}.</span>
-                              {optionText}
-                      </Label>
-                    </div>
-                        );
-                      })}
-                </RadioGroup>
-              ) : (
-                <div className="space-y-4">
-                  <div className="relative">
-                    <input
-                      type="text"
-                      value={currentAnswer}
-                      onChange={(e) => handleFillAnswerChange(e.target.value)}
-                          placeholder="Enter your answer here"
-                      className="w-full p-4 bg-[#2a2d31] border border-[#3a3d41] rounded-lg text-white placeholder-gray-400 focus:border-[#ff4d00] focus:outline-none text-lg"
-                    />
-                    {savedAnswers[formattedQuestions[currentQuestion]?.id] && (
-                      <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
-                        <Badge className="bg-green-900/30 text-green-400 border-green-500/30 text-xs">Saved</Badge>
-                      </div>
-                    )}
-                  </div>
-                  <Button
-                    id="save-btn"
-                    onClick={saveAnswer}
-                    variant="outline"
-                    className="border-[#ff4d00] text-[#ff4d00] hover:bg-[#ff4d00]/10"
-                  >
-                    Save Answer
-                  </Button>
-                    </div>
-                  )}
-                </>
-              ) : (
-                <div className="text-center text-gray-400 py-8">
-                  <p>No questions available</p>
+                  {formatTime(questionTimeLeft)}
+                </span>
+              </div>
+
+              {/* Violations Counter */}
+              {violations > 0 && (
+                <div className="flex items-center space-x-2 bg-yellow-900/30 border border-yellow-500/30 px-3 py-1 rounded">
+                  <AlertTriangle className="w-4 h-4 text-yellow-400" />
+                  <span className="text-yellow-400 font-bold">{violations}</span>
                 </div>
               )}
 
-              <div className="flex justify-between mt-8">
-                <Button
-                  onClick={previousQuestion}
-                  disabled={currentQuestion === 0}
-                  variant="outline"
-                  className="border-[#2a2d31] text-gray-300 hover:bg-[#2a2d31] disabled:opacity-50"
-                >
-                  Previous
-                </Button>
-
-                <div className="flex space-x-3">
-                  <Button
-                    onClick={nextQuestion}
-                    disabled={!formattedQuestions[currentQuestion]}
-                    className="bg-gradient-to-r from-[#ff4d00] to-[#ff6b35] hover:from-[#e63900] hover:to-[#ff5722] text-white px-8 py-3 disabled:opacity-50"
-                  >
-                    {currentQuestion === formattedQuestions.length - 1 ? "Finish Exam" : "Next Question"}
-                    <ChevronRight className="w-4 h-4 ml-2" />
-                  </Button>
-                </div>
+              {/* Live Monitoring */}
+              <div className="flex items-center space-x-2 bg-green-900/30 border border-green-500/30 px-3 py-1 rounded">
+                <Camera className="w-4 h-4 text-green-400" />
+                <Eye className="w-4 h-4 text-green-400" />
+                <Mic className="w-4 h-4 text-green-400" />
               </div>
-            </CardContent>
-          </Card>
-        </div>
 
-        {/* Monitoring Sidebar */}
-        <div className="w-80 bg-[#1a1d21] border-l border-[#2a2d31] p-4">
-          {/* Live Camera */}
-          <div className="mb-6">
-            <h3 className="text-sm font-medium text-gray-300 mb-2">Live Monitoring</h3>
-            <video
-              ref={videoRef}
-              autoPlay
-              muted
-              className="w-full h-32 bg-[#0a0b0d] rounded object-cover border border-[#2a2d31]"
-            />
-            <div className="mt-2 text-xs text-green-400 text-center">
-              <Eye className="w-3 h-3 inline mr-1" />
-              AI Monitoring Active
+              {/* Summary Button */}
+              <Button
+                onClick={toggleSummary}
+                variant="outline"
+                size="sm"
+                className="border-[#2a2d31] text-gray-300 hover:bg-[#2a2d31]"
+              >
+                Summary
+              </Button>
             </div>
           </div>
+        </div>
 
-          {/* Question Navigator */}
-          <div className="mb-6">
-            <h3 className="text-sm font-medium text-gray-300 mb-3">Questions</h3>
-            <div className="grid grid-cols-3 gap-2">
-              {formattedQuestions.map((question: any, index: number) => (
-                <button
-                  key={index}
-                  onClick={() => {
-                    setCurrentQuestion(index)
-                    setQuestionTimeLeft(formattedQuestions[index].timeLimit)
-                  }}
-                  className={`w-12 h-12 rounded text-sm font-medium transition-colors relative ${
-                    index === currentQuestion
-                      ? "bg-gradient-to-r from-[#ff4d00] to-[#ff6b35] text-white"
-                      : answers[question.id]
-                        ? question.type === "fill"
-                          ? "bg-blue-600 text-white"
-                          : "bg-green-600 text-white"
-                        : "bg-[#2a2d31] text-gray-300"
-                  }`}
-                >
-                  {index + 1}
-                  {question.type === "fill" && (
-                    <div className="absolute -top-1 -right-1 w-3 h-3 bg-blue-400 rounded-full"></div>
-                  )}
-                </button>
-              ))}
-            </div>
-            {formattedQuestions.length === 0 && (
-              <div className="text-center text-gray-400 text-sm">
-                No questions loaded
+        <div className="flex h-[calc(100vh-80px)]">
+          {/* Main Content */}
+          <div className="flex-1 p-6">
+            {/* Progress */}
+            <div className="mb-6">
+              <div className="flex justify-between items-center mb-2">
+                <span className="text-sm text-gray-400">
+                Question {currentQuestion + 1} of {formattedQuestions.length}
+                </span>
+                <span className="text-sm text-gray-400">{answeredCount} answered</span>
               </div>
+              <Progress value={progress} className="h-2 bg-[#2a2d31]" />
+            </div>
+
+            {/* Security Warnings */}
+            {violations > 0 && (
+              <Alert className="mb-6 bg-red-900/20 border-red-500/50">
+                <AlertTriangle className="h-4 w-4 text-red-400" />
+                <AlertDescription className="text-red-400">
+                  <strong>Security Alert:</strong> {violations} violation(s) detected.
+                  {violations >= 2 && " Exam will auto-submit on next violation."}
+                </AlertDescription>
+              </Alert>
             )}
-          </div>
 
-          {/* Security Status */}
-          <div className="bg-[#0a0b0d] p-4 rounded border border-[#2a2d31] mb-4">
-            <h3 className="text-sm font-medium text-gray-300 mb-3">Security Status</h3>
-            <div className="space-y-2 text-xs">
-              <div className="flex items-center justify-between">
-                <span className="text-gray-400">Extensions</span>
-                <Badge className="bg-red-900/30 text-red-400 border-red-500/30 text-xs">Blocked</Badge>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-gray-400">Shortcuts</span>
-                <Badge className="bg-red-900/30 text-red-400 border-red-500/30 text-xs">Disabled</Badge>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-gray-400">Developer Tools</span>
-                <Badge className="bg-red-900/30 text-red-400 border-red-500/30 text-xs">Blocked</Badge>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-gray-400">Violations</span>
-                <Badge
-                  className={`${violations > 0 ? "bg-yellow-900/30 text-yellow-400 border-yellow-500/30" : "bg-green-900/30 text-green-400 border-green-500/30"} text-xs`}
-                >
-                  {violations}
-                </Badge>
-              </div>
-            </div>
-          </div>
-
-          {/* Recent Violations */}
-          {violationLogs.length > 0 && (
-            <div className="bg-[#0a0b0d] p-4 rounded border border-[#2a2d31]">
-              <h3 className="text-sm font-medium text-gray-300 mb-2">Security Alerts</h3>
-              <div className="space-y-1 max-h-32 overflow-y-auto">
-                {violationLogs
-                  .slice(-5)
-                  .reverse()
-                  .map((log: string, index: number) => (
-                    <div key={index} className="text-xs text-red-400">
-                      {log}
+            {/* Question Card */}
+            <Card className="bg-[#1a1d21] border-[#2a2d31]">
+              <CardContent className="p-8">
+                <div className="flex justify-between items-start mb-6">
+                  <h2 className="text-2xl font-bold text-white">Question {currentQuestion + 1}</h2>
+                  <div className="text-right">
+                    <div className="text-sm text-gray-400">Time Remaining</div>
+                    <div
+                      className={`text-xl font-mono font-bold ${formattedQuestions[currentQuestion] ? getTimerColor(questionTimeLeft, formattedQuestions[currentQuestion].timeLimit) : 'text-gray-400'}`}
+                    >
+                      {formatTime(questionTimeLeft)}
                     </div>
-                  ))}
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Unstop-Style Question Summary Sidebar */}
-      {showSummary && (
-        <div className="fixed right-0 top-0 h-full w-96 bg-white border-l border-gray-200 shadow-2xl z-50 overflow-y-auto">
-          <div className="p-6">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl font-bold text-gray-900">Question Summary</h2>
-              <div className="text-sm text-gray-600">Time Left: {formatTime(timeLeft)}</div>
-            </div>
-
-            <div className="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-              <div className="flex items-start space-x-2">
-                <AlertTriangle className="w-5 h-5 text-yellow-600 mt-0.5" />
-                <div className="text-sm text-yellow-800">
-                  <p className="font-medium">You have gone through all the questions.</p>
-                  <p>Either browse through them once again or Finish your assessment.</p>
-                </div>
-              </div>
-            </div>
-
-            {/* Progress Chart */}
-            <div className="mb-6 text-center">
-              <div className="relative w-32 h-32 mx-auto mb-4">
-                <svg className="w-32 h-32 transform -rotate-90" viewBox="0 0 36 36">
-                  <path
-                    d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                    fill="none"
-                    stroke="#e5e7eb"
-                    strokeWidth="2"
-                  />
-                  <path
-                    d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                    fill="none"
-                    stroke="#10b981"
-                    strokeWidth="2"
-                    strokeDasharray={`${formattedQuestions.length > 0 ? (answeredCount / formattedQuestions.length) * 100 : 0}, 100`}
-                  />
-                </svg>
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <div className="text-center">
-                    <div className="text-2xl font-bold text-gray-900">{formattedQuestions.length}</div>
-                    <div className="text-xs text-gray-600">Total Questions</div>
+                    <div className="text-xs text-gray-500">Marks: {formattedQuestions[currentQuestion]?.marks || 0}</div>
                   </div>
                 </div>
-              </div>
 
-              <div className="space-y-1 text-sm">
-                <div className="flex items-center justify-center space-x-2">
-                  <div className="w-3 h-3 bg-green-500 rounded"></div>
-                  <span className="text-gray-700">Answered & Submitted: {answeredCount}</span>
+                {formattedQuestions[currentQuestion] ? (
+                  <>
+                    <p className="text-xl text-gray-200 mb-8">{formattedQuestions[currentQuestion].question}</p>
+
+                    {formattedQuestions[currentQuestion].type === "multiple_choice" && formattedQuestions[currentQuestion].options && formattedQuestions[currentQuestion].options.length > 0 ? (
+                      <RadioGroup
+                        value={answers[formattedQuestions[currentQuestion].id] || ""}
+                        onValueChange={handleAnswerChange}
+                        className="space-y-4"
+                      >
+                        {formattedQuestions[currentQuestion].options?.map((option: any, index: number) => {
+                          // Handle different option formats
+                          let optionValue = '';
+                          let optionText = '';
+                          
+                          if (typeof option === 'string') {
+                            optionValue = option;
+                            optionText = option;
+                          } else if (option && typeof option === 'object') {
+                            optionValue = option.id || option.value || `option-${index}`;
+                            optionText = option.text || option.label || option.id || option.value || `Option ${index + 1}`;
+                          }
+                          
+                          return (
+                            <div
+                              key={index}
+                              className="flex items-center space-x-4 p-4 rounded-lg border border-[#2a2d31] hover:border-[#ff4d00]/30 hover:bg-[#ff4d00]/5 transition-colors cursor-pointer"
+                            >
+                              <RadioGroupItem
+                                value={optionValue}
+                                id={`option-${index}`}
+                                className="border-gray-500 text-[#ff4d00]"
+                              />
+                              <Label htmlFor={`option-${index}`} className="flex-1 text-gray-200 cursor-pointer text-lg">
+                                <span className="font-medium mr-2">{String.fromCharCode(65 + index)}.</span>
+                                {optionText}
+                              </Label>
+                            </div>
+                          );
+                        })}
+                      </RadioGroup>
+                    ) : (
+                      <div className="space-y-4">
+                        <div className="relative">
+                          <input
+                            type="text"
+                            value={currentAnswer}
+                            onChange={(e) => handleFillAnswerChange(e.target.value)}
+                            placeholder="Enter your answer here"
+                            className="w-full p-4 bg-[#2a2d31] border border-[#3a3d41] rounded-lg text-white placeholder-gray-400 focus:border-[#ff4d00] focus:outline-none text-lg"
+                          />
+                          {savedAnswers[formattedQuestions[currentQuestion]?.id] && (
+                            <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                              <Badge className="bg-green-900/30 text-green-400 border-green-500/30 text-xs">Saved</Badge>
+                            </div>
+                          )}
+                        </div>
+                        <Button
+                          id="save-btn"
+                          onClick={saveAnswer}
+                          variant="outline"
+                          className="border-[#ff4d00] text-[#ff4d00] hover:bg-[#ff4d00]/10"
+                        >
+                          Save Answer
+                        </Button>
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <div className="text-center text-gray-400 py-8">
+                    <p>No questions available</p>
+                  </div>
+                )}
+
+                <div className="flex justify-between mt-8">
+                  <Button
+                    onClick={previousQuestion}
+                    disabled={currentQuestion === 0}
+                    variant="outline"
+                    className="border-[#2a2d31] text-gray-300 hover:bg-[#2a2d31] disabled:opacity-50"
+                  >
+                    Previous
+                  </Button>
+
+                  <div className="flex space-x-3">
+                    <Button
+                      onClick={nextQuestion}
+                      disabled={!formattedQuestions[currentQuestion]}
+                      className="bg-gradient-to-r from-[#ff4d00] to-[#ff6b35] hover:from-[#e63900] hover:to-[#ff5722] text-white px-8 py-3 disabled:opacity-50"
+                    >
+                      {currentQuestion === formattedQuestions.length - 1 ? "Finish Exam" : "Next Question"}
+                      <ChevronRight className="w-4 h-4 ml-2" />
+                    </Button>
+                  </div>
                 </div>
-                <div className="flex items-center justify-center space-x-2">
-                  <div className="w-3 h-3 bg-gray-300 rounded"></div>
-                  <span className="text-gray-700">Skipped: {formattedQuestions.length - answeredCount}</span>
-                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Monitoring Sidebar */}
+          <div className="w-80 bg-[#1a1d21] border-l border-[#2a2d31] p-4">
+            {/* Live Camera */}
+            <div className="mb-6">
+              <h3 className="text-sm font-medium text-gray-300 mb-2">Live Monitoring</h3>
+              <video
+                ref={videoRef}
+                autoPlay
+                muted
+                className="w-full h-32 bg-[#0a0b0d] rounded object-cover border border-[#2a2d31]"
+              />
+              <div className="mt-2 text-xs text-green-400 text-center">
+                <Eye className="w-3 h-3 inline mr-1" />
+                AI Monitoring Active
               </div>
             </div>
 
-            {/* Status of Questions */}
+            {/* Question Navigator */}
             <div className="mb-6">
-              <h3 className="font-medium text-gray-900 mb-3">Status of Questions</h3>
-              <div className="grid grid-cols-5 gap-2">
-                {formattedQuestions.map((_: any, index: number) => (
+              <h3 className="text-sm font-medium text-gray-300 mb-3">Questions</h3>
+              <div className="grid grid-cols-3 gap-2">
+                {formattedQuestions.map((question: any, index: number) => (
                   <button
                     key={index}
                     onClick={() => {
                       setCurrentQuestion(index)
                       setQuestionTimeLeft(formattedQuestions[index].timeLimit)
-                      setShowSummary(false)
                     }}
-                    className={`w-10 h-10 rounded text-sm font-medium ${
-                      answers[formattedQuestions[index].id] ? "bg-green-500 text-white" : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                    className={`w-12 h-12 rounded text-sm font-medium transition-colors relative ${
+                      index === currentQuestion
+                        ? "bg-gradient-to-r from-[#ff4d00] to-[#ff6b35] text-white"
+                        : answers[question.id]
+                          ? question.type === "fill"
+                            ? "bg-blue-600 text-white"
+                            : "bg-green-600 text-white"
+                          : "bg-[#2a2d31] text-gray-300"
                     }`}
                   >
                     {index + 1}
+                    {question.type === "fill" && (
+                      <div className="absolute -top-1 -right-1 w-3 h-3 bg-blue-400 rounded-full"></div>
+                    )}
                   </button>
                 ))}
               </div>
+              {formattedQuestions.length === 0 && (
+                <div className="text-center text-gray-400 text-sm">
+                  No questions loaded
+                </div>
+              )}
             </div>
 
-            {/* Action Buttons */}
-            <div className="flex space-x-3">
-              <Button onClick={toggleSummary} variant="outline" className="flex-1">
-                Close
-              </Button>
-              <Button
-                onClick={() => submitExam(false, "Manual submission")}
-                className="flex-1 bg-red-600 hover:bg-red-700 text-white"
-              >
-                Finish
-              </Button>
+            {/* Security Status */}
+            <div className="bg-[#0a0b0d] p-4 rounded border border-[#2a2d31] mb-4">
+              <h3 className="text-sm font-medium text-gray-300 mb-3">Security Status</h3>
+              <div className="space-y-2 text-xs">
+                <div className="flex items-center justify-between">
+                  <span className="text-gray-400">Extensions</span>
+                  <Badge className="bg-red-900/30 text-red-400 border-red-500/30 text-xs">Blocked</Badge>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-gray-400">Shortcuts</span>
+                  <Badge className="bg-red-900/30 text-red-400 border-red-500/30 text-xs">Disabled</Badge>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-gray-400">Developer Tools</span>
+                  <Badge className="bg-red-900/30 text-red-400 border-red-500/30 text-xs">Blocked</Badge>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-gray-400">Violations</span>
+                  <Badge
+                    className={`${violations > 0 ? "bg-yellow-900/30 text-yellow-400 border-yellow-500/30" : "bg-green-900/30 text-green-400 border-green-500/30"} text-xs`}
+                  >
+                    {violations}
+                  </Badge>
+                </div>
+              </div>
             </div>
+
+            {/* Recent Violations */}
+            {violationLogs.length > 0 && (
+              <div className="bg-[#0a0b0d] p-4 rounded border border-[#2a2d31]">
+                <h3 className="text-sm font-medium text-gray-300 mb-2">Security Alerts</h3>
+                <div className="space-y-1 max-h-32 overflow-y-auto">
+                  {violationLogs
+                    .slice(-5)
+                    .reverse()
+                    .map((log: string, index: number) => (
+                      <div key={index} className="text-xs text-red-400">
+                        {log}
+                      </div>
+                    ))}
+                </div>
+              </div>
+            )}
           </div>
         </div>
-      )}
+
+        {/* Unstop-Style Question Summary Sidebar */}
+        {showSummary && (
+          <div className="fixed right-0 top-0 h-full w-96 bg-white border-l border-gray-200 shadow-2xl z-50 overflow-y-auto">
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-xl font-bold text-gray-900">Question Summary</h2>
+                <div className="text-sm text-gray-600">Time Left: {formatTime(timeLeft)}</div>
+              </div>
+
+              <div className="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                <div className="flex items-start space-x-2">
+                  <AlertTriangle className="w-5 h-5 text-yellow-600 mt-0.5" />
+                  <div className="text-sm text-yellow-800">
+                    <p className="font-medium">You have gone through all the questions.</p>
+                    <p>Either browse through them once again or Finish your assessment.</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Progress Chart */}
+              <div className="mb-6 text-center">
+                <div className="relative w-32 h-32 mx-auto mb-4">
+                  <svg className="w-32 h-32 transform -rotate-90" viewBox="0 0 36 36">
+                    <path
+                      d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                      fill="none"
+                      stroke="#e5e7eb"
+                      strokeWidth="2"
+                    />
+                    <path
+                      d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                      fill="none"
+                      stroke="#10b981"
+                      strokeWidth="2"
+                      strokeDasharray={`${formattedQuestions.length > 0 ? (answeredCount / formattedQuestions.length) * 100 : 0}, 100`}
+                    />
+                  </svg>
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-gray-900">{formattedQuestions.length}</div>
+                      <div className="text-xs text-gray-600">Total Questions</div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-1 text-sm">
+                  <div className="flex items-center justify-center space-x-2">
+                    <div className="w-3 h-3 bg-green-500 rounded"></div>
+                    <span className="text-gray-700">Answered & Submitted: {answeredCount}</span>
+                  </div>
+                  <div className="flex items-center justify-center space-x-2">
+                    <div className="w-3 h-3 bg-gray-300 rounded"></div>
+                    <span className="text-gray-700">Skipped: {formattedQuestions.length - answeredCount}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Status of Questions */}
+              <div className="mb-6">
+                <h3 className="font-medium text-gray-900 mb-3">Status of Questions</h3>
+                <div className="grid grid-cols-5 gap-2">
+                  {formattedQuestions.map((_: any, index: number) => (
+                    <button
+                      key={index}
+                      onClick={() => {
+                        setCurrentQuestion(index)
+                        setQuestionTimeLeft(formattedQuestions[index].timeLimit)
+                        setShowSummary(false)
+                      }}
+                      className={`w-10 h-10 rounded text-sm font-medium ${
+                        answers[formattedQuestions[index].id] ? "bg-green-500 text-white" : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                      }`}
+                    >
+                      {index + 1}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex space-x-3">
+                <Button onClick={toggleSummary} variant="outline" className="flex-1">
+                  Close
+                </Button>
+                <Button
+                  onClick={() => submitExam(false, "Manual submission")}
+                  className="flex-1 bg-red-600 hover:bg-red-700 text-white"
+                >
+                  Finish
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   )
 }
