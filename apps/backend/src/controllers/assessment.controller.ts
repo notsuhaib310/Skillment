@@ -7,9 +7,115 @@ import type {
   AssessmentStatus,
   AssessmentStats,
   AssessmentType,
+  CreateQuestionInput,
+  MCQQuestionData,
+  CodingQuestionData,
+  AIGenerationMetadata,
 } from '../types/assessment';
 
 const prisma = new PrismaClient();
+
+// Validation functions
+const validateAssessmentData = (data: CreateAssessmentInput) => {
+  const errors = [];
+
+  if (!data.title?.trim()) errors.push('Title is required');
+  if (!data.type) errors.push('Assessment type is required');
+  if (!data.duration || data.duration < 1) errors.push('Duration must be at least 1 minute');
+  if (!data.totalMarks || data.totalMarks < 1) errors.push('Total marks must be at least 1');
+  if (data.passingMarks && data.passingMarks > data.totalMarks) {
+    errors.push('Passing marks cannot exceed total marks');
+  }
+  if (data.attemptLimit && data.attemptLimit < 1) errors.push('Attempt limit must be at least 1');
+
+  return errors;
+};
+
+const validateQuestionData = (question: CreateQuestionInput, index: number) => {
+  const errors = [];
+  const prefix = `Question ${index + 1}:`;
+
+  if (!question.question?.trim()) errors.push(`${prefix} Question text is required`);
+  if (!question.type) errors.push(`${prefix} Question type is required`);
+  if (!question.marks || question.marks < 1) errors.push(`${prefix} Marks must be at least 1`);
+
+  // MCQ specific validation
+  if (question.type === 'multiple_choice' && question.mcqData) {
+    const mcqData = question.mcqData as MCQQuestionData;
+    if (!mcqData.options || mcqData.options.length < 2) {
+      errors.push(`${prefix} MCQ must have at least 2 options`);
+    } else {
+      const hasCorrectAnswer = mcqData.options.some(opt => opt.isCorrect);
+      if (!hasCorrectAnswer) {
+        errors.push(`${prefix} MCQ must have at least one correct answer`);
+      }
+      
+      // Check for empty options
+      const emptyOptions = mcqData.options.filter(opt => !opt.text?.trim());
+      if (emptyOptions.length > 0) {
+        errors.push(`${prefix} All MCQ options must have text`);
+      }
+    }
+  }
+
+  // Coding specific validation
+  if (question.type === 'coding' && question.codingData) {
+    const codingData = question.codingData as CodingQuestionData;
+    if (!codingData.title?.trim()) errors.push(`${prefix} Coding question title is required`);
+    if (!codingData.description?.trim()) errors.push(`${prefix} Coding question description is required`);
+    if (!codingData.languages || codingData.languages.length === 0) {
+      errors.push(`${prefix} At least one programming language must be selected`);
+    }
+    if (!codingData.testCases || codingData.testCases.length === 0) {
+      errors.push(`${prefix} At least one test case is required`);
+    } else {
+      // Validate test cases
+      codingData.testCases.forEach((testCase, tcIndex) => {
+        if (!testCase.input?.trim() && !testCase.expectedOutput?.trim()) {
+          errors.push(`${prefix} Test case ${tcIndex + 1} must have input and expected output`);
+        }
+      });
+    }
+  }
+
+  return errors;
+};
+
+const processQuestionData = (question: CreateQuestionInput) => {
+  const processedQuestion: any = {
+    question: question.question,
+    type: question.type,
+    marks: question.marks,
+    order: question.order,
+    hints: question.hints || [],
+    explanation: question.explanation || '',
+    difficulty: question.difficulty || 'medium',
+    tags: question.tags || [],
+  };
+
+  // Process MCQ data
+  if (question.type === 'multiple_choice' && question.mcqData) {
+    processedQuestion.mcqData = question.mcqData;
+    // Also set legacy fields for backward compatibility
+    processedQuestion.options = question.mcqData.options;
+    processedQuestion.correctAnswer = question.mcqData.options
+      .filter(opt => opt.isCorrect)
+      .map(opt => opt.id);
+  }
+
+  // Process coding data
+  if (question.type === 'coding' && question.codingData) {
+    processedQuestion.codingData = question.codingData;
+    processedQuestion.question = question.codingData.title; // Use title as question text for coding
+  }
+
+  // Process AI metadata
+  if (question.aiMetadata) {
+    processedQuestion.aiMetadata = question.aiMetadata;
+  }
+
+  return processedQuestion;
+};
 
 // Helper function to build where clause for assessment listing
 const buildAssessmentWhere = (filters: AssessmentListFilters) => {
@@ -40,74 +146,79 @@ const buildAssessmentWhere = (filters: AssessmentListFilters) => {
 
 export const createAssessment = async (req: Request, res: Response): Promise<Response> => {
   try {
-    const { questions, ...assessmentData } = req.body;
-    // Debug log to help diagnose Prisma Client issues
-    console.log('prisma.assessment keys:', Object.keys(prisma.assessment));
-    console.log('Assessment data:', {
-      ...assessmentData,
-      status: 'draft',
-      attemptLimit: req.body.attemptLimit || 1,
-      showResults: req.body.showResults !== false,
-      enableProctoring: req.body.enableProctoring || false,
-      randomizeQuestions: req.body.randomizeQuestions || false,
-      randomizeOptions: req.body.randomizeOptions || false,
-      allowBackNavigation: req.body.allowBackNavigation ?? true,
-      timeWarnings: req.body.timeWarnings ?? true,
-      autoSubmit: req.body.autoSubmit ?? true,
-      warningTimes: req.body.warningTimes,
-      webcamMonitoring: req.body.webcamMonitoring || false,
-      screenRecording: req.body.screenRecording || false,
-      tabSwitchDetection: req.body.tabSwitchDetection || false,
-      copyPasteDetection: req.body.copyPasteDetection || false,
-      rightClickDisable: req.body.rightClickDisable || false,
-      fullscreenMode: req.body.fullscreenMode || false,
-      idVerification: req.body.idVerification || false,
-      environmentCheck: req.body.environmentCheck || false,
-      suspiciousActivityThreshold: req.body.suspiciousActivityThreshold,
-      warningBeforeFlagging: req.body.warningBeforeFlagging ?? true,
-      videoQuality: req.body.videoQuality,
-      recordingFrequency: req.body.recordingFrequency,
-      dataRetention: req.body.dataRetention,
-      autoDeleteAfter: req.body.autoDeleteAfter,
-      tags: req.body.tags || [],
-      createdBy: { connect: { id: req.user?.id } },
-    });
-    // Require authentication for assessment creation
+    const { questions = [], ...assessmentData } = req.body;
+
+    // Authentication check
     if (!req.user?.id) {
       return res.status(401).json({ error: 'Authentication required to create assessment' });
     }
     if (!req.user.orgId) {
       return res.status(400).json({ error: 'User must belong to an organization to create an assessment' });
     }
+
+    // Validate assessment data
+    const assessmentErrors = validateAssessmentData(assessmentData);
+    if (assessmentErrors.length > 0) {
+      return res.status(400).json({ 
+        error: 'Validation failed', 
+        details: assessmentErrors 
+      });
+    }
+
+    // Validate questions data
+    const questionErrors = [];
+    questions.forEach((question: CreateQuestionInput, index: number) => {
+      const errors = validateQuestionData(question, index);
+      questionErrors.push(...errors);
+    });
+
+    if (questionErrors.length > 0) {
+      return res.status(400).json({ 
+        error: 'Question validation failed', 
+        details: questionErrors 
+      });
+    }
+
     const creatorId = req.user.id;
+
+    // Create assessment with enhanced data
     const assessment = await prisma.assessment.create({
       data: {
-        ...assessmentData,
+        title: assessmentData.title,
+        description: assessmentData.description || '',
+        instructions: assessmentData.instructions || '',
+        type: assessmentData.type,
+        duration: assessmentData.duration,
+        totalMarks: assessmentData.totalMarks,
+        passingMarks: assessmentData.passingMarks || 60,
+        totalQuestions: questions.length,
+        attemptLimit: assessmentData.attemptLimit || 1,
+        showResults: assessmentData.showResults ?? true,
+        showCorrectAnswers: assessmentData.showCorrectAnswers ?? false,
+        enableProctoring: assessmentData.enableProctoring || false,
+        randomizeQuestions: assessmentData.randomizeQuestions || false,
+        randomizeOptions: assessmentData.randomizeOptions || false,
+        allowBackNavigation: assessmentData.allowBackNavigation ?? true,
+        timeWarnings: assessmentData.timeWarnings ?? true,
+        autoSubmit: assessmentData.autoSubmit ?? true,
+        warningTimes: assessmentData.warningTimes,
+        // Proctoring settings
+        webcamMonitoring: assessmentData.webcamMonitoring || false,
+        screenRecording: assessmentData.screenRecording || false,
+        tabSwitchDetection: assessmentData.tabSwitchDetection || false,
+        copyPasteDetection: assessmentData.copyPasteDetection || false,
+        rightClickDisable: assessmentData.rightClickDisable || false,
+        fullscreenMode: assessmentData.fullscreenMode || false,
+        idVerification: assessmentData.idVerification || false,
+        environmentCheck: assessmentData.environmentCheck || false,
+        suspiciousActivityThreshold: assessmentData.suspiciousActivityThreshold,
+        warningBeforeFlagging: assessmentData.warningBeforeFlagging ?? true,
+        videoQuality: assessmentData.videoQuality,
+        recordingFrequency: assessmentData.recordingFrequency,
+        dataRetention: assessmentData.dataRetention,
+        autoDeleteAfter: assessmentData.autoDeleteAfter,
+        tags: assessmentData.tags || [],
         status: 'draft',
-        attemptLimit: req.body.attemptLimit || 1,
-        showResults: req.body.showResults !== false,
-        enableProctoring: req.body.enableProctoring || false,
-        randomizeQuestions: req.body.randomizeQuestions || false,
-        randomizeOptions: req.body.randomizeOptions || false,
-        allowBackNavigation: req.body.allowBackNavigation ?? true,
-        timeWarnings: req.body.timeWarnings ?? true,
-        autoSubmit: req.body.autoSubmit ?? true,
-        warningTimes: req.body.warningTimes,
-        webcamMonitoring: req.body.webcamMonitoring || false,
-        screenRecording: req.body.screenRecording || false,
-        tabSwitchDetection: req.body.tabSwitchDetection || false,
-        copyPasteDetection: req.body.copyPasteDetection || false,
-        rightClickDisable: req.body.rightClickDisable || false,
-        fullscreenMode: req.body.fullscreenMode || false,
-        idVerification: req.body.idVerification || false,
-        environmentCheck: req.body.environmentCheck || false,
-        suspiciousActivityThreshold: req.body.suspiciousActivityThreshold,
-        warningBeforeFlagging: req.body.warningBeforeFlagging ?? true,
-        videoQuality: req.body.videoQuality,
-        recordingFrequency: req.body.recordingFrequency,
-        dataRetention: req.body.dataRetention,
-        autoDeleteAfter: req.body.autoDeleteAfter,
-        tags: req.body.tags || [],
         createdBy: { connect: { id: creatorId } },
       },
       include: {
@@ -121,21 +232,24 @@ export const createAssessment = async (req: Request, res: Response): Promise<Res
         },
       },
     });
-    // Bulk create questions if provided
+
+    // Bulk create questions with enhanced data
     let createdQuestions = [];
     if (questions.length > 0) {
       createdQuestions = await Promise.all(
-        questions.map((q, idx) =>
-          prisma.question.create({
+        questions.map(async (q: CreateQuestionInput, idx: number) => {
+          const processedQuestion = processQuestionData(q);
+          return await prisma.question.create({
             data: {
-              ...q,
+              ...processedQuestion,
               assessmentId: assessment.id,
               order: q.order ?? idx + 1,
             },
-          })
-        )
+          });
+        })
       );
     }
+
     // Create analytics entry
     await prisma.assessmentAnalytics.create({
       data: {
@@ -146,22 +260,26 @@ export const createAssessment = async (req: Request, res: Response): Promise<Res
         completionRate: 0,
       },
     });
-    return res.status(201).json({ ...assessment, questions: createdQuestions });
+
+    console.log('Assessment created successfully:', assessment.id);
+    
+    return res.status(201).json({ 
+      ...assessment, 
+      questions: createdQuestions,
+      message: 'Assessment created successfully'
+    });
   } catch (error) {
     console.error('Error creating assessment:', error);
-    return res.status(500).json({ error: 'Failed to create assessment' });
+    return res.status(500).json({ 
+      error: 'Failed to create assessment',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    });
   }
 };
 
 export const getAssessmentById = async (req: Request, res: Response): Promise<Response> => {
   try {
     const { id } = req.params;
-
-    // Remove orgId check for broader access
-    // const orgId = req.orgId;
-    // if (!orgId) {
-    //   return res.status(401).json({ error: 'Organization access required' });
-    // }
 
     const assessment = await prisma.assessment.findFirst({
       where: { id },
@@ -174,7 +292,9 @@ export const getAssessmentById = async (req: Request, res: Response): Promise<Re
             email: true,
           },
         },
-        questions: true,
+        questions: {
+          orderBy: { order: 'asc' }
+        },
         analytics: true,
         candidates: {
           select: {
@@ -188,6 +308,7 @@ export const getAssessmentById = async (req: Request, res: Response): Promise<Re
             startedAt: true,
             createdAt: true,
           },
+          orderBy: { createdAt: 'desc' }
         },
         _count: {
           select: {
@@ -213,19 +334,23 @@ export const getAssessments = async (req: Request, res: Response) => {
     // Get organization ID from authenticated user (optional)
     const orgId = req.orgId;
     console.log('getAssessments orgId:', orgId);
+    
     // Build where clause for organization filtering
     let where = buildAssessmentWhere({
       search: req.query.search as string,
       status: req.query.status as AssessmentStatus,
       type: req.query.type as AssessmentType,
     });
+    
     if (orgId) {
       where = {
         ...where,
         createdBy: { orgId },
       };
     }
+    
     console.log('getAssessments where:', JSON.stringify(where));
+    
     const assessments = await prisma.assessment.findMany({
       where,
       include: {
@@ -238,7 +363,14 @@ export const getAssessments = async (req: Request, res: Response) => {
             orgId: true,
           },
         },
-        questions: true,
+        questions: {
+          select: {
+            id: true,
+            type: true,
+            marks: true,
+            difficulty: true,
+          }
+        },
         analytics: true,
         _count: {
           select: {
@@ -248,7 +380,9 @@ export const getAssessments = async (req: Request, res: Response) => {
       },
       orderBy: { createdAt: 'desc' },
     });
+    
     console.log('getAssessments found:', assessments.length);
+    
     return res.json(assessments);
   } catch (error) {
     console.error('Error fetching assessments:', error);
@@ -259,7 +393,7 @@ export const getAssessments = async (req: Request, res: Response) => {
 export const updateAssessment = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const data: UpdateAssessmentInput = req.body;
+    const { questions, ...data }: UpdateAssessmentInput & { questions?: CreateQuestionInput[] } = req.body;
 
     // Get organization ID from authenticated user
     const orgId = req.orgId;
@@ -281,10 +415,25 @@ export const updateAssessment = async (req: Request, res: Response) => {
       return res.status(404).json({ error: 'Assessment not found' });
     }
 
+    // Validate data if provided
+    if (data.title || data.type || data.duration || data.totalMarks) {
+      const validationData = { ...existingAssessment, ...data } as CreateAssessmentInput;
+      const assessmentErrors = validateAssessmentData(validationData);
+      
+      if (assessmentErrors.length > 0) {
+        return res.status(400).json({ 
+          error: 'Validation failed', 
+          details: assessmentErrors 
+        });
+      }
+    }
+
+    // Update assessment
     const assessment = await prisma.assessment.update({
       where: { id },
       data: {
         ...data,
+        totalQuestions: questions ? questions.length : undefined,
         updatedAt: new Date(),
       },
       include: {
@@ -298,6 +447,43 @@ export const updateAssessment = async (req: Request, res: Response) => {
         },
       },
     });
+
+    // Update questions if provided
+    if (questions) {
+      // Validate questions
+      const questionErrors = [];
+      questions.forEach((question: CreateQuestionInput, index: number) => {
+        const errors = validateQuestionData(question, index);
+        questionErrors.push(...errors);
+      });
+
+      if (questionErrors.length > 0) {
+        return res.status(400).json({ 
+          error: 'Question validation failed', 
+          details: questionErrors 
+        });
+      }
+
+      // Delete existing questions and create new ones
+      await prisma.question.deleteMany({
+        where: { assessmentId: id }
+      });
+
+      const createdQuestions = await Promise.all(
+        questions.map(async (q: CreateQuestionInput, idx: number) => {
+          const processedQuestion = processQuestionData(q);
+          return await prisma.question.create({
+            data: {
+              ...processedQuestion,
+              assessmentId: id,
+              order: q.order ?? idx + 1,
+            },
+          });
+        })
+      );
+
+      return res.json({ ...assessment, questions: createdQuestions });
+    }
 
     return res.json(assessment);
   } catch (error) {
@@ -343,6 +529,9 @@ export const deleteAssessment = async (req: Request, res: Response) => {
 
 export const getAssessmentStats = async (req: Request, res: Response): Promise<Response> => {
   try {
+    const orgId = req.orgId;
+    const whereClause = orgId ? { createdBy: { orgId } } : {};
+
     const stats = {
       totalAssessments: 0,
       liveAssessments: 0,
@@ -351,23 +540,22 @@ export const getAssessmentStats = async (req: Request, res: Response): Promise<R
       averageScore: 0,
     }
 
-    const [totalAssessments, liveAssessments, draftAssessments, totalCandidates, averageScore] = await Promise.all([
-      prisma.assessment.count(),
-      prisma.assessment.count({ where: { status: 'live' } }),
-      prisma.assessment.count({ where: { status: 'draft' } }),
-      prisma.candidate.count(),
+    const [totalAssessments, liveAssessments, draftAssessments, candidateData] = await Promise.all([
+      prisma.assessment.count({ where: whereClause }),
+      prisma.assessment.count({ where: { ...whereClause, status: 'live' } }),
+      prisma.assessment.count({ where: { ...whereClause, status: 'draft' } }),
       prisma.candidate.aggregate({
-        _avg: {
-          score: true,
-        },
+        where: orgId ? { assessment: { createdBy: { orgId } } } : {},
+        _count: true,
+        _avg: { score: true },
       }),
     ])
 
     stats.totalAssessments = totalAssessments
     stats.liveAssessments = liveAssessments
     stats.draftAssessments = draftAssessments
-    stats.totalCandidates = totalCandidates
-    stats.averageScore = averageScore._avg.score || 0
+    stats.totalCandidates = candidateData._count
+    stats.averageScore = candidateData._avg.score || 0
 
     return res.json(stats)
   } catch (error) {
@@ -379,16 +567,19 @@ export const getAssessmentStats = async (req: Request, res: Response): Promise<R
 export const getCandidateCredentialsStatus = async (req: Request, res: Response) => {
   try {
     const { id: assessmentId } = req.params;
+    
     // Get all candidates for this assessment
     const candidates = await prisma.candidate.findMany({
       where: { assessmentId },
       select: { id: true, name: true, email: true },
     });
+    
     // Get credentials for these candidates
     const credentials = await prisma.credential.findMany({
       where: { candidateId: { in: candidates.map((c) => c.id) } },
       select: { candidateId: true },
     });
+    
     // Get email logs for these candidates (sent credentials)
     const logs = await prisma.emailLog.findMany({
       where: {
@@ -397,13 +588,16 @@ export const getCandidateCredentialsStatus = async (req: Request, res: Response)
       },
       select: { candidateId: true },
     });
+    
     const sentIds = new Set(logs.map((l) => l.candidateId));
+    
     const result = candidates.map((c) => ({
       candidateId: c.id,
       name: c.name,
       email: c.email,
       credentialSent: sentIds.has(c.id),
     }));
+    
     return res.json(result);
   } catch (error) {
     console.error("Error fetching candidate credentials status:", error);
