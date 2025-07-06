@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { Plus, Trash2, Play, Eye, EyeOff, Sparkles, Copy, Settings, Code, TestTube } from "lucide-react"
+import { Plus, Trash2, Play, Eye, EyeOff, Sparkles, Copy, Settings, Code, TestTube, Wand2, Loader2 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -11,6 +11,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Separator } from "@/components/ui/separator"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { aiQuestionGenerator } from "@/lib/ai-question-generator"
+import { useToast } from "@/hooks/use-toast"
 
 interface TestCase {
   id: string
@@ -39,7 +42,6 @@ interface CodingQuestionBuilderProps {
 }
 
 export function CodingQuestionBuilder({ onAddQuestion }: CodingQuestionBuilderProps) {
-  const [questions, setQuestions] = useState<CodingQuestion[]>([])
   const [currentQuestion, setCurrentQuestion] = useState<CodingQuestion>({
     id: "",
     title: "",
@@ -54,6 +56,18 @@ export function CodingQuestionBuilder({ onAddQuestion }: CodingQuestionBuilderPr
     marks: 10,
   })
   const [selectedLanguage, setSelectedLanguage] = useState("javascript")
+  const [aiGenerationDialog, setAiGenerationDialog] = useState(false)
+  const [aiGenerationData, setAiGenerationData] = useState({
+    topic: "",
+    difficulty: "medium" as "easy" | "medium" | "hard",
+    language: "javascript",
+    count: 1,
+    additionalRequirements: "",
+  })
+  const [isGenerating, setIsGenerating] = useState(false)
+  const [isGeneratingTestCases, setIsGeneratingTestCases] = useState(false)
+  const [questionsGenerated, setQuestionsGenerated] = useState<any[]>([])
+  const { toast } = useToast()
 
   const languages = [
     { value: "javascript", label: "JavaScript", extension: "js" },
@@ -94,16 +108,156 @@ export function CodingQuestionBuilder({ onAddQuestion }: CodingQuestionBuilderPr
     })
   }
 
-  const generateTestCasesWithAI = () => {
-    // AI test case generation logic
-    console.log("Generating test cases with AI...")
+  const generateTestCasesWithAI = async () => {
+    if (!currentQuestion.description.trim()) {
+      toast({
+        title: "Error",
+        description: "Please enter a problem description first.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    setIsGeneratingTestCases(true)
+    try {
+      const testCases = await aiQuestionGenerator.generateTestCases(
+        currentQuestion.description,
+        selectedLanguage
+      )
+
+      const formattedTestCases = testCases.map((tc: any) => ({
+        id: Date.now().toString() + Math.random(),
+        input: tc.input,
+        expectedOutput: tc.expectedOutput,
+        isPublic: tc.isPublic,
+        explanation: tc.explanation || "",
+      }))
+
+      setCurrentQuestion({
+        ...currentQuestion,
+        testCases: [...currentQuestion.testCases, ...formattedTestCases],
+      })
+
+      toast({
+        title: "Test Cases Generated",
+        description: `Successfully generated ${testCases.length} test cases using AI.`,
+      })
+    } catch (error) {
+      console.error("Test case generation error:", error)
+    } finally {
+      setIsGeneratingTestCases(false)
+    }
   }
 
-  const publicTestCases = currentQuestion.testCases.filter((tc) => tc.isPublic)
-  const privateTestCases = currentQuestion.testCases.filter((tc) => !tc.isPublic)
+  const handleAIGeneration = async () => {
+    if (!aiGenerationData.topic.trim()) {
+      toast({
+        title: "Validation Error",
+        description: "Please enter a topic for AI generation.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    setIsGenerating(true)
+    try {
+      const questions = await aiQuestionGenerator.generateCodingQuestions({
+        type: "coding",
+        topic: aiGenerationData.topic,
+        difficulty: aiGenerationData.difficulty,
+        language: aiGenerationData.language,
+        count: aiGenerationData.count,
+        additionalRequirements: aiGenerationData.additionalRequirements,
+      })
+
+      setQuestionsGenerated(questions)
+      toast({
+        title: "Questions Generated",
+        description: `Successfully generated ${questions.length} coding question(s) using AI.`,
+      })
+    } catch (error) {
+      console.error("AI generation error:", error)
+    } finally {
+      setIsGenerating(false)
+    }
+  }
+
+  const useGeneratedQuestion = (generatedQ: any) => {
+    const formattedTestCases = generatedQ.testCases?.map((tc: any) => ({
+      id: Date.now().toString() + Math.random(),
+      input: tc.input,
+      expectedOutput: tc.expectedOutput,
+      isPublic: tc.isPublic,
+      explanation: tc.explanation || "",
+    })) || []
+
+    setCurrentQuestion({
+      id: "",
+      title: generatedQ.title,
+      description: generatedQ.description,
+      difficulty: generatedQ.difficulty,
+      tags: generatedQ.tags || [],
+      timeLimit: 30,
+      memoryLimit: 256,
+      languages: [aiGenerationData.language],
+      starterCode: generatedQ.starterCode || { [aiGenerationData.language]: "" },
+      testCases: formattedTestCases,
+      marks: 10,
+    })
+
+    setAiGenerationDialog(false)
+    toast({
+      title: "Question Loaded",
+      description: "AI-generated coding question has been loaded for editing.",
+    })
+  }
 
   const handleAddQuestion = () => {
-    onAddQuestion(currentQuestion);
+    // Validation
+    if (!currentQuestion.title.trim()) {
+      toast({
+        title: "Validation Error",
+        description: "Please enter a question title.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    if (!currentQuestion.description.trim()) {
+      toast({
+        title: "Validation Error",
+        description: "Please enter a problem description.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    if (currentQuestion.testCases.length === 0) {
+      toast({
+        title: "Validation Error",
+        description: "Please add at least one test case.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    if (currentQuestion.languages.length === 0) {
+      toast({
+        title: "Validation Error",
+        description: "Please select at least one programming language.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    const questionWithId = {
+      ...currentQuestion,
+      id: Date.now().toString(),
+    }
+
+    onAddQuestion(questionWithId);
+    
+    // Reset form
     setCurrentQuestion({
       id: "",
       title: "",
@@ -117,7 +271,23 @@ export function CodingQuestionBuilder({ onAddQuestion }: CodingQuestionBuilderPr
       testCases: [],
       marks: 10,
     });
+
+    toast({
+      title: "Question Added",
+      description: "Coding question has been added successfully.",
+    })
   };
+
+  const handleTagsChange = (tagsString: string) => {
+    const tags = tagsString
+      .split(",")
+      .map((t) => t.trim())
+      .filter(Boolean)
+    setCurrentQuestion({ ...currentQuestion, tags })
+  }
+
+  const publicTestCases = currentQuestion.testCases.filter((tc) => tc.isPublic)
+  const privateTestCases = currentQuestion.testCases.filter((tc) => !tc.isPublic)
 
   return (
     <div className="space-y-8">
@@ -126,10 +296,146 @@ export function CodingQuestionBuilder({ onAddQuestion }: CodingQuestionBuilderPr
           <h3 className="text-xl font-semibold text-foreground">Coding Questions</h3>
           <p className="text-sm text-muted-foreground">Create programming challenges with auto-evaluation</p>
         </div>
-        <Button className="rounded-2xl primary-gradient glow-primary" onClick={handleAddQuestion}>
-          <Plus className="mr-2 h-4 w-4" />
-          Add Question
-        </Button>
+        <div className="flex gap-2">
+          <Dialog open={aiGenerationDialog} onOpenChange={setAiGenerationDialog}>
+            <DialogTrigger asChild>
+              <Button variant="outline" className="rounded-2xl">
+                <Sparkles className="mr-2 h-4 w-4" />
+                AI Generate
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-md">
+              <DialogHeader>
+                <DialogTitle>Generate Coding Questions with AI</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="ai-topic">Topic *</Label>
+                  <Input
+                    id="ai-topic"
+                    value={aiGenerationData.topic}
+                    onChange={(e) => setAiGenerationData({ ...aiGenerationData, topic: e.target.value })}
+                    placeholder="e.g., Array Algorithms, Binary Trees, Dynamic Programming"
+                    className="rounded-2xl"
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Difficulty</Label>
+                    <Select
+                      value={aiGenerationData.difficulty}
+                      onValueChange={(value: any) => setAiGenerationData({ ...aiGenerationData, difficulty: value })}
+                    >
+                      <SelectTrigger className="rounded-2xl">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="easy">Easy</SelectItem>
+                        <SelectItem value="medium">Medium</SelectItem>
+                        <SelectItem value="hard">Hard</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Language</Label>
+                    <Select
+                      value={aiGenerationData.language}
+                      onValueChange={(value) => setAiGenerationData({ ...aiGenerationData, language: value })}
+                    >
+                      <SelectTrigger className="rounded-2xl">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {languages.map((lang) => (
+                          <SelectItem key={lang.value} value={lang.value}>
+                            {lang.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label>Count</Label>
+                  <Select
+                    value={aiGenerationData.count.toString()}
+                    onValueChange={(value) => setAiGenerationData({ ...aiGenerationData, count: parseInt(value) })}
+                  >
+                    <SelectTrigger className="rounded-2xl">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="1">1 Question</SelectItem>
+                      <SelectItem value="2">2 Questions</SelectItem>
+                      <SelectItem value="3">3 Questions</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="ai-requirements">Additional Requirements</Label>
+                  <Textarea
+                    id="ai-requirements"
+                    value={aiGenerationData.additionalRequirements}
+                    onChange={(e) => setAiGenerationData({ ...aiGenerationData, additionalRequirements: e.target.value })}
+                    placeholder="Any specific algorithms, constraints, or focus areas..."
+                    className="rounded-2xl"
+                    rows={3}
+                  />
+                </div>
+                <Button
+                  onClick={handleAIGeneration}
+                  disabled={isGenerating}
+                  className="w-full rounded-2xl primary-gradient"
+                >
+                  {isGenerating ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Generating...
+                    </>
+                  ) : (
+                    <>
+                      <Wand2 className="mr-2 h-4 w-4" />
+                      Generate Questions
+                    </>
+                  )}
+                </Button>
+
+                {questionsGenerated.length > 0 && (
+                  <div className="space-y-4 mt-4">
+                    <Separator />
+                    <h4 className="font-medium">Generated Questions:</h4>
+                    {questionsGenerated.map((q, index) => (
+                      <Card key={index} className="border-border/40">
+                        <CardContent className="p-4">
+                          <div className="space-y-2">
+                            <p className="font-medium text-sm">{q.title}</p>
+                            <p className="text-xs text-muted-foreground line-clamp-2">{q.description}</p>
+                            <div className="flex flex-wrap gap-1">
+                              {q.tags?.map((tag: string) => (
+                                <Badge key={tag} variant="secondary" className="text-xs">{tag}</Badge>
+                              ))}
+                            </div>
+                            <Button
+                              onClick={() => useGeneratedQuestion(q)}
+                              size="sm"
+                              className="w-full rounded-xl"
+                            >
+                              Use This Question
+                            </Button>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </DialogContent>
+          </Dialog>
+          <Button className="rounded-2xl primary-gradient glow-primary" onClick={handleAddQuestion}>
+            <Plus className="mr-2 h-4 w-4" />
+            Add Question
+          </Button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -223,6 +529,26 @@ export function CodingQuestionBuilder({ onAddQuestion }: CodingQuestionBuilderPr
                   <div className="text-2xl font-bold text-foreground">{currentQuestion.testCases.length}</div>
                 </div>
               </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="tags">Tags</Label>
+                <Input
+                  id="tags"
+                  value={currentQuestion.tags.join(", ")}
+                  onChange={(e) => handleTagsChange(e.target.value)}
+                  placeholder="Arrays, Algorithms, Dynamic Programming (comma separated)"
+                  className="rounded-2xl"
+                />
+                {currentQuestion.tags.length > 0 && (
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    {currentQuestion.tags.map((tag, index) => (
+                      <Badge key={index} variant="secondary" className="rounded-xl">
+                        {tag}
+                      </Badge>
+                    ))}
+                  </div>
+                )}
+              </div>
             </CardContent>
           </Card>
 
@@ -308,9 +634,23 @@ export function CodingQuestionBuilder({ onAddQuestion }: CodingQuestionBuilderPr
                 <TestTube className="h-5 w-5" />
                 Test Cases
               </CardTitle>
-              <Button onClick={generateTestCasesWithAI} size="sm" className="rounded-2xl primary-gradient">
-                <Sparkles className="mr-2 h-4 w-4" />
-                AI Generate
+              <Button
+                onClick={generateTestCasesWithAI}
+                size="sm"
+                disabled={isGeneratingTestCases}
+                className="rounded-2xl primary-gradient"
+              >
+                {isGeneratingTestCases ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Generating...
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="mr-2 h-4 w-4" />
+                    AI Generate
+                  </>
+                )}
               </Button>
             </CardHeader>
             <CardContent className="space-y-4">
