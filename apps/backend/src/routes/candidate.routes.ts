@@ -25,6 +25,11 @@ router.get('/health', (req, res) => {
   });
 });
 
+router.get('/analytics/:assessmentId', (req, res) => {
+  console.log('Getting assessment analytics for:', req.params.assessmentId);
+  return candidateController.getAssessmentAnalytics(req, res);
+});
+
 router.post('/:id/start', (req, res) => {
   console.log('Starting candidate:', req.params.id);
   return candidateController.startCandidate(req, res);

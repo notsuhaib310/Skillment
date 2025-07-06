@@ -108,6 +108,7 @@ export const assessmentsApi = {
   update: (id: string, data: any) => apiPut(`/assessments/${id}`, data),
   delete: (id: string) => apiDelete(`/assessments/${id}`),
   getStats: () => apiGet('/assessments/stats'),
+  getAnalytics: (id: string) => apiGet(`/admin/candidates/analytics/${id}`),
 }
 
 // API endpoints for team management
@@ -150,6 +151,7 @@ export const candidatesApi = {
   allocate: (assessmentId: string, candidates: any[]) => 
     apiPost('/admin/candidates/allocate', { assessmentId, candidates }),
   getByAssessment: (assessmentId: string) => apiGet(`/admin/candidates?assessmentId=${assessmentId}`),
+  getAnalytics: (assessmentId: string) => apiGet(`/admin/candidates/analytics/${assessmentId}`),
   login: (candidateId: string, password: string) => 
     apiPost('/candidates/login', { candidateId, password }),
   startAssessment: (id: string) => apiPost(`/admin/candidates/${id}/start`),

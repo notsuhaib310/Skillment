@@ -207,73 +207,51 @@ export class CandidateController {
         return res.status(404).json({ error: 'Candidate not found' });
       }
 
-      // Format assessment questions properly for frontend consumption
-      const formattedAssessment = {
-        ...candidate.assessment,
-        questions: candidate.assessment.questions.map(question => {
-          const baseQuestion = {
-            id: question.id,
-            question: question.question,
-            type: question.type,
-            marks: question.marks,
-            order: question.order,
-            hints: question.hints,
-            timeLimit: question.timeLimit || 120, // Default 2 minutes per question
-          };
+      // Format questions for the frontend
+      const formattedQuestions = candidate.assessment.questions.map(q => ({
+        id: q.id,
+        question: q.question,
+        type: q.type,
+        options: q.options || [],
+        correctAnswer: q.correctAnswer,
+        marks: q.marks,
+        order: q.order,
+        hints: q.hints || [],
+        explanation: q.explanation || '',
+        difficulty: q.difficulty || 'medium',
+        tags: q.tags || []
+      }));
 
-          // Format MCQ questions
-          if (question.type === 'multiple_choice' && question.mcqData) {
-            const mcqData = question.mcqData as any;
-            return {
-              ...baseQuestion,
-              options: mcqData.options || [],
-              multipleCorrect: mcqData.multipleCorrect || false,
-              difficulty: mcqData.difficulty || 'Medium',
-              explanation: mcqData.explanation || '',
-              category: mcqData.category || 'General'
-            };
-          }
-
-          // Format coding questions
-          if (question.type === 'coding' && question.codingData) {
-            const codingData = question.codingData as any;
-            return {
-              ...baseQuestion,
-              title: codingData.title || question.question,
-              description: codingData.description || question.question,
-              difficulty: codingData.difficulty || 'Medium',
-              languages: codingData.languages || ['javascript', 'python', 'java', 'cpp'],
-              starterCode: codingData.starterCode || {
-                javascript: '// Write your solution here\nfunction solution() {\n    \n}',
-                python: '# Write your solution here\ndef solution():\n    pass',
-                java: '// Write your solution here\nclass Solution {\n    public void solution() {\n        \n    }\n}',
-                cpp: '// Write your solution here\n#include <iostream>\nusing namespace std;\n\nint main() {\n    return 0;\n}'
-              },
-              examples: codingData.examples || [],
-              constraints: codingData.constraints || [],
-              testCases: codingData.testCases || [],
-              timeLimit: codingData.timeLimit || 30,
-              memoryLimit: codingData.memoryLimit || 256
-            };
-          }
-
-          return baseQuestion;
-        })
-      };
-
-      return res.json([{
-        id: candidate.id,
+      return res.json({
         candidate: {
           id: candidate.id,
-          candidateId: candidateId, // Include the login ID for reference
           name: candidate.name,
           email: candidate.email,
           status: candidate.status,
           startedAt: candidate.startedAt,
-          timeSpent: candidate.timeSpent
+          submittedAt: candidate.submittedAt,
+          timeSpent: candidate.timeSpent || 0,
+          answers: candidate.answers || {}
         },
-        assessment: formattedAssessment
-      }]);
+        assessment: {
+          id: candidate.assessment.id,
+          title: candidate.assessment.title,
+          description: candidate.assessment.description,
+          type: candidate.assessment.type,
+          duration: candidate.assessment.duration,
+          totalMarks: candidate.assessment.totalMarks,
+          totalQuestions: candidate.assessment.totalQuestions,
+          questions: formattedQuestions,
+          instructions: candidate.assessment.instructions,
+          enableProctoring: candidate.assessment.enableProctoring,
+          webcamMonitoring: candidate.assessment.webcamMonitoring,
+          screenRecording: candidate.assessment.screenRecording,
+          tabSwitchDetection: candidate.assessment.tabSwitchDetection,
+          copyPasteDetection: candidate.assessment.copyPasteDetection,
+          rightClickDisable: candidate.assessment.rightClickDisable,
+          fullscreenMode: candidate.assessment.fullscreenMode
+        }
+      });
     } catch (error) {
       console.error('Error fetching candidate assessment:', error);
       return res.status(500).json({ error: 'Failed to fetch candidate assessment' });
@@ -283,21 +261,22 @@ export class CandidateController {
   // Submit assessment
   async submitAssessment(req, res) {
     try {
-      const { candidateId, answers, timeSpent } = req.body;
+      const { candidateId, answers } = req.body;
       
       if (!candidateId || !answers) {
         return res.status(400).json({ error: 'Candidate ID and answers are required' });
       }
 
-      // Find candidate by credential
-      const credential = await prisma.credential.findUnique({
+      // Find candidate using external candidateId (like CAND1751794629720WO1M)
+      const credential = await prisma.credential.findFirst({
         where: { candidateId: candidateId }
       });
 
       if (!credential) {
-        return res.status(404).json({ error: 'Candidate not found' });
+        return res.status(404).json({ error: 'Candidate not found or not assigned to this assessment' });
       }
 
+      // Find candidate using email from credential
       const candidate = await prisma.candidate.findFirst({
         where: { email: credential.email },
         include: {
@@ -310,61 +289,72 @@ export class CandidateController {
       });
 
       if (!candidate) {
-        return res.status(404).json({ error: 'Candidate not found' });
+        return res.status(404).json({ error: 'Candidate not found or not assigned to this assessment' });
       }
 
       // Calculate score
-      let score = 0;
+      let totalScore = 0;
       const questions = candidate.assessment.questions;
       
       for (const question of questions) {
-        const answer = answers[question.id];
-        if (answer && question.correctAnswer) {
+        const userAnswer = answers[question.id];
+        if (userAnswer !== undefined) {
+          // For MCQ questions, check if answer matches
           if (question.type === 'mcq') {
-            if (answer === question.correctAnswer) {
-              score += question.marks;
+            const correctAnswer = question.correctAnswer;
+            if (Array.isArray(correctAnswer) && Array.isArray(userAnswer)) {
+              // Multiple correct answers
+              const isCorrect = correctAnswer.length === userAnswer.length && 
+                correctAnswer.every(ans => userAnswer.includes(ans));
+              if (isCorrect) {
+                totalScore += question.marks;
+              }
+            } else if (correctAnswer === userAnswer) {
+              totalScore += question.marks;
             }
-          } else if (question.type === 'coding') {
-            // For coding questions, give partial credit based on test cases
-            // This is simplified - in a real system, you'd run test cases
-            score += question.marks * 0.5; // Give 50% for now
           }
+          // For coding questions, you might want to run test cases here
         }
       }
 
       // Update candidate with submission
-      const updatedCandidate = await prisma.candidate.update({
+      await prisma.candidate.update({
         where: { id: candidate.id },
         data: {
-          status: 'completed',
-          score: score,
-          timeSpent: timeSpent,
+          status: 'submitted',
+          score: totalScore,
           submittedAt: new Date(),
-          answers: answers
+          answers: answers as any,
+          timeSpent: req.body.timeSpent || 0
         }
       });
 
       return res.json({
         success: true,
         message: 'Assessment submitted successfully',
-        candidate: updatedCandidate,
-        score: score,
+        score: totalScore,
         totalMarks: candidate.assessment.totalMarks
       });
     } catch (error) {
+      console.error('Error submitting assessment:', error);
       return res.status(500).json({ error: 'Failed to submit assessment' });
     }
   }
 
-  // Start assessment for candidate
+  // Start candidate assessment
   async startCandidate(req, res) {
     try {
       const { id } = req.params;
+      
       const candidate = await prisma.candidate.update({
         where: { id },
-        data: { status: 'started', startedAt: new Date() },
+        data: {
+          status: 'started',
+          startedAt: new Date()
+        }
       });
-      return res.json(candidate);
+
+      return res.json({ success: true, candidate });
     } catch (error) {
       return res.status(500).json({ error: 'Failed to start candidate' });
     }
@@ -374,90 +364,107 @@ export class CandidateController {
   async sendEmailToCandidate(req, res) {
     try {
       const { id } = req.params;
-      const candidate = await prisma.candidate.findUnique({ 
+      
+      const candidate = await prisma.candidate.findUnique({
         where: { id },
         include: {
           assessment: true
         }
       });
-      if (!candidate) return res.status(404).json({ error: 'Candidate not found' });
-      
-      // Get the credential for this candidate
+
+      if (!candidate) {
+        return res.status(404).json({ error: 'Candidate not found' });
+      }
+
+      // Get credential for this candidate
       const credential = await prisma.credential.findFirst({
         where: { email: candidate.email }
       });
-      
+
       if (!credential) {
-        return res.status(404).json({ error: 'Candidate credentials not found' });
+        return res.status(404).json({ error: 'Credentials not found for candidate' });
       }
-      
-      // Always use the existing credential ID - this is the CAND123456 format
-      const displayCandidateId = credential.candidateId;
-      
-      console.log('Resending email with credential ID:', displayCandidateId, 'for candidate:', candidate.email);
-      
-      // Generate a new password for resending (since we can't decrypt the stored hash)
-      const newPassword = Math.random().toString(36).slice(-8);
-      const newPasswordHash = await bcrypt.hash(newPassword, 10);
-      
-      // Update the credential with the new password hash
+
+      // Generate new password
+      const password = Math.random().toString(36).slice(-8);
+      const hashedPassword = await bcrypt.hash(password, 10);
+
+      // Update credential with new password
       await prisma.credential.update({
         where: { id: credential.id },
-        data: { passwordHash: newPasswordHash }
+        data: { passwordHash: hashedPassword }
       });
-      
-      console.log('Updated password hash for credential ID:', displayCandidateId);
-      
-      // Send credential email with the new password
+
+      // Send email with new credentials
       await emailService.sendCandidateCredentialEmail(
-        {
-          id: candidate.id,
-          name: candidate.name,
-          email: candidate.email,
-          assessmentId: candidate.assessmentId
-        },
-        newPassword, // Send new password for resending
-        displayCandidateId,
-        candidate.assessment?.title || 'Assessment'
+        candidate,
+        password,
+        credential.candidateId,
+        candidate.assessment.title
       );
-      
+
+      // Log email sending
+      await prisma.emailLog.create({
+        data: {
+          to: candidate.email,
+          candidateId: candidate.id,
+          assessmentId: candidate.assessmentId,
+          subject: `Assessment Invitation - ${candidate.assessment.title}`,
+          body: `Your credentials: ID: ${credential.candidateId}, Password: ${password}`,
+          status: 'sent',
+          sentAt: new Date(),
+          createdById: req.user?.id || 'system'
+        }
+      });
+
       return res.json({ 
         success: true, 
-        message: 'New credentials sent successfully',
-        newPassword: newPassword // Include in response for debugging
+        message: 'Email sent successfully',
+        credentials: {
+          candidateId: credential.candidateId,
+          password: password
+        }
       });
     } catch (error) {
-      console.error('Error sending candidate email:', error);
+      console.error('Error sending email:', error);
       return res.status(500).json({ error: 'Failed to send email' });
     }
   }
 
-  // Reset password for candidate (if user exists)
+  // Reset candidate password
   async resetCandidatePassword(req, res) {
     try {
       const { id } = req.params;
-      const candidate = await prisma.candidate.findUnique({ where: { id } });
-      if (!candidate) return res.status(404).json({ error: 'Candidate not found' });
-      const user = await prisma.user.findUnique({ where: { email: candidate.email } });
-      if (!user) return res.status(404).json({ error: 'No user account for this candidate' });
-      const newPassword = Math.random().toString(36).slice(-8);
-      const hashed = await bcrypt.hash(newPassword, 10);
-      await prisma.user.update({ where: { id: user.id }, data: { password: hashed } });
-      await emailService.sendWelcomeEmail({
-        email: candidate.email,
-        firstName: candidate.name.split(' ')[0] || candidate.name,
-        lastName: candidate.name.split(' ').slice(1).join(' '),
-        organizationName: '',
-        loginUrl: '',
-        plan: '',
+      
+      const candidate = await prisma.candidate.findUnique({
+        where: { id }
       });
-      return res.json({ success: true });
+
+      if (!candidate) {
+        return res.status(404).json({ error: 'Candidate not found' });
+      }
+
+      // Generate new password
+      const password = Math.random().toString(36).slice(-8);
+      const hashedPassword = await bcrypt.hash(password, 10);
+
+      // Update credential
+      await prisma.credential.updateMany({
+        where: { email: candidate.email },
+        data: { passwordHash: hashedPassword }
+      });
+
+      return res.json({ 
+        success: true, 
+        message: 'Password reset successfully',
+        password: password
+      });
     } catch (error) {
       return res.status(500).json({ error: 'Failed to reset password' });
     }
   }
 
-  // Get all candidates for the organization or for a specific assessment
+  // Get candidates with proctoring data
   async getCandidates(req, res) {
     try {
       // Support both /candidates?assessmentId=... and /assessments/:id/candidates
@@ -473,7 +480,13 @@ export class CandidateController {
                 title: true,
                 type: true,
                 duration: true,
-                totalMarks: true
+                totalMarks: true,
+                webcamMonitoring: true,
+                screenRecording: true,
+                tabSwitchDetection: true,
+                copyPasteDetection: true,
+                rightClickDisable: true,
+                fullscreenMode: true
               }
             }
           },
@@ -488,7 +501,13 @@ export class CandidateController {
                 title: true,
                 type: true,
                 duration: true,
-                totalMarks: true
+                totalMarks: true,
+                webcamMonitoring: true,
+                screenRecording: true,
+                tabSwitchDetection: true,
+                copyPasteDetection: true,
+                rightClickDisable: true,
+                fullscreenMode: true
               }
             }
           },
@@ -496,7 +515,7 @@ export class CandidateController {
         });
       }
 
-      // Get credential information for each candidate
+      // Get credential information and proctoring data for each candidate
       const candidatesWithCredentials = await Promise.all(
         candidates.map(async (candidate) => {
           // Find credential by email since that's the reliable link
@@ -506,18 +525,77 @@ export class CandidateController {
             }
           });
           
+          // Get proctoring session data
+          const proctoringSession = await prisma.proctoringSession.findUnique({
+            where: { candidateId: candidate.id }
+          });
+          
+          // Get recent proctoring events
+          const proctoringEvents = await prisma.proctoringEvent.findMany({
+            where: { candidateId: candidate.id },
+            orderBy: { timestamp: 'desc' },
+            take: 50 // Get last 50 events
+          });
+          
+          // Calculate proctoring statistics
+          const tabSwitches = proctoringEvents.filter(e => e.eventType === 'tab_switch').length;
+          const fullscreenExits = proctoringEvents.filter(e => e.eventType === 'fullscreen_exit').length;
+          const copyPasteAttempts = proctoringEvents.filter(e => e.eventType === 'copy_paste').length;
+          const rightClickAttempts = proctoringEvents.filter(e => e.eventType === 'right_click').length;
+          const keyboardViolations = proctoringEvents.filter(e => e.eventType === 'keyboard_violation').length;
+          const suspiciousActivity = proctoringEvents.filter(e => e.severity === 'critical').length;
+          
+          // Calculate violations by severity
+          const violations = {
+            critical: proctoringSession?.criticalViolations || 0,
+            warning: proctoringSession?.warningViolations || 0,
+            minor: proctoringSession?.minorViolations || 0
+          };
+          
           console.log(`Candidate ${candidate.email} - DB ID: ${candidate.id}, Credential ID: ${credential?.candidateId || 'NOT FOUND'}`);
           
           return {
             ...candidate,
             loginId: credential?.candidateId || null, // This should be the CAND123456 format
-            hasCredentials: !!credential
+            hasCredentials: !!credential,
+            violations,
+            proctoring: {
+              webcamMonitored: candidate.assessment?.webcamMonitoring || false,
+              screenRecorded: candidate.assessment?.screenRecording || false,
+              tabSwitches,
+              copyPasteAttempts,
+              rightClickAttempts,
+              fullscreenExits,
+              suspiciousActivity,
+              faceDetectionFailures: 0, // Placeholder - can be implemented later
+              multiplePersonsDetected: 0, // Placeholder - can be implemented later
+              phoneDetected: false, // Placeholder - can be implemented later
+              environmentFlags: [], // Placeholder - can be implemented later
+              videoRecordingUrl: null, // Placeholder - can be implemented later
+              screenshots: [], // Placeholder - can be implemented later
+              keyboardViolations,
+              riskLevel: proctoringSession?.riskLevel || 'low',
+              totalViolations: proctoringSession?.totalViolations || 0,
+              browserInfo: {
+                userAgent: "", // Placeholder - can be captured from login
+                screenResolution: "", // Placeholder - can be captured from login
+                browserName: "" // Placeholder - can be captured from login
+              }
+            },
+            device: {
+              type: "desktop", // Placeholder - can be detected from user agent
+              os: "", // Placeholder - can be detected from user agent
+              browser: "", // Placeholder - can be detected from user agent
+              ipAddress: "", // Placeholder - can be captured from request
+              location: "" // Placeholder - can be derived from IP
+            }
           };
         })
       );
 
       return res.json(candidatesWithCredentials);
     } catch (error) {
+      console.error('Error fetching candidates with proctoring data:', error);
       return res.status(500).json({ error: 'Failed to fetch candidates' });
     }
   }
@@ -854,6 +932,177 @@ export class CandidateController {
     } catch (error) {
       console.error('Error updating password:', error);
       return res.status(500).json({ error: 'Failed to update password' });
+    }
+  }
+
+  // Get assessment analytics with proctoring data
+  async getAssessmentAnalytics(req, res) {
+    try {
+      const { assessmentId } = req.params;
+      
+      if (!assessmentId) {
+        return res.status(400).json({ error: 'Assessment ID is required' });
+      }
+
+      // Get assessment details
+      const assessment = await prisma.assessment.findUnique({
+        where: { id: assessmentId },
+        select: {
+          id: true,
+          title: true,
+          type: true,
+          duration: true,
+          totalMarks: true,
+          totalQuestions: true,
+          passingMarks: true
+        }
+      });
+
+      if (!assessment) {
+        return res.status(404).json({ error: 'Assessment not found' });
+      }
+
+      // Get all candidates for this assessment
+      const candidates = await prisma.candidate.findMany({
+        where: { assessmentId: assessmentId },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          status: true,
+          score: true,
+          timeSpent: true,
+          startedAt: true,
+          submittedAt: true
+        }
+      });
+
+      // Get proctoring sessions for all candidates
+      const proctoringSessions = await prisma.proctoringSession.findMany({
+        where: { assessmentId: assessmentId },
+        include: {
+          candidate: {
+            select: { id: true, name: true, email: true }
+          }
+        }
+      });
+
+      // Get all proctoring events for this assessment
+      const proctoringEvents = await prisma.proctoringEvent.findMany({
+        where: { assessmentId: assessmentId },
+        select: {
+          candidateId: true,
+          eventType: true,
+          severity: true,
+          timestamp: true
+        }
+      });
+
+      // Calculate analytics
+      const totalCandidates = candidates.length;
+      const completedCandidates = candidates.filter(c => c.status === 'submitted').length;
+      const averageScore = completedCandidates > 0 
+        ? candidates.filter(c => c.score !== null).reduce((sum, c) => sum + (c.score || 0), 0) / completedCandidates
+        : 0;
+      const averageTime = completedCandidates > 0 
+        ? candidates.filter(c => c.timeSpent !== null).reduce((sum, c) => sum + (c.timeSpent || 0), 0) / completedCandidates / 60
+        : 0;
+      const passRate = completedCandidates > 0 
+        ? (candidates.filter(c => (c.score || 0) >= assessment.passingMarks).length / completedCandidates) * 100
+        : 0;
+
+      // Score distribution
+      const scoreRanges = [
+        { range: '0-20%', min: 0, max: 0.2 },
+        { range: '21-40%', min: 0.21, max: 0.4 },
+        { range: '41-60%', min: 0.41, max: 0.6 },
+        { range: '61-80%', min: 0.61, max: 0.8 },
+        { range: '81-100%', min: 0.81, max: 1.0 }
+      ];
+
+      const scoreDistribution = scoreRanges.map(range => {
+        const count = candidates.filter(c => {
+          const percentage = (c.score || 0) / assessment.totalMarks;
+          return percentage >= range.min && percentage <= range.max;
+        }).length;
+        return {
+          range: range.range,
+          count,
+          percentage: totalCandidates > 0 ? (count / totalCandidates) * 100 : 0
+        };
+      });
+
+      // Top performers
+      const topPerformers = candidates
+        .filter(c => c.score !== null)
+        .sort((a, b) => (b.score || 0) - (a.score || 0))
+        .slice(0, 5)
+        .map(c => ({
+          name: c.name,
+          score: c.score || 0,
+          percentage: Math.round(((c.score || 0) / assessment.totalMarks) * 100)
+        }));
+
+      // Proctoring analytics
+      const totalViolations = proctoringSessions.reduce((sum, s) => sum + s.totalViolations, 0);
+      const criticalViolations = proctoringSessions.reduce((sum, s) => sum + s.criticalViolations, 0);
+      const warningViolations = proctoringSessions.reduce((sum, s) => sum + s.warningViolations, 0);
+      const minorViolations = proctoringSessions.reduce((sum, s) => sum + s.minorViolations, 0);
+
+      // Risk level distribution
+      const riskLevels = {
+        high: proctoringSessions.filter(s => s.riskLevel === 'high').length,
+        medium: proctoringSessions.filter(s => s.riskLevel === 'medium').length,
+        low: proctoringSessions.filter(s => s.riskLevel === 'low').length
+      };
+
+      // Event type distribution
+      const eventTypes = {};
+      proctoringEvents.forEach(event => {
+        eventTypes[event.eventType] = (eventTypes[event.eventType] || 0) + 1;
+      });
+
+      // Behavior patterns
+      const behaviorInsights = {
+        averageTabSwitches: Math.round((eventTypes['tab_switch'] || 0) / Math.max(completedCandidates, 1)),
+        totalCopyPasteAttempts: eventTypes['copy_paste'] || 0,
+        totalFullscreenExits: eventTypes['fullscreen_exit'] || 0,
+        totalKeyboardViolations: eventTypes['keyboard_violation'] || 0,
+        suspiciousActivityTotal: criticalViolations
+      };
+
+      return res.json({
+        assessment: {
+          id: assessment.id,
+          title: assessment.title,
+          type: assessment.type,
+          duration: assessment.duration,
+          totalMarks: assessment.totalMarks,
+          totalQuestions: assessment.totalQuestions
+        },
+        analytics: {
+          totalCandidates,
+          completedCandidates,
+          averageScore: Math.round(averageScore * 100) / 100,
+          averageTime: Math.round(averageTime),
+          passRate: Math.round(passRate * 100) / 100,
+          scoreDistribution,
+          topPerformers
+        },
+        proctoring: {
+          totalViolations,
+          criticalViolations,
+          warningViolations,
+          minorViolations,
+          riskLevels,
+          eventTypes,
+          behaviorInsights,
+          monitoredCandidates: proctoringSessions.length
+        }
+      });
+    } catch (error) {
+      console.error('Error fetching assessment analytics:', error);
+      return res.status(500).json({ error: 'Failed to fetch assessment analytics' });
     }
   }
 } 

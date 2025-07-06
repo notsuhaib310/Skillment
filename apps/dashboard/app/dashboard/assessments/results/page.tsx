@@ -164,16 +164,20 @@ export default function ResultsPage() {
     
     setResultsLoading(true)
     try {
-      const data = await candidatesApi.getByAssessment(selectedAssessment)
+      // Load candidates with proctoring data
+      const candidatesData = await candidatesApi.getByAssessment(selectedAssessment)
       
-      // Transform data to include results
-      const resultsData = Array.isArray(data) ? data.map((candidate: any) => ({
+      // Load analytics data
+      const analyticsData = await candidatesApi.getAnalytics(selectedAssessment)
+      
+      // Transform candidates data to include results - the backend now provides proctoring data
+      const resultsData = Array.isArray(candidatesData) ? candidatesData.map((candidate: any) => ({
         id: candidate.id,
         name: candidate.name,
         email: candidate.email,
         status: candidate.status,
         score: candidate.score || 0,
-        totalMarks: candidate.assessment?.totalMarks || 0,
+        totalMarks: candidate.assessment?.totalMarks || analyticsData?.assessment?.totalMarks || 0,
         percentage: candidate.assessment?.totalMarks ? Math.round((candidate.score || 0) / candidate.assessment.totalMarks * 100) : 0,
         timeSpent: candidate.timeSpent || 0,
         startedAt: candidate.startedAt,
@@ -200,16 +204,31 @@ export default function ResultsPage() {
           }
         },
         device: candidate.device || {
-          type: "desktop" as const,
-          os: "Unknown",
-          browser: "Unknown",
+          type: "desktop",
+          os: "",
+          browser: "",
           ipAddress: "",
           location: ""
         }
       })) : []
       
       setCandidateResults(resultsData)
-      generateAnalytics(resultsData)
+      
+      // Set analytics data from backend
+      if (analyticsData) {
+        setAnalytics({
+          totalCandidates: analyticsData.analytics?.totalCandidates || 0,
+          completedCandidates: analyticsData.analytics?.completedCandidates || 0,
+          averageScore: analyticsData.analytics?.averageScore || 0,
+          averageTime: analyticsData.analytics?.averageTime || 0,
+          passRate: analyticsData.analytics?.passRate || 0,
+          scoreDistribution: analyticsData.analytics?.scoreDistribution || [],
+          topPerformers: analyticsData.analytics?.topPerformers || []
+        })
+      } else {
+        // Fallback to generated analytics if backend doesn't provide them
+        generateAnalytics(resultsData)
+      }
     } catch (error: any) {
       console.error('Error loading results:', error)
       setCandidateResults([])
