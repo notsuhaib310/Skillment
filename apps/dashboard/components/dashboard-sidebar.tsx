@@ -2,7 +2,7 @@
 
 import { usePathname } from "next/navigation"
 import Link from "next/link"
-import { Users, FileText, Calendar, Mail, TrendingUp, Bot, Settings, HelpCircle, LayoutDashboard, UserPlus, Plus, Key, BarChart3, Shield, ChevronRight, LogOut, Building2 } from "lucide-react"
+import { Users, FileText, Calendar, Mail, TrendingUp, Bot, Settings, HelpCircle, LayoutDashboard, UserPlus, Plus, Key, BarChart3, Shield, ChevronRight, LogOut, Building2, User, ChevronDown } from "lucide-react"
 import {
   Sidebar,
   SidebarContent,
@@ -22,6 +22,14 @@ import { useState, useEffect } from "react"
 import { logout } from "@/lib/auth-client"
 import Cookies from "js-cookie"
 import React from "react"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 
 const menuSections = [
   {
@@ -184,6 +192,17 @@ export function DashboardSidebar({ onCollapse }: { onCollapse?: (collapsed: bool
     return user?.orgName?.[0]?.toUpperCase() || "O"
   }
 
+  const getUserDisplayName = () => {
+    if (user?.firstName && user?.lastName) {
+      return `${user.firstName} ${user.lastName}`
+    }
+    return user?.email || "User"
+  }
+
+  const getOrgDisplayName = () => {
+    return organization?.name || user?.orgName || "Organization"
+  }
+
   return (
     <Sidebar className="border-r border-border/40 bg-gradient-to-b from-card/95 to-card/80 backdrop-blur-xl h-screen w-64 transition-all duration-300 ease-in-out">
       {/* Header */}
@@ -247,55 +266,81 @@ export function DashboardSidebar({ onCollapse }: { onCollapse?: (collapsed: bool
         </SidebarGroup>
       </SidebarContent>
 
-      {/* User Footer */}
+      {/* Consolidated Profile Section */}
       <SidebarFooter className="p-4 border-t border-border/20">
-        <div className="space-y-3">
-          {/* Organization Info */}
-          <div className="flex items-center gap-3 px-3 py-2 rounded-xl bg-accent/20 border border-border/20">
-            <Avatar className="h-8 w-8">
-              <AvatarImage src={organization?.logo} alt={organization?.name} />
-              <AvatarFallback className="bg-gradient-to-br from-primary/80 to-orange-500/80 text-white text-xs font-medium">
-                {getOrgInitials()}
-              </AvatarFallback>
-            </Avatar>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-foreground truncate">
-                {organization?.name || user?.orgName || "Organization"}
-              </p>
-              <p className="text-xs text-muted-foreground">Organization</p>
-            </div>
-            <Building2 className="h-4 w-4 text-muted-foreground/60" />
-          </div>
-
-          {/* User Info */}
-          <div className="flex items-center gap-3 px-3 py-2 rounded-xl bg-accent/20 border border-border/20">
-            <Avatar className="h-8 w-8">
-              <AvatarFallback className="bg-gradient-to-br from-blue-500 to-purple-500 text-white text-xs font-medium">
-                {getUserInitials()}
-              </AvatarFallback>
-            </Avatar>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-foreground truncate">
-                {user?.firstName && user?.lastName 
-                  ? `${user.firstName} ${user.lastName}`
-                  : user?.email || "User"
-                }
-              </p>
-              <p className="text-xs text-muted-foreground">Administrator</p>
-            </div>
-          </div>
-
-          {/* Logout Button */}
-          <Button
-            onClick={logout}
-            variant="outline"
-            size="sm"
-            className="w-full justify-start gap-2 h-9 rounded-xl border-border/40 hover:bg-red-50 hover:border-red-200 hover:text-red-600 transition-colors"
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="ghost"
+              className="w-full justify-start gap-3 h-14 px-3 py-2 rounded-xl hover:bg-accent/60 transition-colors"
+            >
+              <Avatar className="h-10 w-10">
+                <AvatarFallback className="bg-gradient-to-br from-primary/80 to-orange-500/80 text-white text-sm font-medium">
+                  {getUserInitials()}
+                </AvatarFallback>
+              </Avatar>
+              <div className="flex-1 text-left min-w-0">
+                <p className="text-sm font-medium text-foreground truncate">
+                  {getUserDisplayName()}
+                </p>
+                <p className="text-xs text-muted-foreground truncate">
+                  {getOrgDisplayName()}
+                </p>
+              </div>
+              <ChevronDown className="h-4 w-4 text-muted-foreground/60" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent 
+            align="end" 
+            className="w-64 p-2 bg-card/95 backdrop-blur-xl border border-border/40 shadow-xl rounded-xl"
           >
-            <LogOut className="h-4 w-4" />
-            <span className="text-sm">Log out</span>
-          </Button>
-        </div>
+            <DropdownMenuLabel className="px-3 py-2">
+              <div className="flex items-center gap-3">
+                <Avatar className="h-12 w-12">
+                  <AvatarFallback className="bg-gradient-to-br from-primary/80 to-orange-500/80 text-white text-sm font-medium">
+                    {getUserInitials()}
+                  </AvatarFallback>
+                </Avatar>
+                <div className="flex flex-col space-y-1">
+                  <p className="text-sm font-medium text-foreground">
+                    {getUserDisplayName()}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {user?.email}
+                  </p>
+                </div>
+              </div>
+            </DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem className="gap-3 py-3 px-3 rounded-xl hover:bg-accent/60 cursor-pointer">
+              <div className="p-2 rounded-lg bg-gradient-to-br from-blue-500/20 to-purple-500/20">
+                <Building2 className="h-4 w-4 text-blue-500" />
+              </div>
+              <div className="flex flex-col">
+                <span className="text-sm font-medium text-foreground">
+                  {getOrgDisplayName()}
+                </span>
+                <span className="text-xs text-muted-foreground">Organization</span>
+              </div>
+            </DropdownMenuItem>
+            <DropdownMenuItem className="gap-3 py-3 px-3 rounded-xl hover:bg-accent/60 cursor-pointer">
+              <div className="p-2 rounded-lg bg-gradient-to-br from-green-500/20 to-emerald-500/20">
+                <User className="h-4 w-4 text-green-500" />
+              </div>
+              <span className="text-sm text-foreground">Profile Settings</span>
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem 
+              onClick={logout}
+              className="gap-3 py-3 px-3 rounded-xl hover:bg-red-50 hover:text-red-600 cursor-pointer"
+            >
+              <div className="p-2 rounded-lg bg-gradient-to-br from-red-500/20 to-pink-500/20">
+                <LogOut className="h-4 w-4 text-red-500" />
+              </div>
+              <span className="text-sm">Log out</span>
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </SidebarFooter>
     </Sidebar>
   )
