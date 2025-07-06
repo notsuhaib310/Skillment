@@ -60,12 +60,12 @@ export const getReportsOverview = async (req: Request, res: Response) => {
     const inProgressCandidates = candidatesData.filter(c => c.status === 'in_progress').length;
     
     // Calculate performance metrics
-    const submittedCandidates = candidatesData.filter(c => c.status === 'submitted' && c.totalScore !== null);
+    const submittedCandidates = candidatesData.filter(c => c.status === 'submitted' && c.score !== null);
     const averageScore = submittedCandidates.length > 0 
-      ? submittedCandidates.reduce((sum, c) => sum + (c.totalScore || 0), 0) / submittedCandidates.length
+      ? submittedCandidates.reduce((sum, c) => sum + (c.score || 0), 0) / submittedCandidates.length
       : 0;
     
-    const passedCandidates = submittedCandidates.filter(c => (c.totalScore || 0) >= 60);
+    const passedCandidates = submittedCandidates.filter(c => (c.score || 0) >= 60);
     const passRate = submittedCandidates.length > 0 
       ? (passedCandidates.length / submittedCandidates.length) * 100
       : 0;
@@ -148,14 +148,14 @@ export const getPerformanceAnalytics = async (req: Request, res: Response) => {
     const topPerformers = await prisma.candidate.findMany({
       where: {
         status: 'submitted',
-        totalScore: { not: null },
+        score: { not: null },
         assessment: {
           ...assessmentTypeFilter,
           ...dateFilter
         }
       },
       orderBy: {
-        totalScore: 'desc'
+        score: 'desc'
       },
       take: 5,
       include: {
@@ -167,14 +167,14 @@ export const getPerformanceAnalytics = async (req: Request, res: Response) => {
     const allScores = await prisma.candidate.findMany({
       where: {
         status: 'submitted',
-        totalScore: { not: null },
+        score: { not: null },
         assessment: {
           ...assessmentTypeFilter,
           ...dateFilter
         }
       },
       select: {
-        totalScore: true
+        score: true
       }
     });
     
@@ -186,12 +186,12 @@ export const getPerformanceAnalytics = async (req: Request, res: Response) => {
       { range: 'Below 60%', count: 0, percentage: 0 }
     ];
     
-    allScores.forEach(({ totalScore }) => {
-      const score = totalScore || 0;
-      if (score >= 90) scoreRanges[0].count++;
-      else if (score >= 80) scoreRanges[1].count++;
-      else if (score >= 70) scoreRanges[2].count++;
-      else if (score >= 60) scoreRanges[3].count++;
+    allScores.forEach(({ score }) => {
+      const scoreValue = score || 0;
+      if (scoreValue >= 90) scoreRanges[0].count++;
+      else if (scoreValue >= 80) scoreRanges[1].count++;
+      else if (scoreValue >= 70) scoreRanges[2].count++;
+      else if (scoreValue >= 60) scoreRanges[3].count++;
       else scoreRanges[4].count++;
     });
     
@@ -237,7 +237,7 @@ export const getPerformanceAnalytics = async (req: Request, res: Response) => {
     res.json({
       topPerformers: topPerformers.map(p => ({
         name: p.name,
-        score: p.totalScore,
+        score: p.score,
         assessment: p.assessment.title
       })),
       scoreRanges,
@@ -449,19 +449,19 @@ async function generateTrendsData(months: number) {
     const completedCandidates = await prisma.candidate.findMany({
       where: {
         status: 'submitted',
-        totalScore: { not: null },
+        score: { not: null },
         submittedAt: {
           gte: targetDate,
           lt: nextMonth
         }
       },
       select: {
-        totalScore: true
+        score: true
       }
     });
     
     const averageScore = completedCandidates.length > 0
-      ? completedCandidates.reduce((sum, c) => sum + (c.totalScore || 0), 0) / completedCandidates.length
+      ? completedCandidates.reduce((sum, c) => sum + (c.score || 0), 0) / completedCandidates.length
       : 0;
     
     trends.push({
