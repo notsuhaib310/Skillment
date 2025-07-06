@@ -19,7 +19,7 @@ interface ProctoredExamProps {
 
 export default function ProctoredExam({ candidateData, systemStatus, onComplete }: ProctoredExamProps) {
   const [currentQuestion, setCurrentQuestion] = useState(0)
-  const [answers, setAnswers] = useState<Record<number, string>>({})
+  const [answers, setAnswers] = useState<Record<string, string>>({})
   const [timeLeft, setTimeLeft] = useState(30 * 60) // 30 minutes total
   const [questionTimeLeft, setQuestionTimeLeft] = useState(120) // Question timer
   const [violations, setViolations] = useState(0)
@@ -28,7 +28,7 @@ export default function ProctoredExam({ candidateData, systemStatus, onComplete 
   const [examComplete, setExamComplete] = useState(false)
   const videoRef = useRef<HTMLVideoElement>(null)
   const [currentAnswer, setCurrentAnswer] = useState("")
-  const [savedAnswers, setSavedAnswers] = useState<Record<number, boolean>>({})
+  const [savedAnswers, setSavedAnswers] = useState<Record<string, boolean>>({})
 
   // Get questions from assessment data - ensure we have proper question structure
   const questions = candidateData?.assignedAssessment?.questions || []
@@ -79,9 +79,13 @@ export default function ProctoredExam({ candidateData, systemStatus, onComplete 
     return () => cleanup()
   }, [formattedQuestions.length])
 
+  // Initialize current answer when questions load or current question changes
   useEffect(() => {
-    setCurrentAnswer(answers[currentQuestion] || "")
-  }, [currentQuestion, answers])
+    if (formattedQuestions.length > 0 && formattedQuestions[currentQuestion]) {
+      const questionId = formattedQuestions[currentQuestion].id;
+      setCurrentAnswer(questionId ? answers[questionId] || "" : "");
+    }
+  }, [currentQuestion, formattedQuestions, answers]);
 
   const initializeUltraStrictProctoring = async () => {
     // Start camera immediately
@@ -418,26 +422,35 @@ export default function ProctoredExam({ candidateData, systemStatus, onComplete 
 
   const handleAnswerChange = (value: string) => {
     setCurrentAnswer(value)
-    setAnswers((prev) => ({
-      ...prev,
-      [currentQuestion]: value,
-    }))
+    const questionId = formattedQuestions[currentQuestion]?.id;
+    if (questionId) {
+      setAnswers((prev) => ({
+        ...prev,
+        [questionId]: value,
+      }))
+    }
   }
 
   const handleFillAnswerChange = (value: string) => {
     setCurrentAnswer(value)
-    setAnswers((prev) => ({
-      ...prev,
-      [currentQuestion]: value,
-    }))
+    const questionId = formattedQuestions[currentQuestion]?.id;
+    if (questionId) {
+      setAnswers((prev) => ({
+        ...prev,
+        [questionId]: value,
+      }))
+    }
   }
 
   const saveAnswer = () => {
     if (currentAnswer.trim()) {
-      setSavedAnswers((prev) => ({
-        ...prev,
-        [currentQuestion]: true,
-      }))
+      const questionId = formattedQuestions[currentQuestion]?.id;
+      if (questionId) {
+        setSavedAnswers((prev) => ({
+          ...prev,
+          [questionId]: true,
+        }))
+      }
       // Show brief confirmation
       const button = document.getElementById("save-btn")
       if (button) {
@@ -453,7 +466,8 @@ export default function ProctoredExam({ candidateData, systemStatus, onComplete 
     if (currentQuestion < formattedQuestions.length - 1) {
       setCurrentQuestion((prev) => prev + 1)
       setQuestionTimeLeft(formattedQuestions[currentQuestion + 1].timeLimit)
-      setCurrentAnswer(answers[currentQuestion + 1] || "")
+      const nextQuestionId = formattedQuestions[currentQuestion + 1]?.id;
+      setCurrentAnswer(nextQuestionId ? answers[nextQuestionId] || "" : "")
     } else {
       submitExam(false, "Exam completed")
     }
@@ -463,12 +477,16 @@ export default function ProctoredExam({ candidateData, systemStatus, onComplete 
     if (currentQuestion > 0) {
       setCurrentQuestion((prev) => prev - 1)
       setQuestionTimeLeft(formattedQuestions[currentQuestion - 1].timeLimit)
-      setCurrentAnswer(answers[currentQuestion - 1] || "")
+      const prevQuestionId = formattedQuestions[currentQuestion - 1]?.id;
+      setCurrentAnswer(prevQuestionId ? answers[prevQuestionId] || "" : "")
     }
   }
 
   const submitExam = (autoSubmit = false, reason = "") => {
     setExamComplete(true)
+
+    console.log('📝 Submitting answers:', answers);
+    console.log('📋 Answer keys (should be question IDs):', Object.keys(answers));
 
     const results = {
       candidateId: candidateData.candidateId,
@@ -497,14 +515,13 @@ export default function ProctoredExam({ candidateData, systemStatus, onComplete 
     // Client-side scoring is for display purposes only
     // Actual scoring will be done by the backend
     let score = 0
-    Object.entries(answers).forEach(([questionIndex, answer]) => {
-      const idx = Number(questionIndex)
-      if (idx < formattedQuestions.length && answer) {
+    Object.entries(answers).forEach(([questionId, answer]) => {
+      if (answer) {
         // Give partial credit for answered questions (actual scoring done by backend)
-        score += formattedQuestions[idx].marks * 0.5 // 50% for attempting
+        score += 1 // Simple count of answered questions
       }
     })
-    return Math.round(score)
+    return score
   }
 
   const cleanup = () => {
@@ -519,7 +536,7 @@ export default function ProctoredExam({ candidateData, systemStatus, onComplete 
   }
 
   const progress = formattedQuestions.length > 0 ? ((currentQuestion + 1) / formattedQuestions.length) * 100 : 0
-  const answeredCount = Object.keys(answers).length
+  const answeredCount = formattedQuestions.filter((q: any) => answers[q.id]).length
 
   // Get question timer color based on remaining time
   const getTimerColor = (timeLeft: number, totalTime: number) => {
@@ -637,7 +654,7 @@ export default function ProctoredExam({ candidateData, systemStatus, onComplete 
 
                   {formattedQuestions[currentQuestion].type === "multiple_choice" && formattedQuestions[currentQuestion].options && formattedQuestions[currentQuestion].options.length > 0 ? (
                 <RadioGroup
-                  value={answers[currentQuestion] || ""}
+                  value={answers[formattedQuestions[currentQuestion].id] || ""}
                   onValueChange={handleAnswerChange}
                   className="space-y-4"
                 >
@@ -682,7 +699,7 @@ export default function ProctoredExam({ candidateData, systemStatus, onComplete 
                           placeholder="Enter your answer here"
                       className="w-full p-4 bg-[#2a2d31] border border-[#3a3d41] rounded-lg text-white placeholder-gray-400 focus:border-[#ff4d00] focus:outline-none text-lg"
                     />
-                    {savedAnswers[currentQuestion] && (
+                    {savedAnswers[formattedQuestions[currentQuestion]?.id] && (
                       <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
                         <Badge className="bg-green-900/30 text-green-400 border-green-500/30 text-xs">Saved</Badge>
                       </div>
@@ -761,7 +778,7 @@ export default function ProctoredExam({ candidateData, systemStatus, onComplete 
                   className={`w-12 h-12 rounded text-sm font-medium transition-colors relative ${
                     index === currentQuestion
                       ? "bg-gradient-to-r from-[#ff4d00] to-[#ff6b35] text-white"
-                      : answers[index]
+                      : answers[question.id]
                         ? question.type === "fill"
                           ? "bg-blue-600 text-white"
                           : "bg-green-600 text-white"
@@ -898,7 +915,7 @@ export default function ProctoredExam({ candidateData, systemStatus, onComplete 
                       setShowSummary(false)
                     }}
                     className={`w-10 h-10 rounded text-sm font-medium ${
-                      answers[index] ? "bg-green-500 text-white" : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                      answers[formattedQuestions[index].id] ? "bg-green-500 text-white" : "bg-gray-200 text-gray-700 hover:bg-gray-300"
                     }`}
                   >
                     {index + 1}

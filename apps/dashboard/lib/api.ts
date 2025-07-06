@@ -152,6 +152,7 @@ export const candidatesApi = {
     apiPost('/admin/candidates/allocate', { assessmentId, candidates }),
   getByAssessment: (assessmentId: string) => apiGet(`/admin/candidates?assessmentId=${assessmentId}`),
   getAnalytics: (assessmentId: string) => apiGet(`/admin/candidates/analytics/${assessmentId}`),
+  getQuestionAnalytics: (assessmentId: string) => apiGet(`/admin/candidates/analytics/${assessmentId}/questions`),
   login: (candidateId: string, password: string) => 
     apiPost('/candidates/login', { candidateId, password }),
   startAssessment: (id: string) => apiPost(`/admin/candidates/${id}/start`),

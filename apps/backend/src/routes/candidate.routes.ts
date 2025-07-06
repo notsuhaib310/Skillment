@@ -30,6 +30,11 @@ router.get('/analytics/:assessmentId', (req, res) => {
   return candidateController.getAssessmentAnalytics(req, res);
 });
 
+router.get('/analytics/:assessmentId/questions', (req, res) => {
+  console.log('Getting detailed question analytics for:', req.params.assessmentId);
+  return candidateController.getDetailedQuestionAnalytics(req, res);
+});
+
 router.post('/:id/start', (req, res) => {
   console.log('Starting candidate:', req.params.id);
   return candidateController.startCandidate(req, res);

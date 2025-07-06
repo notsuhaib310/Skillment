@@ -309,6 +309,10 @@ export class CandidateController {
     try {
       const { candidateId, answers } = req.body;
       
+      console.log('📝 Received submission for candidateId:', candidateId);
+      console.log('📋 Received answers:', answers);
+      console.log('📋 Answer keys:', Object.keys(answers));
+      
       if (!candidateId || !answers) {
         return res.status(400).json({ error: 'Candidate ID and answers are required' });
       }
@@ -338,30 +342,47 @@ export class CandidateController {
         return res.status(404).json({ error: 'Candidate not found or not assigned to this assessment' });
       }
 
+      console.log('🔍 Processing answers for questions:');
       // Calculate score
       let totalScore = 0;
       const questions = candidate.assessment.questions;
       
       for (const question of questions) {
         const userAnswer = answers[question.id];
-        if (userAnswer !== undefined) {
+        console.log(`Question ${question.id}: User answer = "${userAnswer}", Type = ${question.type}`);
+        
+        if (userAnswer !== undefined && userAnswer !== null && userAnswer !== "") {
+          console.log(`✅ Question ${question.id} has answer: "${userAnswer}"`);
+          
           // For MCQ questions, check if answer matches
-          if (question.type === 'mcq') {
+          if (question.type === 'multiple_choice') {
             const correctAnswer = question.correctAnswer;
+            console.log(`Correct answer for ${question.id}:`, correctAnswer);
+            
             if (Array.isArray(correctAnswer) && Array.isArray(userAnswer)) {
               // Multiple correct answers
               const isCorrect = correctAnswer.length === userAnswer.length && 
                 correctAnswer.every(ans => userAnswer.includes(ans));
               if (isCorrect) {
                 totalScore += question.marks;
+                console.log(`✅ Correct! Added ${question.marks} marks`);
+              } else {
+                console.log(`❌ Incorrect - expected ${JSON.stringify(correctAnswer)}, got ${JSON.stringify(userAnswer)}`);
               }
-            } else if (correctAnswer === userAnswer) {
+            } else if (correctAnswer === userAnswer || (Array.isArray(correctAnswer) && correctAnswer.includes(userAnswer))) {
               totalScore += question.marks;
+              console.log(`✅ Correct! Added ${question.marks} marks`);
+            } else {
+              console.log(`❌ Incorrect - expected ${JSON.stringify(correctAnswer)}, got "${userAnswer}"`);
             }
           }
           // For coding questions, you might want to run test cases here
+        } else {
+          console.log(`⚠️ Question ${question.id} has no answer`);
         }
       }
+
+      console.log(`🎯 Final score: ${totalScore}/${candidate.assessment.totalMarks}`);
 
       // Update candidate with submission
       await prisma.candidate.update({
@@ -981,6 +1002,204 @@ export class CandidateController {
     }
   }
 
+  // Get detailed question analytics showing option selections for each candidate
+  async getDetailedQuestionAnalytics(req, res) {
+    try {
+      const { assessmentId } = req.params;
+      
+      if (!assessmentId) {
+        return res.status(400).json({ error: 'Assessment ID is required' });
+      }
+
+      // Get assessment with questions
+      const assessment = await prisma.assessment.findUnique({
+        where: { id: assessmentId },
+        include: {
+          questions: {
+            orderBy: { order: 'asc' }
+          }
+        }
+      });
+
+      if (!assessment) {
+        return res.status(404).json({ error: 'Assessment not found' });
+      }
+
+      // Get all candidates with their answers for this assessment
+      const candidates = await prisma.candidate.findMany({
+        where: { 
+          assessmentId: assessmentId,
+          status: 'submitted' // Only include submitted candidates
+        },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          answers: true,
+          score: true
+        }
+      });
+
+      console.log('📊 Generating detailed question analytics for assessment:', assessment.title);
+      console.log('📋 Found', candidates.length, 'submitted candidates');
+
+      // Process each question to create analytics
+      const questionAnalytics = assessment.questions.map(question => {
+        console.log(`\n🔍 Analyzing question: ${question.question.substring(0, 50)}...`);
+        
+        const analytics = {
+          questionId: question.id,
+          questionText: question.question,
+          questionType: question.type,
+          correctAnswer: question.correctAnswer,
+          totalMarks: question.marks,
+          order: question.order,
+          candidateResponses: [],
+          optionAnalytics: {},
+          correctResponses: 0,
+          incorrectResponses: 0,
+          unansweredResponses: 0,
+          averageScore: 0
+        };
+
+        // Process MCQ options if available
+        let questionOptions = [];
+        if (question.type === 'multiple_choice') {
+          // Parse mcqData to get options
+          if (question.mcqData && typeof question.mcqData === 'object' && question.mcqData.options) {
+            questionOptions = question.mcqData.options;
+          } else if (question.options) {
+            // Fallback to legacy options field
+            questionOptions = Array.isArray(question.options) ? question.options : [];
+          }
+          
+          // Initialize option analytics
+          questionOptions.forEach((option, index) => {
+            const optionText = typeof option === 'string' ? option : (option.text || option.label || option.value || `Option ${index + 1}`);
+            const optionValue = typeof option === 'string' ? option : (option.id || option.value || optionText);
+            
+            analytics.optionAnalytics[optionValue] = {
+              text: optionText,
+              count: 0,
+              percentage: 0,
+              isCorrect: false
+            };
+          });
+
+          // Mark correct options
+          if (Array.isArray(question.correctAnswer)) {
+            question.correctAnswer.forEach(correctOpt => {
+              if (analytics.optionAnalytics[correctOpt]) {
+                analytics.optionAnalytics[correctOpt].isCorrect = true;
+              }
+            });
+          } else if (analytics.optionAnalytics[question.correctAnswer]) {
+            analytics.optionAnalytics[question.correctAnswer].isCorrect = true;
+          }
+        }
+
+        let totalScore = 0;
+
+        // Analyze each candidate's response
+        candidates.forEach(candidate => {
+          const candidateAnswer = candidate.answers ? candidate.answers[question.id] : null;
+          
+          console.log(`👤 ${candidate.name}: Answer = "${candidateAnswer}"`);
+          
+          let isCorrect = false;
+          let scoreEarned = 0;
+
+          if (candidateAnswer !== undefined && candidateAnswer !== null && candidateAnswer !== '') {
+            // Check correctness based on question type
+            if (question.type === 'multiple_choice') {
+              if (Array.isArray(question.correctAnswer)) {
+                // Multiple correct answers
+                if (Array.isArray(candidateAnswer)) {
+                  isCorrect = question.correctAnswer.length === candidateAnswer.length && 
+                    question.correctAnswer.every(ans => candidateAnswer.includes(ans));
+                } else {
+                  isCorrect = question.correctAnswer.includes(candidateAnswer);
+                }
+              } else {
+                isCorrect = question.correctAnswer === candidateAnswer;
+              }
+
+              // Update option analytics for MCQ
+              if (Array.isArray(candidateAnswer)) {
+                candidateAnswer.forEach(answer => {
+                  if (analytics.optionAnalytics[answer]) {
+                    analytics.optionAnalytics[answer].count++;
+                  }
+                });
+              } else if (analytics.optionAnalytics[candidateAnswer]) {
+                analytics.optionAnalytics[candidateAnswer].count++;
+              }
+            } else {
+              // For non-MCQ questions, just mark as attempted
+              isCorrect = candidateAnswer.toString().trim().length > 0;
+            }
+
+            if (isCorrect) {
+              scoreEarned = question.marks;
+              analytics.correctResponses++;
+            } else {
+              analytics.incorrectResponses++;
+            }
+          } else {
+            analytics.unansweredResponses++;
+          }
+
+          totalScore += scoreEarned;
+
+          analytics.candidateResponses.push({
+            candidateId: candidate.id,
+            candidateName: candidate.name,
+            candidateEmail: candidate.email,
+            response: candidateAnswer,
+            isCorrect: isCorrect,
+            scoreEarned: scoreEarned,
+            isAnswered: candidateAnswer !== undefined && candidateAnswer !== null && candidateAnswer !== ''
+          });
+        });
+
+        // Calculate percentages for options
+        if (question.type === 'multiple_choice') {
+          Object.keys(analytics.optionAnalytics).forEach(optionKey => {
+            analytics.optionAnalytics[optionKey].percentage = candidates.length > 0 
+              ? Math.round((analytics.optionAnalytics[optionKey].count / candidates.length) * 100) 
+              : 0;
+          });
+        }
+
+        // Calculate average score for this question
+        analytics.averageScore = candidates.length > 0 ? totalScore / candidates.length : 0;
+
+        console.log(`✅ Question analytics: ${analytics.correctResponses} correct, ${analytics.incorrectResponses} incorrect, ${analytics.unansweredResponses} unanswered`);
+
+        return analytics;
+      });
+
+      console.log('\n🎯 Question analytics generation complete');
+
+      return res.json({
+        assessment: {
+          id: assessment.id,
+          title: assessment.title,
+          type: assessment.type,
+          totalQuestions: assessment.questions.length,
+          totalMarks: assessment.totalMarks
+        },
+        analytics: {
+          totalCandidates: candidates.length,
+          questionAnalytics: questionAnalytics
+        }
+      });
+    } catch (error) {
+      console.error('Error fetching detailed question analytics:', error);
+      return res.status(500).json({ error: 'Failed to fetch detailed question analytics' });
+    }
+  }
+  
   // Get assessment analytics with proctoring data
   async getAssessmentAnalytics(req, res) {
     try {

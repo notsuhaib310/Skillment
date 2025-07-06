@@ -117,13 +117,59 @@ interface AssessmentAnalytics {
   }[]
 }
 
+interface QuestionAnalytics {
+  questionId: string
+  questionText: string
+  questionType: string
+  correctAnswer: any
+  totalMarks: number
+  order: number
+  candidateResponses: {
+    candidateId: string
+    candidateName: string
+    candidateEmail: string
+    response: any
+    isCorrect: boolean
+    scoreEarned: number
+    isAnswered: boolean
+  }[]
+  optionAnalytics: {
+    [key: string]: {
+      text: string
+      count: number
+      percentage: number
+      isCorrect: boolean
+    }
+  }
+  correctResponses: number
+  incorrectResponses: number
+  unansweredResponses: number
+  averageScore: number
+}
+
+interface DetailedQuestionAnalytics {
+  assessment: {
+    id: string
+    title: string
+    type: string
+    totalQuestions: number
+    totalMarks: number
+  }
+  analytics: {
+    totalCandidates: number
+    questionAnalytics: QuestionAnalytics[]
+  }
+}
+
 export default function ResultsPage() {
   const [candidateResults, setCandidateResults] = useState<CandidateResult[]>([])
   const [assessments, setAssessments] = useState<Assessment[]>([])
   const [selectedAssessment, setSelectedAssessment] = useState<string>("")
   const [analytics, setAnalytics] = useState<AssessmentAnalytics | null>(null)
+  const [questionAnalytics, setQuestionAnalytics] = useState<DetailedQuestionAnalytics | null>(null)
   const [loading, setLoading] = useState(true)
   const [resultsLoading, setResultsLoading] = useState(false)
+  const [questionAnalyticsLoading, setQuestionAnalyticsLoading] = useState(false)
   const router = useRouter()
   const searchParams = useSearchParams()
   const { toast } = useToast()
@@ -169,6 +215,9 @@ export default function ResultsPage() {
       
       // Load analytics data
       const analyticsData = await candidatesApi.getAnalytics(selectedAssessment)
+      
+      // Load detailed question analytics
+      loadQuestionAnalytics()
       
       // Transform candidates data to include results - the backend now provides proctoring data
       const resultsData = Array.isArray(candidatesData) ? candidatesData.map((candidate: any) => ({
@@ -240,6 +289,26 @@ export default function ResultsPage() {
       })
     } finally {
       setResultsLoading(false)
+    }
+  }
+
+  const loadQuestionAnalytics = async () => {
+    if (!selectedAssessment) return
+    
+    setQuestionAnalyticsLoading(true)
+    try {
+      const questionAnalyticsData = await candidatesApi.getQuestionAnalytics(selectedAssessment)
+      setQuestionAnalytics(questionAnalyticsData)
+    } catch (error: any) {
+      console.error('Error loading question analytics:', error)
+      setQuestionAnalytics(null)
+      toast({
+        title: "Error Loading Question Analytics",
+        description: error.message,
+        variant: "destructive",
+      })
+    } finally {
+      setQuestionAnalyticsLoading(false)
     }
   }
 
@@ -590,11 +659,12 @@ export default function ResultsPage() {
                 </div>
               ) : (
                 <Tabs defaultValue="overview" className="space-y-6">
-                  <TabsList className="grid w-full grid-cols-4 rounded-2xl bg-accent/20">
+                  <TabsList className="grid w-full grid-cols-5 rounded-2xl bg-accent/20">
                     <TabsTrigger value="overview" className="rounded-xl">Overview</TabsTrigger>
                     <TabsTrigger value="proctoring" className="rounded-xl">Proctoring</TabsTrigger>
                     <TabsTrigger value="analytics" className="rounded-xl">Analytics</TabsTrigger>
                     <TabsTrigger value="detailed" className="rounded-xl">Detailed View</TabsTrigger>
+                    <TabsTrigger value="questions" className="rounded-xl">Question Analytics</TabsTrigger>
                   </TabsList>
 
                   <TabsContent value="overview">
@@ -922,6 +992,257 @@ export default function ResultsPage() {
                         ))}
                       </TableBody>
                     </Table>
+                  </TabsContent>
+
+                  <TabsContent value="questions">
+                    {questionAnalyticsLoading ? (
+                      <div className="flex items-center justify-center py-8">
+                        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
+                        <span className="ml-2">Loading question analytics...</span>
+                      </div>
+                    ) : questionAnalytics ? (
+                      <div className="space-y-6">
+                        <div className="grid gap-4 md:grid-cols-3">
+                          <Card className="rounded-2xl border-border/30">
+                            <CardHeader className="pb-2">
+                              <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                                <FileText className="h-4 w-4" />
+                                Total Questions
+                              </CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                              <div className="text-2xl font-bold text-foreground">
+                                {questionAnalytics.assessment.totalQuestions}
+                              </div>
+                              <p className="text-xs text-muted-foreground">
+                                {questionAnalytics.assessment.totalMarks} total marks
+                              </p>
+                            </CardContent>
+                          </Card>
+
+                          <Card className="rounded-2xl border-border/30">
+                            <CardHeader className="pb-2">
+                              <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                                <Users className="h-4 w-4" />
+                                Analyzed Responses
+                              </CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                              <div className="text-2xl font-bold text-foreground">
+                                {questionAnalytics.analytics.totalCandidates}
+                              </div>
+                              <p className="text-xs text-muted-foreground">
+                                Submitted candidates
+                              </p>
+                            </CardContent>
+                          </Card>
+
+                          <Card className="rounded-2xl border-border/30">
+                            <CardHeader className="pb-2">
+                              <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                                <BarChart3 className="h-4 w-4" />
+                                Average Performance
+                              </CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                              <div className="text-2xl font-bold text-foreground">
+                                {Math.round((questionAnalytics.analytics.questionAnalytics.reduce((sum, q) => sum + q.averageScore, 0) / questionAnalytics.analytics.questionAnalytics.length) * 100) / 100}
+                              </div>
+                              <p className="text-xs text-muted-foreground">
+                                Average score per question
+                              </p>
+                            </CardContent>
+                          </Card>
+                        </div>
+
+                        <div className="space-y-6">
+                          {questionAnalytics.analytics.questionAnalytics.map((question, index) => (
+                            <Card key={question.questionId} className="rounded-2xl border-border/30">
+                              <CardHeader>
+                                <div className="flex items-start justify-between">
+                                  <div className="flex-1">
+                                    <CardTitle className="flex items-center gap-2 text-lg">
+                                      <span className="w-8 h-8 rounded-full bg-primary/20 text-primary flex items-center justify-center text-sm font-bold">
+                                        {question.order || index + 1}
+                                      </span>
+                                      Question {question.order || index + 1}
+                                    </CardTitle>
+                                    <p className="text-sm text-muted-foreground mt-2 leading-relaxed">
+                                      {question.questionText}
+                                    </p>
+                                  </div>
+                                  <div className="text-right">
+                                    <Badge variant="outline" className="rounded-xl">
+                                      {question.questionType.replace('_', ' ').toUpperCase()}
+                                    </Badge>
+                                    <div className="text-sm text-muted-foreground mt-1">
+                                      {question.totalMarks} marks
+                                    </div>
+                                  </div>
+                                </div>
+                              </CardHeader>
+                              <CardContent>
+                                <div className="grid gap-6 md:grid-cols-2">
+                                  {/* Response Statistics */}
+                                  <div className="space-y-4">
+                                    <h4 className="font-semibold flex items-center gap-2">
+                                      <BarChart3 className="h-4 w-4" />
+                                      Response Statistics
+                                    </h4>
+                                    <div className="grid gap-3">
+                                      <div className="flex justify-between items-center">
+                                        <span className="text-sm">Correct Responses:</span>
+                                        <Badge className="bg-green-900/30 text-green-400 border-green-500/30 rounded-xl">
+                                          {question.correctResponses} ({Math.round((question.correctResponses / questionAnalytics.analytics.totalCandidates) * 100)}%)
+                                        </Badge>
+                                      </div>
+                                      <div className="flex justify-between items-center">
+                                        <span className="text-sm">Incorrect Responses:</span>
+                                        <Badge className="bg-red-900/30 text-red-400 border-red-500/30 rounded-xl">
+                                          {question.incorrectResponses} ({Math.round((question.incorrectResponses / questionAnalytics.analytics.totalCandidates) * 100)}%)
+                                        </Badge>
+                                      </div>
+                                      <div className="flex justify-between items-center">
+                                        <span className="text-sm">Unanswered:</span>
+                                        <Badge className="bg-yellow-900/30 text-yellow-400 border-yellow-500/30 rounded-xl">
+                                          {question.unansweredResponses} ({Math.round((question.unansweredResponses / questionAnalytics.analytics.totalCandidates) * 100)}%)
+                                        </Badge>
+                                      </div>
+                                      <div className="flex justify-between items-center">
+                                        <span className="text-sm">Average Score:</span>
+                                        <span className="font-bold">
+                                          {Math.round(question.averageScore * 100) / 100} / {question.totalMarks}
+                                        </span>
+                                      </div>
+                                    </div>
+                                  </div>
+
+                                  {/* Option Analytics for MCQ */}
+                                  {question.questionType === 'multiple_choice' && Object.keys(question.optionAnalytics).length > 0 && (
+                                    <div className="space-y-4">
+                                      <h4 className="font-semibold flex items-center gap-2">
+                                        <Target className="h-4 w-4" />
+                                        Option Breakdown
+                                      </h4>
+                                      <div className="space-y-3">
+                                        {Object.entries(question.optionAnalytics).map(([optionValue, analytics], optIndex) => (
+                                          <div key={optionValue} className="space-y-2">
+                                            <div className="flex justify-between items-center">
+                                              <div className="flex items-center gap-2">
+                                                <span className="text-sm font-medium">
+                                                  {String.fromCharCode(65 + optIndex)}. {analytics.text}
+                                                </span>
+                                                {analytics.isCorrect && (
+                                                  <CheckCircle className="h-4 w-4 text-green-500" />
+                                                )}
+                                              </div>
+                                              <div className="flex items-center gap-2">
+                                                <span className="text-sm text-muted-foreground">
+                                                  {analytics.count} ({analytics.percentage}%)
+                                                </span>
+                                              </div>
+                                            </div>
+                                            <Progress 
+                                              value={analytics.percentage} 
+                                              className={`h-2 ${analytics.isCorrect ? 'bg-green-900/30' : 'bg-gray-900/30'}`}
+                                            />
+                                          </div>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+
+                                {/* Candidate Responses Table */}
+                                <div className="mt-6">
+                                  <div className="flex items-center justify-between mb-4">
+                                    <h4 className="font-semibold flex items-center gap-2">
+                                      <Users className="h-4 w-4" />
+                                      Individual Responses ({question.candidateResponses.length})
+                                    </h4>
+                                  </div>
+                                  <div className="rounded-xl border">
+                                    <Table>
+                                      <TableHeader>
+                                        <TableRow>
+                                          <TableHead>Candidate</TableHead>
+                                          <TableHead>Response</TableHead>
+                                          <TableHead>Result</TableHead>
+                                          <TableHead>Score</TableHead>
+                                        </TableRow>
+                                      </TableHeader>
+                                      <TableBody>
+                                        {question.candidateResponses.slice(0, 10).map((response) => (
+                                          <TableRow key={response.candidateId}>
+                                            <TableCell>
+                                              <div>
+                                                <div className="font-medium">{response.candidateName}</div>
+                                                <div className="text-sm text-muted-foreground">{response.candidateEmail}</div>
+                                              </div>
+                                            </TableCell>
+                                            <TableCell>
+                                              <div className="max-w-xs truncate">
+                                                {response.isAnswered ? (
+                                                  <span>{JSON.stringify(response.response)}</span>
+                                                ) : (
+                                                  <span className="text-muted-foreground italic">No answer</span>
+                                                )}
+                                              </div>
+                                            </TableCell>
+                                            <TableCell>
+                                              {response.isAnswered ? (
+                                                response.isCorrect ? (
+                                                  <Badge className="bg-green-900/30 text-green-400 border-green-500/30 rounded-xl">
+                                                    Correct
+                                                  </Badge>
+                                                ) : (
+                                                  <Badge className="bg-red-900/30 text-red-400 border-red-500/30 rounded-xl">
+                                                    Incorrect
+                                                  </Badge>
+                                                )
+                                              ) : (
+                                                <Badge className="bg-yellow-900/30 text-yellow-400 border-yellow-500/30 rounded-xl">
+                                                  Unanswered
+                                                </Badge>
+                                              )}
+                                            </TableCell>
+                                            <TableCell>
+                                              <span className="font-medium">
+                                                {response.scoreEarned} / {question.totalMarks}
+                                              </span>
+                                            </TableCell>
+                                          </TableRow>
+                                        ))}
+                                      </TableBody>
+                                    </Table>
+                                    {question.candidateResponses.length > 10 && (
+                                      <div className="p-4 text-center border-t">
+                                        <span className="text-sm text-muted-foreground">
+                                          Showing 10 of {question.candidateResponses.length} responses
+                                        </span>
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              </CardContent>
+                            </Card>
+                          ))}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="text-center py-8">
+                        <FileText className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                        <p className="text-muted-foreground">No question analytics available</p>
+                        <Button 
+                          onClick={loadQuestionAnalytics} 
+                          variant="outline" 
+                          className="mt-4 rounded-xl"
+                        >
+                          <BarChart3 className="mr-2 h-4 w-4" />
+                          Load Question Analytics
+                        </Button>
+                      </div>
+                    )}
                   </TabsContent>
                 </Tabs>
               )}
