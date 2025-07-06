@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { Plus, Trash2, Sparkles, Copy, Settings } from "lucide-react"
+import { Plus, Trash2, Sparkles, Copy, Settings, Wand2, Loader2 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -10,6 +10,11 @@ import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Checkbox } from "@/components/ui/checkbox"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { Badge } from "@/components/ui/badge"
+import { Separator } from "@/components/ui/separator"
+import { aiQuestionGenerator } from "@/lib/ai-question-generator"
+import { useToast } from "@/hooks/use-toast"
 
 interface MCQOption {
   id: string
@@ -48,6 +53,17 @@ export function MCQQuestionBuilder({ onAddQuestion }: MCQQuestionBuilderProps) {
     tags: [],
     multipleCorrect: false,
   })
+
+  const [aiGenerationDialog, setAiGenerationDialog] = useState(false)
+  const [aiGenerationData, setAiGenerationData] = useState({
+    topic: "",
+    difficulty: "medium" as "easy" | "medium" | "hard",
+    count: 1,
+    additionalRequirements: "",
+  })
+  const [isGenerating, setIsGenerating] = useState(false)
+  const [questionsGenerated, setQuestionsGenerated] = useState<any[]>([])
+  const { toast } = useToast()
 
   const addOption = () => {
     const newOption: MCQOption = {
@@ -89,7 +105,42 @@ export function MCQQuestionBuilder({ onAddQuestion }: MCQQuestionBuilderProps) {
   }
 
   const handleAddQuestion = () => {
-    onAddQuestion(currentQuestion);
+    // Validation
+    if (!currentQuestion.question.trim()) {
+      toast({
+        title: "Validation Error",
+        description: "Please enter a question text.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    if (currentQuestion.options.some(opt => !opt.text.trim())) {
+      toast({
+        title: "Validation Error", 
+        description: "Please fill in all option texts.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    if (!currentQuestion.options.some(opt => opt.isCorrect)) {
+      toast({
+        title: "Validation Error",
+        description: "Please mark at least one correct answer.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    const questionWithId = {
+      ...currentQuestion,
+      id: Date.now().toString(),
+    }
+
+    onAddQuestion(questionWithId);
+    
+    // Reset form
     setCurrentQuestion({
       id: "",
       question: "",
@@ -105,7 +156,101 @@ export function MCQQuestionBuilder({ onAddQuestion }: MCQQuestionBuilderProps) {
       tags: [],
       multipleCorrect: false,
     });
+
+    toast({
+      title: "Question Added",
+      description: "MCQ question has been added successfully.",
+    })
   };
+
+  const handleAIGeneration = async () => {
+    if (!aiGenerationData.topic.trim()) {
+      toast({
+        title: "Validation Error",
+        description: "Please enter a topic for AI generation.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    setIsGenerating(true)
+    try {
+      const questions = await aiQuestionGenerator.generateMCQQuestions({
+        type: "mcq",
+        topic: aiGenerationData.topic,
+        difficulty: aiGenerationData.difficulty,
+        count: aiGenerationData.count,
+        additionalRequirements: aiGenerationData.additionalRequirements,
+      })
+
+      setQuestionsGenerated(questions)
+      toast({
+        title: "Questions Generated",
+        description: `Successfully generated ${questions.length} question(s) using AI.`,
+      })
+    } catch (error) {
+      console.error("AI generation error:", error)
+    } finally {
+      setIsGenerating(false)
+    }
+  }
+
+  const useGeneratedQuestion = (generatedQ: any) => {
+    const formattedOptions = generatedQ.options.map((opt: any, index: number) => ({
+      id: (index + 1).toString(),
+      text: opt.text,
+      isCorrect: opt.isCorrect,
+    }))
+
+    setCurrentQuestion({
+      id: "",
+      question: generatedQ.question,
+      options: formattedOptions,
+      explanation: generatedQ.explanation || "",
+      difficulty: generatedQ.difficulty,
+      marks: 1,
+      tags: generatedQ.tags || [],
+      multipleCorrect: false,
+    })
+
+    setAiGenerationDialog(false)
+    toast({
+      title: "Question Loaded",
+      description: "AI-generated question has been loaded for editing.",
+    })
+  }
+
+  const handleTagsChange = (tagsString: string) => {
+    const tags = tagsString
+      .split(",")
+      .map((t) => t.trim())
+      .filter(Boolean)
+    setCurrentQuestion({ ...currentQuestion, tags })
+  }
+
+  const enhanceWithAI = async (type: "explanation" | "hints") => {
+    if (!currentQuestion.question.trim()) {
+      toast({
+        title: "Error",
+        description: "Please enter a question first.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    try {
+      const enhancement = await aiQuestionGenerator.enhanceQuestionWithAI(currentQuestion.question, type)
+      if (type === "explanation") {
+        setCurrentQuestion({ ...currentQuestion, explanation: enhancement })
+      }
+      toast({
+        title: "Enhanced with AI",
+        description: `Generated ${type} using AI.`,
+      })
+    } catch (error) {
+      console.error("Enhancement error:", error)
+    }
+  }
 
   return (
     <div className="space-y-8">
@@ -114,10 +259,128 @@ export function MCQQuestionBuilder({ onAddQuestion }: MCQQuestionBuilderProps) {
           <h3 className="text-xl font-semibold text-foreground">MCQ Questions</h3>
           <p className="text-sm text-muted-foreground">Create multiple choice questions with detailed explanations</p>
         </div>
-        <Button className="rounded-2xl primary-gradient glow-primary" onClick={handleAddQuestion}>
-          <Plus className="mr-2 h-4 w-4" />
-          Add Question
-        </Button>
+        <div className="flex gap-2">
+          <Dialog open={aiGenerationDialog} onOpenChange={setAiGenerationDialog}>
+            <DialogTrigger asChild>
+              <Button variant="outline" className="rounded-2xl">
+                <Sparkles className="mr-2 h-4 w-4" />
+                AI Generate
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-md">
+              <DialogHeader>
+                <DialogTitle>Generate MCQ Questions with AI</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="ai-topic">Topic *</Label>
+                  <Input
+                    id="ai-topic"
+                    value={aiGenerationData.topic}
+                    onChange={(e) => setAiGenerationData({ ...aiGenerationData, topic: e.target.value })}
+                    placeholder="e.g., JavaScript Fundamentals, Data Structures"
+                    className="rounded-2xl"
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Difficulty</Label>
+                    <Select
+                      value={aiGenerationData.difficulty}
+                      onValueChange={(value: any) => setAiGenerationData({ ...aiGenerationData, difficulty: value })}
+                    >
+                      <SelectTrigger className="rounded-2xl">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="easy">Easy</SelectItem>
+                        <SelectItem value="medium">Medium</SelectItem>
+                        <SelectItem value="hard">Hard</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Count</Label>
+                    <Select
+                      value={aiGenerationData.count.toString()}
+                      onValueChange={(value) => setAiGenerationData({ ...aiGenerationData, count: parseInt(value) })}
+                    >
+                      <SelectTrigger className="rounded-2xl">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="1">1 Question</SelectItem>
+                        <SelectItem value="2">2 Questions</SelectItem>
+                        <SelectItem value="3">3 Questions</SelectItem>
+                        <SelectItem value="5">5 Questions</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="ai-requirements">Additional Requirements</Label>
+                  <Textarea
+                    id="ai-requirements"
+                    value={aiGenerationData.additionalRequirements}
+                    onChange={(e) => setAiGenerationData({ ...aiGenerationData, additionalRequirements: e.target.value })}
+                    placeholder="Any specific requirements or focus areas..."
+                    className="rounded-2xl"
+                    rows={3}
+                  />
+                </div>
+                <Button
+                  onClick={handleAIGeneration}
+                  disabled={isGenerating}
+                  className="w-full rounded-2xl primary-gradient"
+                >
+                  {isGenerating ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Generating...
+                    </>
+                  ) : (
+                    <>
+                      <Wand2 className="mr-2 h-4 w-4" />
+                      Generate Questions
+                    </>
+                  )}
+                </Button>
+
+                {questionsGenerated.length > 0 && (
+                  <div className="space-y-4 mt-4">
+                    <Separator />
+                    <h4 className="font-medium">Generated Questions:</h4>
+                    {questionsGenerated.map((q, index) => (
+                      <Card key={index} className="border-border/40">
+                        <CardContent className="p-4">
+                          <div className="space-y-2">
+                            <p className="font-medium text-sm">{q.question}</p>
+                            <div className="flex flex-wrap gap-1">
+                              {q.tags?.map((tag: string) => (
+                                <Badge key={tag} variant="secondary" className="text-xs">{tag}</Badge>
+                              ))}
+                            </div>
+                            <Button
+                              onClick={() => useGeneratedQuestion(q)}
+                              size="sm"
+                              className="w-full rounded-xl"
+                            >
+                              Use This Question
+                            </Button>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </DialogContent>
+          </Dialog>
+          <Button className="rounded-2xl primary-gradient glow-primary" onClick={handleAddQuestion}>
+            <Plus className="mr-2 h-4 w-4" />
+            Add Question
+          </Button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -264,8 +527,17 @@ export function MCQQuestionBuilder({ onAddQuestion }: MCQQuestionBuilderProps) {
           </Card>
 
           <Card className="card-gradient rounded-3xl border-border/40 shadow-xl">
-            <CardHeader>
+            <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle>Explanation (Optional)</CardTitle>
+              <Button
+                onClick={() => enhanceWithAI("explanation")}
+                variant="outline"
+                size="sm"
+                className="rounded-2xl"
+              >
+                <Sparkles className="mr-2 h-4 w-4" />
+                AI Enhance
+              </Button>
             </CardHeader>
             <CardContent>
               <Textarea
@@ -299,8 +571,22 @@ export function MCQQuestionBuilder({ onAddQuestion }: MCQQuestionBuilderProps) {
             <CardHeader>
               <CardTitle>Tags</CardTitle>
             </CardHeader>
-            <CardContent>
-              <Input placeholder="Add tags (comma separated)" className="rounded-2xl" />
+            <CardContent className="space-y-3">
+              <Input
+                value={currentQuestion.tags.join(", ")}
+                onChange={(e) => handleTagsChange(e.target.value)}
+                placeholder="Add tags (comma separated)"
+                className="rounded-2xl"
+              />
+              {currentQuestion.tags.length > 0 && (
+                <div className="flex flex-wrap gap-2">
+                  {currentQuestion.tags.map((tag, index) => (
+                    <Badge key={index} variant="secondary" className="rounded-xl">
+                      {tag}
+                    </Badge>
+                  ))}
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>
