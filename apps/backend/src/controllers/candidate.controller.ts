@@ -155,99 +155,10 @@ export class CandidateController {
     }
   }
 
-  // Get candidate assessment
+  // Get candidate assessment - Returns real assessment data from database
   async getCandidateAssessment(req, res) {
     try {
       const { email, candidateId } = req.query;
-      
-      // Demo case
-      if (email === 'demo@skillment.in' || candidateId === 'demo') {
-        return res.json([{
-          id: 'demo-assignment',
-          candidate: {
-            id: 'demo',
-            name: 'Demo Candidate',
-            email: 'demo@skillment.in',
-            status: 'invited'
-          },
-          assessment: {
-            id: 'demo-assessment',
-            title: 'Demo Assessment',
-            description: 'A sample assessment for testing',
-            type: 'mcq',
-            duration: 30,
-            totalQuestions: 5,
-            totalMarks: 50,
-            questions: [
-              {
-                id: 'q1',
-                question: 'What is the capital of France?',
-                type: 'multiple_choice',
-                marks: 10,
-                options: {
-                  a: 'London',
-                  b: 'Berlin',
-                  c: 'Paris',
-                  d: 'Madrid'
-                },
-                correctAnswer: 'c'
-              },
-              {
-                id: 'q2',
-                question: 'Which of the following is a JavaScript framework?',
-                type: 'multiple_choice',
-                marks: 10,
-                options: {
-                  a: 'React',
-                  b: 'Python',
-                  c: 'Java',
-                  d: 'SQL'
-                },
-                correctAnswer: 'a'
-              },
-              {
-                id: 'q3',
-                question: 'What does HTML stand for?',
-                type: 'multiple_choice',
-                marks: 10,
-                options: {
-                  a: 'High Tech Modern Language',
-                  b: 'Hyper Text Markup Language',
-                  c: 'Home Tool Markup Language',
-                  d: 'Hyperlinks and Text Markup Language'
-                },
-                correctAnswer: 'b'
-              },
-              {
-                id: 'q4',
-                question: 'Which CSS property is used to change background color?',
-                type: 'multiple_choice',
-                marks: 10,
-                options: {
-                  a: 'color',
-                  b: 'bgcolor',
-                  c: 'background-color',
-                  d: 'background'
-                },
-                correctAnswer: 'c'
-              },
-              {
-                id: 'q5',
-                question: 'What is 2 + 2?',
-                type: 'multiple_choice',
-                marks: 10,
-                options: {
-                  a: '3',
-                  b: '4',
-                  c: '5',
-                  d: '6'
-                },
-                correctAnswer: 'b'
-              }
-            ]
-          }
-        }]);
-      }
       
       if (!email && !candidateId) {
         return res.status(400).json({ error: 'Email or candidate ID is required' });
@@ -296,10 +207,72 @@ export class CandidateController {
         return res.status(404).json({ error: 'Candidate not found' });
       }
 
+      // Format assessment questions properly for frontend consumption
+      const formattedAssessment = {
+        ...candidate.assessment,
+        questions: candidate.assessment.questions.map(question => {
+          const baseQuestion = {
+            id: question.id,
+            question: question.question,
+            type: question.type,
+            marks: question.marks,
+            order: question.order,
+            hints: question.hints,
+            timeLimit: question.timeLimit || 120, // Default 2 minutes per question
+          };
+
+          // Format MCQ questions
+          if (question.type === 'multiple_choice' && question.mcqData) {
+            const mcqData = question.mcqData as any;
+            return {
+              ...baseQuestion,
+              options: mcqData.options || [],
+              multipleCorrect: mcqData.multipleCorrect || false,
+              difficulty: mcqData.difficulty || 'Medium',
+              explanation: mcqData.explanation || '',
+              category: mcqData.category || 'General'
+            };
+          }
+
+          // Format coding questions
+          if (question.type === 'coding' && question.codingData) {
+            const codingData = question.codingData as any;
+            return {
+              ...baseQuestion,
+              title: codingData.title || question.question,
+              description: codingData.description || question.question,
+              difficulty: codingData.difficulty || 'Medium',
+              languages: codingData.languages || ['javascript', 'python', 'java', 'cpp'],
+              starterCode: codingData.starterCode || {
+                javascript: '// Write your solution here\nfunction solution() {\n    \n}',
+                python: '# Write your solution here\ndef solution():\n    pass',
+                java: '// Write your solution here\nclass Solution {\n    public void solution() {\n        \n    }\n}',
+                cpp: '// Write your solution here\n#include <iostream>\nusing namespace std;\n\nint main() {\n    return 0;\n}'
+              },
+              examples: codingData.examples || [],
+              constraints: codingData.constraints || [],
+              testCases: codingData.testCases || [],
+              timeLimit: codingData.timeLimit || 30,
+              memoryLimit: codingData.memoryLimit || 256
+            };
+          }
+
+          return baseQuestion;
+        })
+      };
+
       return res.json([{
         id: candidate.id,
-        candidate: candidate,
-        assessment: candidate.assessment
+        candidate: {
+          id: candidate.id,
+          candidateId: candidateId, // Include the login ID for reference
+          name: candidate.name,
+          email: candidate.email,
+          status: candidate.status,
+          startedAt: candidate.startedAt,
+          timeSpent: candidate.timeSpent
+        },
+        assessment: formattedAssessment
       }]);
     } catch (error) {
       console.error('Error fetching candidate assessment:', error);
@@ -424,7 +397,16 @@ export class CandidateController {
       console.log('Resending email with credential ID:', displayCandidateId, 'for candidate:', candidate.email);
       
       // Generate a new password for resending (since we can't decrypt the stored hash)
-      const newPassword = Math.random().toString(36).slice(-10);
+      const newPassword = Math.random().toString(36).slice(-8);
+      const newPasswordHash = await bcrypt.hash(newPassword, 10);
+      
+      // Update the credential with the new password hash
+      await prisma.credential.update({
+        where: { id: credential.id },
+        data: { passwordHash: newPasswordHash }
+      });
+      
+      console.log('Updated password hash for credential ID:', displayCandidateId);
       
       // Send credential email with the new password
       await emailService.sendCandidateCredentialEmail(
@@ -439,7 +421,11 @@ export class CandidateController {
         candidate.assessment?.title || 'Assessment'
       );
       
-      return res.json({ success: true, message: 'New credentials sent successfully' });
+      return res.json({ 
+        success: true, 
+        message: 'New credentials sent successfully',
+        newPassword: newPassword // Include in response for debugging
+      });
     } catch (error) {
       console.error('Error sending candidate email:', error);
       return res.status(500).json({ error: 'Failed to send email' });
@@ -824,6 +810,50 @@ export class CandidateController {
         error: 'Server error during testing',
         details: error.message 
       });
+    }
+  }
+
+  // Manually update a candidate's password for testing
+  async updateCandidatePassword(req, res) {
+    try {
+      const { candidateId, newPassword } = req.body;
+      
+      if (!candidateId || !newPassword) {
+        return res.status(400).json({ error: 'Candidate ID and new password are required' });
+      }
+      
+      console.log('Updating password for candidate:', candidateId);
+      
+      // Find the credential
+      const credential = await prisma.credential.findUnique({
+        where: { candidateId }
+      });
+      
+      if (!credential) {
+        return res.status(404).json({ error: 'Credential not found' });
+      }
+      
+      // Hash the new password
+      const hashedPassword = await bcrypt.hash(newPassword, 10);
+      
+      // Update the credential
+      await prisma.credential.update({
+        where: { id: credential.id },
+        data: { passwordHash: hashedPassword }
+      });
+      
+      console.log('Password updated successfully for:', candidateId);
+      
+      return res.json({
+        success: true,
+        message: 'Password updated successfully',
+        candidateId,
+        newPassword // Include for debugging
+      });
+      
+    } catch (error) {
+      console.error('Error updating password:', error);
+      return res.status(500).json({ error: 'Failed to update password' });
     }
   }
 } 

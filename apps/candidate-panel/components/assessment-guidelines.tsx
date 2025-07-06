@@ -20,9 +20,11 @@ import {
 
 interface AssessmentGuidelinesProps {
   onAccept: () => void
+  candidateData?: any
+  assessmentData?: any
 }
 
-export default function AssessmentGuidelines({ onAccept }: AssessmentGuidelinesProps) {
+export default function AssessmentGuidelines({ onAccept, candidateData, assessmentData }: AssessmentGuidelinesProps) {
   const [startText, setStartText] = useState("")
   const [openSections, setOpenSections] = useState({
     keyInstructions: true,
@@ -71,14 +73,19 @@ export default function AssessmentGuidelines({ onAccept }: AssessmentGuidelinesP
     }
   }
 
-  // Mock assessment data
-  const assessmentData = {
-    title: "Assessment for opportunity",
-    duration: "30 Minutes",
-    questions: "10",
-    marks: "10",
-    startDate: "16 Jun 25, 10:19 PM IST",
-    endDate: "15 Jul 25, 10:29 PM IST",
+  // Format assessment data for display
+  const assessment = assessmentData || {}
+  const formattedAssessment = {
+    title: assessment.title || "Assessment",
+    description: assessment.description || "Complete this assessment to demonstrate your skills",
+    duration: `${assessment.duration || 30} Minutes`,
+    questions: assessment.totalQuestions?.toString() || assessment.questions?.length?.toString() || "N/A",
+    marks: assessment.totalMarks?.toString() || "N/A",
+    type: assessment.type || "multiple_choice",
+    instructions: assessment.instructions || "Please read all instructions carefully before starting.",
+    // Format dates if available
+    startDate: assessment.startDate ? new Date(assessment.startDate).toLocaleDateString() : "Available Now",
+    endDate: assessment.endDate ? new Date(assessment.endDate).toLocaleDateString() : "No End Date",
   }
 
   return (
@@ -101,47 +108,70 @@ export default function AssessmentGuidelines({ onAccept }: AssessmentGuidelinesP
               </Badge>
             </div>
 
-            <h1 className="text-3xl font-bold text-white mb-6">{assessmentData.title}</h1>
+            <h1 className="text-3xl font-bold text-white mb-6">{formattedAssessment.title}</h1>
+
+            {/* Assessment Description */}
+            {formattedAssessment.description && (
+              <div className="mb-6 p-4 bg-[#1a1d21]/50 rounded-lg border border-[#2a2d31]">
+                <p className="text-gray-300">{formattedAssessment.description}</p>
+              </div>
+            )}
 
             <div className="space-y-4 mb-8">
               <div className="flex items-center space-x-3">
                 <Clock className="w-5 h-5 text-gray-400" />
                 <span className="text-gray-300">Duration</span>
-                <span className="font-semibold text-white">{assessmentData.duration}</span>
+                <span className="font-semibold text-white">{formattedAssessment.duration}</span>
               </div>
 
               <div className="flex items-center space-x-3">
                 <FileText className="w-5 h-5 text-gray-400" />
                 <span className="text-gray-300">Questions</span>
-                <span className="font-semibold text-white">{assessmentData.questions}</span>
+                <span className="font-semibold text-white">{formattedAssessment.questions}</span>
               </div>
 
               <div className="flex items-center space-x-3">
                 <Award className="w-5 h-5 text-gray-400" />
-                <span className="text-gray-300">Marks</span>
-                <span className="font-semibold text-white">{assessmentData.marks}</span>
+                <span className="text-gray-300">Total Marks</span>
+                <span className="font-semibold text-white">{formattedAssessment.marks}</span>
+              </div>
+
+              <div className="flex items-center space-x-3">
+                <Badge className="bg-blue-500/20 text-blue-400 border-blue-500/30">
+                  {formattedAssessment.type === 'multiple_choice' ? 'MCQ Assessment' : 
+                   formattedAssessment.type === 'coding' ? 'Coding Assessment' : 
+                   'Mixed Assessment'}
+                </Badge>
               </div>
 
               <div className="flex items-center space-x-3">
                 <Calendar className="w-5 h-5 text-gray-400" />
-                <span className="text-gray-300">Start Date</span>
-                <span className="font-semibold text-white">{assessmentData.startDate}</span>
+                <span className="text-gray-300">Available From</span>
+                <span className="font-semibold text-white">{formattedAssessment.startDate}</span>
               </div>
 
               <div className="flex items-center space-x-3">
                 <CalendarDays className="w-5 h-5 text-gray-400" />
-                <span className="text-gray-300">End Date</span>
-                <span className="font-semibold text-white">{assessmentData.endDate}</span>
+                <span className="text-gray-300">Available Until</span>
+                <span className="font-semibold text-white">{formattedAssessment.endDate}</span>
               </div>
             </div>
 
             <div className="bg-[#1a1d21] p-6 rounded-lg border border-[#2a2d31]">
-              <h2 className="text-xl font-semibold text-white mb-4">Hello,</h2>
+              <h2 className="text-xl font-semibold text-white mb-4">
+                Hello{candidateData?.name ? `, ${candidateData.name}` : ''}!
+              </h2>
               <p className="text-gray-300 mb-4">
                 We are delighted to welcome you to this assessment process. This assessment is designed to test the
                 necessary skills and knowledge that would help us make an informed decision regarding your application
                 further.
               </p>
+              {formattedAssessment.instructions && (
+                <div className="mb-4 p-3 bg-[#ff4d00]/10 border border-[#ff4d00]/30 rounded-lg">
+                  <p className="text-[#ff4d00] text-sm font-medium mb-2">Specific Instructions:</p>
+                  <p className="text-gray-300 text-sm">{formattedAssessment.instructions}</p>
+                </div>
+              )}
               <p className="text-gray-300 mb-4">
                 Before you start the assessment, kindly go through all the instructions and guidelines carefully. If you
                 encounter any technical issues or have questions, please contact our support team.
@@ -221,7 +251,8 @@ export default function AssessmentGuidelines({ onAccept }: AssessmentGuidelinesP
               </CollapsibleTrigger>
               <CollapsibleContent className="p-4 bg-[#0f1114] border border-[#2a2d31] rounded-b-lg">
                 <div className="text-sm text-gray-300">
-                  <p>Assessment contains 10 questions to be completed in 30 minutes.</p>
+                  <p>Assessment contains {formattedAssessment.questions} questions to be completed in {formattedAssessment.duration}.</p>
+                  <p>Total marks: {formattedAssessment.marks}</p>
                   <p>Each question carries equal weightage.</p>
                 </div>
               </CollapsibleContent>
@@ -242,9 +273,12 @@ export default function AssessmentGuidelines({ onAccept }: AssessmentGuidelinesP
               </CollapsibleTrigger>
               <CollapsibleContent className="p-4 bg-[#0f1114] border border-[#2a2d31] rounded-b-lg">
                 <div className="text-sm text-gray-300">
-                  <p>Each correct answer: +1 mark</p>
+                  <p>Total marks: {formattedAssessment.marks}</p>
+                  <p>Marking varies by question type and difficulty</p>
                   <p>No negative marking for incorrect answers</p>
-                  <p>Total marks: 10</p>
+                  {formattedAssessment.type === 'coding' && (
+                    <p>Coding questions are evaluated based on test case results</p>
+                  )}
                 </div>
               </CollapsibleContent>
             </Collapsible>

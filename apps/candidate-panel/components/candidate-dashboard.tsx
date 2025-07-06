@@ -42,22 +42,62 @@ export default function CandidateDashboard({ candidateData, onStartAssessment, o
 
   const fetchAssessments = async () => {
     try {
-      const token = sessionStorage.getItem('authToken')
-      const response = await fetch(`http://localhost:5000/api/candidate/assessments?email=${encodeURIComponent(candidateData.email)}`, {
+      setLoading(true)
+      setError("")
+      
+      // Use the assigned assessment from login data if available
+      if (candidateData.allAssignments && candidateData.allAssignments.length > 0) {
+        console.log('Using assessments from login data:', candidateData.allAssignments)
+        setAssessments(candidateData.allAssignments)
+        setLoading(false)
+        return
+      }
+      
+      // Fallback to API call with candidateId or email
+      const candidateId = candidateData.candidateId
+      const email = candidateData.email
+      
+      let apiUrl = 'http://localhost:5000/api/candidate/assessments'
+      if (candidateId) {
+        apiUrl += `?candidateId=${encodeURIComponent(candidateId)}`
+      } else if (email) {
+        apiUrl += `?email=${encodeURIComponent(email)}`
+      }
+      
+      console.log('Fetching assessments from:', apiUrl)
+      
+      const response = await fetch(apiUrl, {
         headers: {
-          'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         }
       })
       
+      console.log('Assessment API response status:', response.status)
+      
       if (!response.ok) {
-        throw new Error("Failed to fetch assessments")
+        const errorData = await response.text()
+        console.error('Assessment API error:', errorData)
+        throw new Error(`Failed to fetch assessments: ${response.status}`)
       }
       
       const data = await response.json()
+      console.log('Fetched assessments:', data)
       setAssessments(Array.isArray(data) ? data : [])
     } catch (err: any) {
-      setError(err.message)
+      console.error('Error fetching assessments:', err)
+      setError(err.message || "Failed to load assessments")
+      
+      // If API fails, check if we have assessment data from login
+      if (candidateData.assignedAssessment) {
+        console.log('Using single assessment from login data')
+        setAssessments([{
+          id: candidateData.id || 'single-assessment',
+          candidate: candidateData,
+          assessment: candidateData.assignedAssessment,
+          status: candidateData.status || 'invited'
+        }])
+        setError("") // Clear error since we have fallback data
+      }
     } finally {
       setLoading(false)
     }

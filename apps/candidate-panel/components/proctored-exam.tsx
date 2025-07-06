@@ -30,14 +30,41 @@ export default function ProctoredExam({ candidateData, systemStatus, onComplete 
   const [currentAnswer, setCurrentAnswer] = useState("")
   const [savedAnswers, setSavedAnswers] = useState<Record<number, boolean>>({})
 
-  // Use questions from assessment prop, fallback to []
-  const questions = candidateData?.assignedAssessment?.questions || [];
+  // Get questions from assessment data - ensure we have proper question structure
+  const questions = candidateData?.assignedAssessment?.questions || []
+  
+  // Format questions to ensure they have proper structure
+  const formattedQuestions = questions.map((q: any, index: number) => ({
+    id: q.id || `q${index + 1}`,
+    question: q.question || '',
+    type: q.type || 'multiple_choice',
+    marks: q.marks || 1,
+    options: q.options || [],
+    timeLimit: q.timeLimit || 120, // 2 minutes default
+    difficulty: q.difficulty || 'Medium',
+    category: q.category || 'General',
+    explanation: q.explanation || '',
+    multipleCorrect: q.multipleCorrect || false,
+    // For backward compatibility, also check if options are in old format
+    ...(q.options && Array.isArray(q.options) ? {} : {
+      options: Object.keys(q.options || {}).map(key => ({
+        id: key,
+        text: q.options[key],
+        isCorrect: false // This will be determined by backend during scoring
+      }))
+    })
+  }))
+  
+  // Debug logging disabled for security
+  // console.log('Formatted questions for proctored exam:', formattedQuestions)
 
   useEffect(() => {
-    initializeUltraStrictProctoring()
-    setQuestionTimeLeft(questions[0].timeLimit)
+    if (formattedQuestions.length > 0) {
+      initializeUltraStrictProctoring()
+      setQuestionTimeLeft(formattedQuestions[0].timeLimit)
+    }
     return () => cleanup()
-  }, [])
+  }, [formattedQuestions.length])
 
   useEffect(() => {
     setCurrentAnswer(answers[currentQuestion] || "")
@@ -227,12 +254,24 @@ export default function ProctoredExam({ candidateData, systemStatus, onComplete 
       return originalFetch.apply(this, args)
     }
 
-    // Disable console completely
-    Object.defineProperty(window, "console", {
-      value: {},
-      writable: false,
-      configurable: false,
-    })
+    // Disable console methods safely
+    try {
+      const noop = () => {}
+      const consoleMethods = ['log', 'warn', 'error', 'info', 'debug', 'trace', 'table', 'group', 'groupEnd', 'clear', 'assert', 'count', 'time', 'timeEnd']
+      
+      consoleMethods.forEach(method => {
+        try {
+          const consoleAny = window.console as any
+          if (typeof consoleAny[method] === 'function') {
+            consoleAny[method] = noop
+          }
+        } catch (e) {
+          // Silently ignore if method can't be overridden
+        }
+      })
+    } catch (e) {
+      // Silently ignore console override errors
+    }
 
     // Block developer tools detection
     const devtools = { open: false, orientation: null }
@@ -343,9 +382,9 @@ export default function ProctoredExam({ candidateData, systemStatus, onComplete 
         setQuestionTimeLeft((prev) => {
           if (prev <= 1) {
             // Auto-move to next question when time expires
-            if (currentQuestion < questions.length - 1) {
+            if (currentQuestion < formattedQuestions.length - 1) {
               setCurrentQuestion((prev) => prev + 1)
-              setQuestionTimeLeft(questions[currentQuestion + 1].timeLimit)
+              setQuestionTimeLeft(formattedQuestions[currentQuestion + 1].timeLimit)
             } else {
               submitExam(false, "All questions completed")
             }
@@ -398,9 +437,9 @@ export default function ProctoredExam({ candidateData, systemStatus, onComplete 
   }
 
   const nextQuestion = () => {
-    if (currentQuestion < questions.length - 1) {
+    if (currentQuestion < formattedQuestions.length - 1) {
       setCurrentQuestion((prev) => prev + 1)
-      setQuestionTimeLeft(questions[currentQuestion + 1].timeLimit)
+      setQuestionTimeLeft(formattedQuestions[currentQuestion + 1].timeLimit)
       setCurrentAnswer(answers[currentQuestion + 1] || "")
     } else {
       submitExam(false, "Exam completed")
@@ -410,7 +449,7 @@ export default function ProctoredExam({ candidateData, systemStatus, onComplete 
   const previousQuestion = () => {
     if (currentQuestion > 0) {
       setCurrentQuestion((prev) => prev - 1)
-      setQuestionTimeLeft(questions[currentQuestion - 1].timeLimit)
+      setQuestionTimeLeft(formattedQuestions[currentQuestion - 1].timeLimit)
       setCurrentAnswer(answers[currentQuestion - 1] || "")
     }
   }
@@ -427,7 +466,7 @@ export default function ProctoredExam({ candidateData, systemStatus, onComplete 
       autoSubmit,
       reason,
       score: calculateScore(),
-      totalQuestions: questions.length,
+      totalQuestions: formattedQuestions.length,
       timestamp: new Date().toISOString(),
     }
 
@@ -442,38 +481,17 @@ export default function ProctoredExam({ candidateData, systemStatus, onComplete 
   }
 
   const calculateScore = () => {
-    const correctAnswers = {
-      0: "Paris",
-      1: "O(log n)",
-      2: "push",
-      3: "All of the above",
-      4: "useState, useEffect",
-      5: "Hyper Text Markup Language",
-      6: "background-color",
-      7: "Stack",
-    }
-
+    // Client-side scoring is for display purposes only
+    // Actual scoring will be done by the backend
     let score = 0
     Object.entries(answers).forEach(([questionIndex, answer]) => {
       const idx = Number(questionIndex)
-      if (Object.prototype.hasOwnProperty.call(correctAnswers, idx)) {
-        const correctAnswer = correctAnswers[idx as keyof typeof correctAnswers]
-        if (questions[idx].type === "fill") {
-          // For fill-in-the-blank, check if answer contains correct keywords
-          const answerLower = answer.toLowerCase().trim()
-          const correctLower = correctAnswer.toLowerCase()
-          if (answerLower.includes(correctLower) || correctLower.includes(answerLower)) {
-            score += questions[idx].marks
-          }
-        } else {
-          // For MCQ, exact match
-          if (correctAnswer === answer) {
-            score += questions[idx].marks
-          }
-        }
+      if (idx < formattedQuestions.length && answer) {
+        // Give partial credit for answered questions (actual scoring done by backend)
+        score += formattedQuestions[idx].marks * 0.5 // 50% for attempting
       }
     })
-    return score
+    return Math.round(score)
   }
 
   const cleanup = () => {
@@ -487,7 +505,7 @@ export default function ProctoredExam({ candidateData, systemStatus, onComplete 
     setShowSummary(!showSummary)
   }
 
-  const progress = ((currentQuestion + 1) / questions.length) * 100
+  const progress = formattedQuestions.length > 0 ? ((currentQuestion + 1) / formattedQuestions.length) * 100 : 0
   const answeredCount = Object.keys(answers).length
 
   // Get question timer color based on remaining time
@@ -565,9 +583,9 @@ export default function ProctoredExam({ candidateData, systemStatus, onComplete 
           {/* Progress */}
           <div className="mb-6">
             <div className="flex justify-between items-center mb-2">
-              <span className="text-sm text-gray-400">
-                Question {currentQuestion + 1} of {questions.length}
-              </span>
+                          <span className="text-sm text-gray-400">
+              Question {currentQuestion + 1} of {formattedQuestions.length}
+            </span>
               <span className="text-sm text-gray-400">{answeredCount} answered</span>
             </div>
             <Progress value={progress} className="h-2 bg-[#2a2d31]" />
@@ -592,62 +610,70 @@ export default function ProctoredExam({ candidateData, systemStatus, onComplete 
                 <div className="text-right">
                   <div className="text-sm text-gray-400">Time Remaining</div>
                   <div
-                    className={`text-xl font-mono font-bold ${getTimerColor(questionTimeLeft, questions[currentQuestion].timeLimit)}`}
+                    className={`text-xl font-mono font-bold ${formattedQuestions[currentQuestion] ? getTimerColor(questionTimeLeft, formattedQuestions[currentQuestion].timeLimit) : 'text-gray-400'}`}
                   >
                     {formatTime(questionTimeLeft)}
                   </div>
-                  <div className="text-xs text-gray-500">Marks: {questions[currentQuestion].marks}</div>
+                  <div className="text-xs text-gray-500">Marks: {formattedQuestions[currentQuestion]?.marks || 0}</div>
                 </div>
               </div>
 
-              <p className="text-xl text-gray-200 mb-8">{questions[currentQuestion].question}</p>
+              {formattedQuestions[currentQuestion] ? (
+                <>
+                  <p className="text-xl text-gray-200 mb-8">{formattedQuestions[currentQuestion].question}</p>
 
-              {questions[currentQuestion].type === "mcq" ? (
-                <RadioGroup
-                  value={answers[currentQuestion] || ""}
-                  onValueChange={handleAnswerChange}
-                  className="space-y-4"
-                >
-                  {questions[currentQuestion].options?.map((option: any, index: number) => (
-                    <div
-                      key={index}
-                      className="flex items-center space-x-4 p-4 rounded-lg border border-[#2a2d31] hover:border-[#ff4d00]/30 hover:bg-[#ff4d00]/5 transition-colors cursor-pointer"
+                  {formattedQuestions[currentQuestion].type === "multiple_choice" ? (
+                    <RadioGroup
+                      value={answers[currentQuestion] || ""}
+                      onValueChange={handleAnswerChange}
+                      className="space-y-4"
                     >
-                      <RadioGroupItem
-                        value={typeof option === 'string' ? option : option.text}
-                        id={`option-${index}`}
-                        className="border-gray-500 text-[#ff4d00]"
-                      />
-                      <Label htmlFor={`option-${index}`} className="flex-1 text-gray-200 cursor-pointer text-lg">
-                        {typeof option === 'string' ? option : option.text}
-                      </Label>
-                    </div>
-                  ))}
-                </RadioGroup>
-              ) : (
-                <div className="space-y-4">
-                  <div className="relative">
-                    <input
-                      type="text"
-                      value={currentAnswer}
-                      onChange={(e) => handleFillAnswerChange(e.target.value)}
-                      placeholder={questions[currentQuestion].placeholder}
-                      className="w-full p-4 bg-[#2a2d31] border border-[#3a3d41] rounded-lg text-white placeholder-gray-400 focus:border-[#ff4d00] focus:outline-none text-lg"
-                    />
-                    {savedAnswers[currentQuestion] && (
-                      <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
-                        <Badge className="bg-green-900/30 text-green-400 border-green-500/30 text-xs">Saved</Badge>
+                      {formattedQuestions[currentQuestion].options?.map((option: any, index: number) => (
+                        <div
+                          key={index}
+                          className="flex items-center space-x-4 p-4 rounded-lg border border-[#2a2d31] hover:border-[#ff4d00]/30 hover:bg-[#ff4d00]/5 transition-colors cursor-pointer"
+                        >
+                          <RadioGroupItem
+                            value={typeof option === 'string' ? option : option.text || option.id}
+                            id={`option-${index}`}
+                            className="border-gray-500 text-[#ff4d00]"
+                          />
+                          <Label htmlFor={`option-${index}`} className="flex-1 text-gray-200 cursor-pointer text-lg">
+                            {typeof option === 'string' ? option : option.text || option.id}
+                          </Label>
+                        </div>
+                      ))}
+                    </RadioGroup>
+                  ) : (
+                    <div className="space-y-4">
+                      <div className="relative">
+                        <input
+                          type="text"
+                          value={currentAnswer}
+                          onChange={(e) => handleFillAnswerChange(e.target.value)}
+                          placeholder="Enter your answer here"
+                          className="w-full p-4 bg-[#2a2d31] border border-[#3a3d41] rounded-lg text-white placeholder-gray-400 focus:border-[#ff4d00] focus:outline-none text-lg"
+                        />
+                        {savedAnswers[currentQuestion] && (
+                          <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                            <Badge className="bg-green-900/30 text-green-400 border-green-500/30 text-xs">Saved</Badge>
+                          </div>
+                        )}
                       </div>
-                    )}
-                  </div>
-                  <Button
-                    id="save-btn"
-                    onClick={saveAnswer}
-                    variant="outline"
-                    className="border-[#ff4d00] text-[#ff4d00] hover:bg-[#ff4d00]/10"
-                  >
-                    Save Answer
-                  </Button>
+                      <Button
+                        id="save-btn"
+                        onClick={saveAnswer}
+                        variant="outline"
+                        className="border-[#ff4d00] text-[#ff4d00] hover:bg-[#ff4d00]/10"
+                      >
+                        Save Answer
+                      </Button>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <div className="text-center text-gray-400 py-8">
+                  <p>No questions available</p>
                 </div>
               )}
 
@@ -662,7 +688,7 @@ export default function ProctoredExam({ candidateData, systemStatus, onComplete 
                 </Button>
 
                 <div className="flex space-x-3">
-                  {questions[currentQuestion].type === "fill" && (
+                  {formattedQuestions[currentQuestion]?.type === "fill" && (
                     <Button
                       onClick={saveAnswer}
                       variant="outline"
@@ -673,9 +699,10 @@ export default function ProctoredExam({ candidateData, systemStatus, onComplete 
                   )}
                   <Button
                     onClick={nextQuestion}
-                    className="bg-gradient-to-r from-[#ff4d00] to-[#ff6b35] hover:from-[#e63900] hover:to-[#ff5722] text-white px-8 py-3"
+                    disabled={!formattedQuestions[currentQuestion]}
+                    className="bg-gradient-to-r from-[#ff4d00] to-[#ff6b35] hover:from-[#e63900] hover:to-[#ff5722] text-white px-8 py-3 disabled:opacity-50"
                   >
-                    {currentQuestion === questions.length - 1 ? "Finish Exam" : "Next Question"}
+                    {currentQuestion === formattedQuestions.length - 1 ? "Finish Exam" : "Next Question"}
                     <ChevronRight className="w-4 h-4 ml-2" />
                   </Button>
                 </div>
@@ -705,12 +732,12 @@ export default function ProctoredExam({ candidateData, systemStatus, onComplete 
           <div className="mb-6">
             <h3 className="text-sm font-medium text-gray-300 mb-3">Questions</h3>
             <div className="grid grid-cols-3 gap-2">
-              {questions.map((question: any, index: number) => (
+              {formattedQuestions.map((question: any, index: number) => (
                 <button
                   key={index}
                   onClick={() => {
                     setCurrentQuestion(index)
-                    setQuestionTimeLeft(questions[index].timeLimit)
+                    setQuestionTimeLeft(formattedQuestions[index].timeLimit)
                   }}
                   className={`w-12 h-12 rounded text-sm font-medium transition-colors relative ${
                     index === currentQuestion
@@ -729,6 +756,11 @@ export default function ProctoredExam({ candidateData, systemStatus, onComplete 
                 </button>
               ))}
             </div>
+            {formattedQuestions.length === 0 && (
+              <div className="text-center text-gray-400 text-sm">
+                No questions loaded
+              </div>
+            )}
           </div>
 
           {/* Security Status */}
@@ -811,12 +843,12 @@ export default function ProctoredExam({ candidateData, systemStatus, onComplete 
                     fill="none"
                     stroke="#10b981"
                     strokeWidth="2"
-                    strokeDasharray={`${(answeredCount / questions.length) * 100}, 100`}
+                    strokeDasharray={`${formattedQuestions.length > 0 ? (answeredCount / formattedQuestions.length) * 100 : 0}, 100`}
                   />
                 </svg>
                 <div className="absolute inset-0 flex items-center justify-center">
                   <div className="text-center">
-                    <div className="text-2xl font-bold text-gray-900">{questions.length}</div>
+                    <div className="text-2xl font-bold text-gray-900">{formattedQuestions.length}</div>
                     <div className="text-xs text-gray-600">Total Questions</div>
                   </div>
                 </div>
@@ -829,7 +861,7 @@ export default function ProctoredExam({ candidateData, systemStatus, onComplete 
                 </div>
                 <div className="flex items-center justify-center space-x-2">
                   <div className="w-3 h-3 bg-gray-300 rounded"></div>
-                  <span className="text-gray-700">Skipped: {questions.length - answeredCount}</span>
+                  <span className="text-gray-700">Skipped: {formattedQuestions.length - answeredCount}</span>
                 </div>
               </div>
             </div>
@@ -838,12 +870,12 @@ export default function ProctoredExam({ candidateData, systemStatus, onComplete 
             <div className="mb-6">
               <h3 className="font-medium text-gray-900 mb-3">Status of Questions</h3>
               <div className="grid grid-cols-5 gap-2">
-                {questions.map((_: any, index: number) => (
+                {formattedQuestions.map((_: any, index: number) => (
                   <button
                     key={index}
                     onClick={() => {
                       setCurrentQuestion(index)
-                      setQuestionTimeLeft(questions[index].timeLimit)
+                      setQuestionTimeLeft(formattedQuestions[index].timeLimit)
                       setShowSummary(false)
                     }}
                     className={`w-10 h-10 rounded text-sm font-medium ${

@@ -125,16 +125,43 @@ export default function CodingExam({ candidateData, systemStatus, assessment, on
     return {
       id: q.id || idx + 1,
       title: codingData.title || codingData.question || `Problem ${idx + 1}`,
-      description: codingData.description || codingData.explanation || codingData.question || '',
-      difficulty: codingData.difficulty || 'Easy',
-      examples: codingData.examples || [], // If backend has examples field, else []
-      constraints: codingData.constraints || codingData.hints || [], // Use hints as constraints if present
-      testCases: codingData.testCases || [], // If backend has testCases field, else []
-      starterCode: codingData.starterCode || { javascript: '', python: '', java: '', cpp: '' },
-      timeLimit: codingData.timeLimit || assessment.duration || 30,
+      description: codingData.description || codingData.explanation || codingData.question || 'Solve this coding problem',
+      difficulty: codingData.difficulty || 'Medium',
+      examples: codingData.examples || [
+        {
+          input: "Sample input will be provided",
+          output: "Expected output",
+          explanation: "Explanation of the example"
+        }
+      ],
+      constraints: codingData.constraints || codingData.hints || [
+        "Read the problem statement carefully",
+        "Consider edge cases",
+        "Optimize your solution"
+      ],
+      testCases: (codingData.testCases || []).map((tc: any, tcIdx: number) => ({
+        id: tcIdx + 1,
+        type: tc.isPublic ? "public" : "private",
+        input: tc.input || "",
+        expectedOutput: tc.expectedOutput || tc.output || "",
+        actualOutput: undefined,
+        status: "pending" as const,
+        runtime: undefined,
+        memory: undefined,
+        visible: tc.isPublic || false
+      })),
+      starterCode: codingData.starterCode || {
+        javascript: '// Write your solution here\nfunction solution(input) {\n    // Your code here\n    return result;\n}',
+        python: '# Write your solution here\ndef solution(input):\n    # Your code here\n    return result',
+        java: '// Write your solution here\npublic class Solution {\n    public String solution(String input) {\n        // Your code here\n        return result;\n    }\n}',
+        cpp: '// Write your solution here\n#include <iostream>\n#include <string>\nusing namespace std;\n\nstring solution(string input) {\n    // Your code here\n    return result;\n}'
+      },
+      timeLimit: codingData.timeLimit || assessment?.duration || 30,
       marks: codingData.marks || q.marks || 1,
     };
   });
+  
+  console.log('Formatted coding problems:', problems);
 
   const languages = [
     { id: "javascript", name: "JavaScript", monacoId: "javascript" },
@@ -144,12 +171,14 @@ export default function CodingExam({ candidateData, systemStatus, assessment, on
   ]
 
   useEffect(() => {
-    initializeUltraStrictProctoring()
-    setProblemTimeLeft(problems[0].timeLimit * 60)
-    setCode(problems[0].starterCode[language])
-    setTestResults(problems[0].testCases)
+    if (problems.length > 0) {
+      initializeUltraStrictProctoring()
+      setProblemTimeLeft(problems[0].timeLimit * 60)
+      setCode(problems[0].starterCode[language])
+      setTestResults(problems[0].testCases)
+    }
     return () => cleanup()
-  }, [])
+  }, [problems.length])
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -159,9 +188,11 @@ export default function CodingExam({ candidateData, systemStatus, assessment, on
   }, [])
 
   useEffect(() => {
-    setCode(problems[currentProblem].starterCode[language])
-    setTestResults(problems[currentProblem].testCases)
-  }, [currentProblem, language])
+    if (problems.length > 0 && problems[currentProblem]) {
+      setCode(problems[currentProblem].starterCode[language])
+      setTestResults(problems[currentProblem].testCases)
+    }
+  }, [currentProblem, language, problems.length])
 
   const initializeMonacoEditor = async () => {
     if (editorRef.current && !monacoEditorRef.current) {
@@ -860,6 +891,14 @@ export default function CodingExam({ candidateData, systemStatus, assessment, on
 
     const results = {
       candidateId: candidateData.candidateId,
+      assessmentId: candidateData.assessmentId,
+      answers: submissions.map((sub, idx) => ({
+        questionId: problems[idx]?.id || `problem-${idx}`,
+        answer: sub.code,
+        timeSpent: sub.runtime || 0,
+        language: sub.language,
+        score: sub.score || 0
+      })),
       submissions,
       violations: violations,
       violationLogs,
@@ -873,7 +912,7 @@ export default function CodingExam({ candidateData, systemStatus, assessment, on
         faceDetectionActive,
         eyeTrackingActive,
       },
-      timeSpent: 60 * 60 - timeLeft,
+      totalTimeSpent: 60 * 60 - timeLeft,
       autoSubmit,
       reason,
       problemsCompleted: currentProblem + 1,
@@ -930,9 +969,21 @@ export default function CodingExam({ candidateData, systemStatus, assessment, on
     }
   }
 
-  const progress = ((currentProblem + 1) / problems.length) * 100
+  const progress = problems.length > 0 ? ((currentProblem + 1) / problems.length) * 100 : 0
   const criticalViolations = violations.filter((v) => v.type === "critical").length
   const warningViolations = violations.filter((v) => v.type === "warning").length
+  
+  // Show error state if no problems are available
+  if (problems.length === 0) {
+    return (
+      <div className="min-h-screen bg-[#0a0b0d] text-white flex items-center justify-center">
+        <div className="text-center">
+          <h2 className="text-2xl font-bold mb-4">No Coding Problems Available</h2>
+          <p className="text-gray-400">Please contact support if this is unexpected.</p>
+        </div>
+      </div>
+    )
+  }
 
   useEffect(() => {
     if (monacoEditorRef.current) {

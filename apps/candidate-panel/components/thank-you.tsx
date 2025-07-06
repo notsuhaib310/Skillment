@@ -2,9 +2,16 @@
 
 import { useEffect, useState } from "react"
 import { Card, CardContent } from "@/components/ui/card"
-import { CheckCircle, Trophy, Star } from "lucide-react"
+import { Badge } from "@/components/ui/badge"
+import { CheckCircle, Trophy, Star, Clock, Target, Award, Calendar } from "lucide-react"
 
-export default function ThankYou() {
+interface ThankYouProps {
+  candidateData?: any
+  assessmentData?: any
+  submissionResult?: any
+}
+
+export default function ThankYou({ candidateData, assessmentData, submissionResult }: ThankYouProps) {
   const [countdown, setCountdown] = useState(5)
 
   useEffect(() => {
@@ -80,7 +87,7 @@ export default function ThankYou() {
             </div>
           </div>
 
-          <h1 className="text-5xl font-bold text-white mb-4">Thank You!</h1>
+          <h1 className="text-5xl font-bold text-white mb-4">Thank You{candidateData?.name ? `, ${candidateData.name}` : ''}!</h1>
 
           <p className="text-2xl text-gray-300 mb-8">Your assessment has been completed successfully</p>
 
@@ -90,22 +97,82 @@ export default function ThankYou() {
             <Trophy className="w-8 h-8 text-[#ff4d00]" />
           </div>
 
+          {/* Assessment Summary */}
+          {assessmentData && (
+            <div className="bg-white/5 p-6 rounded-lg border border-white/10 mb-8">
+              <h3 className="text-xl font-semibold text-white mb-4">Assessment Summary</h3>
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div className="flex items-center space-x-2">
+                  <Target className="w-4 h-4 text-[#ff4d00]" />
+                  <span className="text-gray-300">Assessment:</span>
+                  <span className="text-white font-medium">{assessmentData.title}</span>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Clock className="w-4 h-4 text-[#ff4d00]" />
+                  <span className="text-gray-300">Duration:</span>
+                  <span className="text-white font-medium">{assessmentData.duration} minutes</span>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Target className="w-4 h-4 text-[#ff4d00]" />
+                  <span className="text-gray-300">Questions:</span>
+                  <span className="text-white font-medium">{assessmentData.totalQuestions || assessmentData.questions?.length || 'N/A'}</span>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Award className="w-4 h-4 text-[#ff4d00]" />
+                  <span className="text-gray-300">Total Marks:</span>
+                  <span className="text-white font-medium">{assessmentData.totalMarks || 'N/A'}</span>
+                </div>
+                <div className="flex items-center space-x-2 col-span-2">
+                  <Calendar className="w-4 h-4 text-[#ff4d00]" />
+                  <span className="text-gray-300">Submitted:</span>
+                  <span className="text-white font-medium">{new Date().toLocaleString()}</span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Results Preview (if available) */}
+          {submissionResult && (
+            <div className="bg-gradient-to-r from-green-900/20 to-blue-900/20 p-6 rounded-lg border border-green-500/30 mb-8">
+              <h3 className="text-xl font-semibold text-green-400 mb-4">Preliminary Results</h3>
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                {submissionResult.score !== undefined && submissionResult.totalMarks && (
+                  <>
+                    <div className="text-center">
+                      <div className="text-3xl font-bold text-green-400">{submissionResult.score}</div>
+                      <div className="text-gray-300">Score</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-3xl font-bold text-blue-400">{submissionResult.percentage || Math.round((submissionResult.score / submissionResult.totalMarks) * 100)}%</div>
+                      <div className="text-gray-300">Percentage</div>
+                    </div>
+                  </>
+                )}
+              </div>
+              <div className="mt-4 text-center">
+                <Badge className="bg-green-900/30 text-green-400 border-green-500/30">
+                  Results processed successfully
+                </Badge>
+              </div>
+            </div>
+          )}
+
           <div className="space-y-3 text-gray-400 mb-8">
             <div className="flex items-center justify-center space-x-2">
               <CheckCircle className="w-5 h-5 text-green-400" />
-              <span>All responses have been recorded</span>
+              <span>All responses have been recorded securely</span>
             </div>
             <div className="flex items-center justify-center space-x-2">
               <CheckCircle className="w-5 h-5 text-green-400" />
-              <span>Security verification completed</span>
+              <span>Security verification completed successfully</span>
             </div>
             <div className="flex items-center justify-center space-x-2">
               <CheckCircle className="w-5 h-5 text-green-400" />
-              <span>Results will be processed shortly</span>
+              <span>{submissionResult ? 'Results have been processed' : 'Results will be processed shortly'}</span>
             </div>
             <div className="flex items-center justify-center space-x-2">
               <CheckCircle className="w-5 h-5 text-green-400" />
-              <span>You will be notified of your results</span>
+              <span>You will be notified of your final results</span>
             </div>
           </div>
 

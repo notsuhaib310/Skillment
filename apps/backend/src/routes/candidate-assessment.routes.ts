@@ -33,6 +33,101 @@ router.get('/assessments', async (req, res) => {
   }
 });
 
+// Public: Submit assessment answers (candidates don't use admin auth)
+router.post('/:assessmentId/candidate/:candidateId/submit', async (req, res) => {
+  try {
+    const { assessmentId, candidateId } = req.params;
+    const submissionData: AssessmentSubmission = req.body;
+
+    // Verify candidate exists and is assigned to this assessment
+    const candidate = await prisma.candidate.findFirst({
+      where: {
+        id: candidateId,
+        assessmentId: assessmentId
+      },
+      include: {
+        assessment: {
+          include: {
+            questions: true
+          }
+        }
+      }
+    });
+
+    if (!candidate) {
+      return res.status(404).json({ error: 'Candidate not found or not assigned to this assessment' });
+    }
+
+    if (candidate.status === 'submitted') {
+      return res.status(400).json({ error: 'Assessment already submitted' });
+    }
+
+    // Calculate score based on answers
+    let totalScore = 0;
+    const assessment = candidate.assessment;
+    
+    for (const answer of submissionData.answers) {
+      const question = assessment.questions.find(q => q.id === answer.questionId);
+      if (!question) continue;
+
+      // Score MCQ questions
+      if (question.type === 'multiple_choice' && question.mcqData) {
+        const mcqData = question.mcqData as MCQQuestionData;
+        const correctOptions = mcqData.options
+          .filter(opt => opt.isCorrect)
+          .map(opt => opt.id);
+        
+        const candidateAnswers = Array.isArray(answer.answer) ? answer.answer : [answer.answer];
+        
+        if (mcqData.multipleCorrect) {
+          // For multiple correct, check if all correct answers are selected and no wrong ones
+          const isCorrect = correctOptions.length === candidateAnswers.length &&
+            correctOptions.every(id => candidateAnswers.includes(id)) &&
+            candidateAnswers.every(id => correctOptions.includes(id));
+          
+          if (isCorrect) {
+            totalScore += question.marks;
+          }
+        } else {
+          // For single correct, check if the selected answer is correct
+          if (candidateAnswers.length === 1 && correctOptions.includes(candidateAnswers[0])) {
+            totalScore += question.marks;
+          }
+        }
+      }
+      
+      // For coding questions, manual evaluation needed (score = 0 for now)
+      // This would typically involve running the code against test cases
+    }
+
+    // Update candidate with submission data
+    const updatedCandidate = await prisma.candidate.update({
+      where: { id: candidateId },
+      data: {
+        status: 'submitted',
+        submittedAt: new Date(),
+        timeSpent: submissionData.totalTimeSpent,
+        score: totalScore,
+        answers: submissionData.answers
+      }
+    });
+
+    // Update assessment analytics
+    await updateAssessmentAnalytics(assessmentId);
+
+    return res.json({
+      message: 'Assessment submitted successfully',
+      candidate: updatedCandidate,
+      score: totalScore,
+      totalMarks: assessment.totalMarks,
+      percentage: Math.round((totalScore / assessment.totalMarks) * 100)
+    });
+  } catch (error) {
+    console.error('Error submitting assessment:', error);
+    return res.status(500).json({ error: 'Failed to submit assessment' });
+  }
+});
+
 // Protected: All other candidate assessment routes
 router.use(authenticate);
 
@@ -179,100 +274,7 @@ router.post('/:assessmentId/candidate/:candidateId/start', async (req, res) => {
   }
 });
 
-// Submit assessment answers
-router.post('/:assessmentId/candidate/:candidateId/submit', async (req, res) => {
-  try {
-    const { assessmentId, candidateId } = req.params;
-    const submissionData: AssessmentSubmission = req.body;
-
-    // Verify candidate exists and is assigned to this assessment
-    const candidate = await prisma.candidate.findFirst({
-      where: {
-        id: candidateId,
-        assessmentId: assessmentId
-      },
-      include: {
-        assessment: {
-          include: {
-            questions: true
-          }
-        }
-      }
-    });
-
-    if (!candidate) {
-      return res.status(404).json({ error: 'Candidate not found or not assigned to this assessment' });
-    }
-
-    if (candidate.status === 'submitted') {
-      return res.status(400).json({ error: 'Assessment already submitted' });
-    }
-
-    // Calculate score based on answers
-    let totalScore = 0;
-    const assessment = candidate.assessment;
-    
-    for (const answer of submissionData.answers) {
-      const question = assessment.questions.find(q => q.id === answer.questionId);
-      if (!question) continue;
-
-      // Score MCQ questions
-      if (question.type === 'multiple_choice' && question.mcqData) {
-        const mcqData = question.mcqData as MCQQuestionData;
-        const correctOptions = mcqData.options
-          .filter(opt => opt.isCorrect)
-          .map(opt => opt.id);
-        
-        const candidateAnswers = Array.isArray(answer.answer) ? answer.answer : [answer.answer];
-        
-        if (mcqData.multipleCorrect) {
-          // For multiple correct, check if all correct answers are selected and no wrong ones
-          const isCorrect = correctOptions.length === candidateAnswers.length &&
-            correctOptions.every(id => candidateAnswers.includes(id)) &&
-            candidateAnswers.every(id => correctOptions.includes(id));
-          
-          if (isCorrect) {
-            totalScore += question.marks;
-          }
-        } else {
-          // For single correct, check if the selected answer is correct
-          if (candidateAnswers.length === 1 && correctOptions.includes(candidateAnswers[0])) {
-            totalScore += question.marks;
-          }
-        }
-      }
-      
-      // For coding questions, manual evaluation needed (score = 0 for now)
-      // This would typically involve running the code against test cases
-    }
-
-    // Update candidate with submission data
-    const updatedCandidate = await prisma.candidate.update({
-      where: { id: candidateId },
-      data: {
-        status: 'submitted',
-        submittedAt: new Date(),
-        timeSpent: submissionData.totalTimeSpent,
-        score: totalScore,
-        answers: submissionData.answers
-      }
-    });
-
-    // Update assessment analytics
-    await updateAssessmentAnalytics(assessmentId);
-
-    return res.json({
-      message: 'Assessment submitted successfully',
-      candidate: updatedCandidate,
-      score: totalScore,
-      totalMarks: assessment.totalMarks,
-      percentage: Math.round((totalScore / assessment.totalMarks) * 100)
-    });
-  } catch (error) {
-    console.error('Error submitting assessment:', error);
-    return res.status(500).json({ error: 'Failed to submit assessment' });
-  }
-});
+// (Submit endpoint moved to public section above)
 
 // Save answers (auto-save functionality)
 router.post('/:assessmentId/candidate/:candidateId/save', async (req, res) => {

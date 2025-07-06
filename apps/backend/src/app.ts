@@ -10,7 +10,7 @@ import emailRoutes from "./routes/email.routes"
 import candidateRoutes from "./routes/candidate.routes"
 import candidatePublicRoutes from "./routes/candidate-public.routes"
 import { PrismaClient } from "@prisma/client"
-import proctoringRoutes from './routes/proctoring.routes'
+// import proctoringRoutes from './routes/proctoring.routes' // Moved to index.ts
 
 const app = express()
 const prisma = new PrismaClient()
@@ -47,7 +47,7 @@ app.use("/api/admin/candidates", candidateRoutes) // Protected candidate routes 
 console.log('Admin candidate routes mounted successfully');
 
 // app.use("/api/email", emailRoutes) // Removed to prevent double-mounting and global auth issues
-app.use('/api/proctoring', proctoringRoutes)
+// app.use('/api/proctoring', proctoringRoutes) // Moved to index.ts to ensure public access
 
 // Error handling middleware
 app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {

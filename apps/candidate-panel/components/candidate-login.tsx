@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -26,10 +26,16 @@ export default function CandidateLogin({ onSuccess }: CandidateLoginProps) {
   const [assessmentType, setAssessmentType] = useState<"mcq" | "coding">("mcq")
 
   // Check internet connection
-  useState(() => {
+  useEffect(() => {
+    // Only run on client-side
+    if (typeof window === 'undefined') return
+
     const checkConnection = () => {
       setInternetStatus(navigator.onLine)
     }
+
+    // Initial check
+    checkConnection()
 
     window.addEventListener("online", checkConnection)
     window.addEventListener("offline", checkConnection)
@@ -38,7 +44,7 @@ export default function CandidateLogin({ onSuccess }: CandidateLoginProps) {
       window.removeEventListener("online", checkConnection)
       window.removeEventListener("offline", checkConnection)
     }
-  })
+  }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -57,46 +63,87 @@ export default function CandidateLogin({ onSuccess }: CandidateLoginProps) {
     setError("")
 
     try {
+      console.log('Attempting login with:', { candidateId: formData.candidateId, passwordLength: formData.password.length })
+      
       // First authenticate the candidate
       const res = await fetch('http://localhost:5000/api/candidates/login', {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ candidateId: formData.candidateId, password: formData.password }),
+        body: JSON.stringify({ 
+          candidateId: formData.candidateId.trim(), 
+          password: formData.password 
+        }),
       })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error || "Login failed")
       
-      // Fetch assigned assessment for this candidate
-      const assessmentRes = await fetch(`http://localhost:5000/api/candidate/assessments?email=${encodeURIComponent(data.candidate.email)}`, {
+      const data = await res.json()
+      console.log('Login response:', data)
+      
+      if (!res.ok) {
+        throw new Error(data.error || data.message || "Login failed")
+      }
+      
+      if (!data.success) {
+        throw new Error(data.error || "Login failed")
+      }
+      
+      // Fetch assigned assessment for this candidate using the correct endpoint
+      const assessmentRes = await fetch(`http://localhost:5000/api/candidate/assessments?candidateId=${encodeURIComponent(formData.candidateId)}`, {
         headers: {
-          'Authorization': `Bearer ${data.token}`,
           'Content-Type': 'application/json'
         }
       })
       
+      console.log('Assessment fetch status:', assessmentRes.status)
+      
       if (!assessmentRes.ok) {
-        throw new Error("Failed to fetch assigned assessments")
+        console.warn("Failed to fetch assigned assessments, proceeding with login data only")
+        // Don't fail completely if assessment fetch fails
       }
       
-      const assigned = await assessmentRes.json()
-      console.log('Assigned assessments:', assigned)
+      let assigned = []
+      try {
+        assigned = await assessmentRes.json()
+        console.log('Assigned assessments:', assigned)
+      } catch (parseError) {
+        console.warn("Failed to parse assessment response:", parseError)
+      }
       
       if (!assigned || assigned.length === 0) {
-        throw new Error("No assessments assigned to your account")
+        console.warn("No assessments found, using candidate data from login")
+        // Use assessment data from candidate login response
+        if (data.candidate.assessment) {
+          assigned = [{
+            id: data.candidate.id,
+            candidate: data.candidate,
+            assessment: data.candidate.assessment
+          }]
+        } else {
+          throw new Error("No assessments assigned to your account")
+        }
       }
       
-      // Store auth token for future requests
+      // Store auth token and candidate data for future requests
       sessionStorage.setItem('authToken', data.token)
+      sessionStorage.setItem('candidateData', JSON.stringify(data.candidate))
+      
+      // Determine assessment type from first assigned assessment
+      const firstAssessment = assigned[0]?.assessment
+      const assessmentType = firstAssessment?.type || 'multiple_choice'
+      
+      console.log('Proceeding with assessment type:', assessmentType)
       
       // Pass complete data to onSuccess
       onSuccess({ 
+        candidateId: formData.candidateId,
         ...data.candidate, 
         token: data.token,
-        assessmentType: assigned[0]?.assessment?.type || 'mcq',
-        assignedAssessment: assigned[0]?.assessment 
+        assessmentType: assessmentType,
+        assignedAssessment: firstAssessment,
+        allAssignments: assigned
       })
     } catch (err: any) {
-      setError(err.message)
+      console.error('Login error:', err)
+      setError(err.message || "An error occurred during login")
     } finally {
       setIsLoading(false)
     }

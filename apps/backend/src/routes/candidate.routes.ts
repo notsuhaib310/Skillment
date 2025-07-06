@@ -70,6 +70,11 @@ router.post('/test-credentials', (req, res) => {
   return candidateController.testCredentials(req, res);
 });
 
+router.post('/update-password', (req, res) => {
+  console.log('Updating candidate password');
+  return candidateController.updateCandidatePassword(req, res);
+});
+
 console.log('Candidate routes setup complete');
 
 export default router; 
