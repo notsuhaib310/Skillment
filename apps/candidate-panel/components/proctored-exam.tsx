@@ -35,8 +35,6 @@ export default function ProctoredExam({ candidateData, systemStatus, onComplete 
   
   // Format questions to ensure they have proper structure
   const formattedQuestions = questions.map((q: any, index: number) => {
-    console.log(`Formatting question ${index + 1}:`, q); // Debug log
-    
     // Handle different possible question structures
     let options = [];
     
@@ -55,8 +53,6 @@ export default function ProctoredExam({ candidateData, systemStatus, onComplete 
       // Get from mcqData structure
       options = q.mcqData.options;
     }
-    
-    console.log(`Question ${index + 1} options:`, options); // Debug log
     
     return {
       id: q.id || `q${index + 1}`,
@@ -639,14 +635,6 @@ export default function ProctoredExam({ candidateData, systemStatus, onComplete 
                 <>
                   <p className="text-xl text-gray-200 mb-8">{formattedQuestions[currentQuestion].question}</p>
 
-                  {/* Debug info - remove after fixing */}
-                  <div className="mb-4 p-4 bg-yellow-900/20 border border-yellow-500/50 rounded text-yellow-200 text-sm">
-                    <strong>Debug Info:</strong>
-                    <br />Type: {formattedQuestions[currentQuestion].type}
-                    <br />Options: {JSON.stringify(formattedQuestions[currentQuestion].options, null, 2)}
-                    <br />Options length: {formattedQuestions[currentQuestion].options?.length || 0}
-                  </div>
-
                   {formattedQuestions[currentQuestion].type === "multiple_choice" && formattedQuestions[currentQuestion].options && formattedQuestions[currentQuestion].options.length > 0 ? (
                 <RadioGroup
                   value={answers[currentQuestion] || ""}
@@ -677,6 +665,7 @@ export default function ProctoredExam({ candidateData, systemStatus, onComplete 
                               className="border-gray-500 text-[#ff4d00]"
                             />
                             <Label htmlFor={`option-${index}`} className="flex-1 text-gray-200 cursor-pointer text-lg">
+                              <span className="font-medium mr-2">{String.fromCharCode(65 + index)}.</span>
                               {optionText}
                             </Label>
                           </div>
@@ -684,10 +673,29 @@ export default function ProctoredExam({ candidateData, systemStatus, onComplete 
                       })}
                 </RadioGroup>
                   ) : (
-                    <div className="text-red-400 p-4 bg-red-900/20 border border-red-500/50 rounded">
-                      <strong>No options available!</strong>
-                      <br />Question type: {formattedQuestions[currentQuestion].type}
-                      <br />Options: {JSON.stringify(formattedQuestions[currentQuestion].options)}
+                    <div className="space-y-4">
+                      <div className="relative">
+                        <input
+                          type="text"
+                          value={currentAnswer}
+                          onChange={(e) => handleFillAnswerChange(e.target.value)}
+                          placeholder="Enter your answer here"
+                          className="w-full p-4 bg-[#2a2d31] border border-[#3a3d41] rounded-lg text-white placeholder-gray-400 focus:border-[#ff4d00] focus:outline-none text-lg"
+                        />
+                        {savedAnswers[currentQuestion] && (
+                          <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                            <Badge className="bg-green-900/30 text-green-400 border-green-500/30 text-xs">Saved</Badge>
+                          </div>
+                        )}
+                      </div>
+                      <Button
+                        id="save-btn"
+                        onClick={saveAnswer}
+                        variant="outline"
+                        className="border-[#ff4d00] text-[#ff4d00] hover:bg-[#ff4d00]/10"
+                      >
+                        Save Answer
+                      </Button>
                     </div>
                   )}
                 </>
@@ -708,15 +716,6 @@ export default function ProctoredExam({ candidateData, systemStatus, onComplete 
                 </Button>
 
                 <div className="flex space-x-3">
-                  {formattedQuestions[currentQuestion]?.type === "fill" && (
-                    <Button
-                      onClick={saveAnswer}
-                      variant="outline"
-                      className="border-[#ff4d00] text-[#ff4d00] hover:bg-[#ff4d00]/10"
-                    >
-                      Save & Continue
-                    </Button>
-                  )}
                   <Button
                     onClick={nextQuestion}
                     disabled={!formattedQuestions[currentQuestion]}

@@ -253,15 +253,6 @@ export default function MCQExam({ assessment, onComplete, onBack }: MCQExamProps
               </CardHeader>
               
               <CardContent className="space-y-4">
-                {/* Debug info - remove after fixing */}
-                <div className="mb-4 p-4 bg-yellow-900/20 border border-yellow-500/50 rounded text-yellow-200 text-sm">
-                  <strong>Debug Info:</strong>
-                  <br />Question: {JSON.stringify(currentQuestion, null, 2)}
-                  <br />MCQ Data: {JSON.stringify(mcqData, null, 2)}
-                  <br />Options from mcqData: {JSON.stringify(mcqData?.options, null, 2)}
-                  <br />Options from question: {JSON.stringify(currentQuestion?.options, null, 2)}
-                </div>
-
                 {(mcqData?.options || currentQuestion?.options) && (
                   <RadioGroup
                     value={answers[currentQuestion.id] || ""}
@@ -318,9 +309,8 @@ export default function MCQExam({ assessment, onComplete, onBack }: MCQExamProps
                 )}
 
                 {!(mcqData?.options || currentQuestion?.options) && (
-                  <div className="text-red-400 p-4 bg-red-900/20 border border-red-500/50 rounded">
-                    <strong>No options found!</strong>
-                    <br />Available data: {JSON.stringify(currentQuestion, null, 2)}
+                  <div className="text-center text-gray-400 py-8">
+                    <p>No options available for this question</p>
                   </div>
                 )}
 
