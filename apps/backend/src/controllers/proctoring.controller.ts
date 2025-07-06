@@ -79,58 +79,48 @@ export const logProctoringEvent = async (req: Request, res: Response) => {
       }
     });
 
-    // Update or create proctoring session
-    const existingSession = await prisma.proctoringSession.findUnique({
+    // Update or create proctoring session using upsert to avoid race conditions
+    const currentSession = await prisma.proctoringSession.findUnique({
       where: { candidateId: candidate.id }
     });
 
-    if (existingSession) {
-      // Update violation counts
-      const updates: any = { totalViolations: { increment: 1 } };
-      
-      if (severity === 'critical') updates.criticalViolations = { increment: 1 };
-      else if (severity === 'warning') updates.warningViolations = { increment: 1 };
-      else if (severity === 'minor') updates.minorViolations = { increment: 1 };
+    // Calculate increments based on severity
+    const criticalIncrement = severity === 'critical' ? 1 : 0;
+    const warningIncrement = severity === 'warning' ? 1 : 0;
+    const minorIncrement = severity === 'minor' ? 1 : 0;
 
-      // Calculate risk level
-      const newTotalViolations = existingSession.totalViolations + 1;
-      const newCriticalViolations = existingSession.criticalViolations + (severity === 'critical' ? 1 : 0);
-      
-      let riskLevel = 'low';
-      if (newCriticalViolations >= 2 || newTotalViolations >= 8) {
-        riskLevel = 'high';
-      } else if (newCriticalViolations >= 1 || newTotalViolations >= 4) {
-        riskLevel = 'medium';
-      }
-
-      updates.riskLevel = riskLevel;
-
-      await prisma.proctoringSession.update({
-        where: { candidateId: candidate.id },
-        data: updates
-      });
-    } else {
-      // Create new session
-      const criticalViolations = severity === 'critical' ? 1 : 0;
-      const warningViolations = severity === 'warning' ? 1 : 0;
-      const minorViolations = severity === 'minor' ? 1 : 0;
-      
-      let riskLevel = 'low';
-      if (criticalViolations >= 2) riskLevel = 'high';
-      else if (criticalViolations >= 1) riskLevel = 'medium';
-
-      await prisma.proctoringSession.create({
-        data: {
-          candidateId: candidate.id,
-          assessmentId: candidate.assessmentId,
-          totalViolations: 1,
-          criticalViolations,
-          warningViolations,
-          minorViolations,
-          riskLevel
-        }
-      });
+    // Calculate new totals for risk level calculation
+    const newTotalViolations = (currentSession?.totalViolations || 0) + 1;
+    const newCriticalViolations = (currentSession?.criticalViolations || 0) + criticalIncrement;
+    
+    let riskLevel = 'low';
+    if (newCriticalViolations >= 2 || newTotalViolations >= 8) {
+      riskLevel = 'high';
+    } else if (newCriticalViolations >= 1 || newTotalViolations >= 4) {
+      riskLevel = 'medium';
     }
+
+    // Use upsert to atomically update or create the session
+    await prisma.proctoringSession.upsert({
+      where: { candidateId: candidate.id },
+      update: {
+        totalViolations: { increment: 1 },
+        criticalViolations: { increment: criticalIncrement },
+        warningViolations: { increment: warningIncrement },
+        minorViolations: { increment: minorIncrement },
+        riskLevel: riskLevel,
+        updatedAt: new Date()
+      },
+      create: {
+        candidateId: candidate.id,
+        assessmentId: candidate.assessmentId,
+        totalViolations: 1,
+        criticalViolations: criticalIncrement,
+        warningViolations: warningIncrement,
+        minorViolations: minorIncrement,
+        riskLevel: riskLevel
+      }
+    });
 
     res.json({ success: true, eventId: proctoringEvent.id });
   } catch (error) {
