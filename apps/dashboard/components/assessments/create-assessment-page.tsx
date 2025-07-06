@@ -20,6 +20,7 @@ import { ProctoringConfiguration } from "./proctoring-configuration"
 import { CodingQuestionBuilder } from "./coding-question-builder"
 import { MCQQuestionBuilder } from "./mcq-question-builder"
 import { AIToolsPanel } from "./ai-tools-panel"
+import { QuestionManager } from "./question-manager"
 import { assessmentsApi } from "@/lib/api/api"
 import { useToast } from "@/hooks/use-toast"
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert"
@@ -514,7 +515,7 @@ export function CreateAssessmentPage({ onBack }: CreateAssessmentPageProps) {
               </TabsList>
 
               <TabsContent value="mcq" className="space-y-6">
-                <MCQQuestionBuilder onAddQuestion={(q) => setQuestions((prev) => [...prev, { ...q, type: "mcq" }])} />
+                <MCQQuestionBuilder onAddQuestion={(q) => setQuestions((prev) => [...prev, { ...q, type: "mcq", id: Date.now().toString(), order: prev.length + 1 }])} />
                 {questions.filter((q) => q.type === "mcq").length > 0 && (
                   <div className="space-y-2">
                     <h4 className="font-semibold">
@@ -538,7 +539,7 @@ export function CreateAssessmentPage({ onBack }: CreateAssessmentPageProps) {
 
               <TabsContent value="coding" className="space-y-6">
                 <CodingQuestionBuilder
-                  onAddQuestion={(q) => setQuestions((prev) => [...prev, { ...q, type: "coding" }])}
+                  onAddQuestion={(q) => setQuestions((prev) => [...prev, { ...q, type: "coding", id: Date.now().toString(), order: prev.length + 1 }])}
                 />
                 {questions.filter((q) => q.type === "coding").length > 0 && (
                   <div className="space-y-2">
@@ -581,6 +582,25 @@ export function CreateAssessmentPage({ onBack }: CreateAssessmentPageProps) {
                 </Card>
               </TabsContent>
             </Tabs>
+
+            {/* Question Manager */}
+            {questions.length > 0 && (
+              <QuestionManager
+                questions={questions}
+                onUpdateQuestion={(questionId, updates) => {
+                  setQuestions(questions.map(q => q.id === questionId ? { ...q, ...updates } : q))
+                }}
+                onDeleteQuestion={(questionId) => {
+                  setQuestions(questions.filter(q => q.id !== questionId))
+                }}
+                onReorderQuestions={(reorderedQuestions) => {
+                  setQuestions(reorderedQuestions)
+                }}
+                onDuplicateQuestion={(duplicatedQuestion) => {
+                  setQuestions([...questions, duplicatedQuestion])
+                }}
+              />
+            )}
           </div>
         )
 
