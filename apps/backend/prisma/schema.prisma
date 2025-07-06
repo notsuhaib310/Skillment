@@ -169,14 +169,18 @@ model Question {
   assessmentId  String
   question      String
   type          String
-  options       Json?
-  correctAnswer Json?
+  options       Json?       // Legacy field for backward compatibility
+  correctAnswer Json?       // Legacy field for backward compatibility
   marks         Int
   order         Int
   hints         String[]
   explanation   String?
   difficulty    String?
   tags          String[]
+  // Enhanced question data
+  mcqData       Json?       // NEW - MCQ specific data (options, multipleCorrect, etc.)
+  codingData    Json?       // NEW - Coding specific data (languages, starter code, test cases, etc.)
+  aiMetadata    Json?       // NEW - AI generation metadata
   createdAt     DateTime    @default(now())
   updatedAt     DateTime    @updatedAt
   assessment    Assessment  @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
