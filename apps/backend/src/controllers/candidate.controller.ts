@@ -126,8 +126,7 @@ export class CandidateController {
               },
               null, // Don't send password for existing credentials
               candidateId,
-              assessment.title,
-              true // Flag indicating this is for additional assessment
+              `New Assessment: ${assessment.title}` // Modified title to indicate it's additional
             );
 
             // Log email sending for existing credentials

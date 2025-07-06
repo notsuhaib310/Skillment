@@ -220,7 +220,17 @@ export function CreateAssessmentPage({ onBack }: CreateAssessmentPageProps) {
 
   // Format questions for backend with proper data structure
   const formatQuestionsForBackend = (questions: any[]) => {
+    console.log('🔧 Formatting questions for backend:', questions.length);
+    
     return questions.map((question, index) => {
+      console.log(`📝 Formatting question ${index + 1}:`, {
+        type: question.type,
+        hasOptions: !!question.options,
+        optionsLength: question.options?.length || 0,
+        hasMcqData: !!question.mcqData,
+        mcqDataOptions: question.mcqData?.options?.length || 0
+      });
+      
       const baseQuestion = {
         question: question.question || question.title || '',
         type: question.type === 'mcq' ? 'multiple_choice' : question.type,
@@ -234,21 +244,40 @@ export function CreateAssessmentPage({ onBack }: CreateAssessmentPageProps) {
 
       // Format MCQ questions from MCQQuestionBuilder
       if (question.type === 'mcq' || question.type === 'multiple_choice') {
+        // Try to get options from both mcqData and direct options
+        const options = question.mcqData?.options || question.options || [];
+        
+        console.log(`📊 MCQ Question options:`, options);
+        
+        if (options.length === 0) {
+          console.error(`❌ MCQ question has no options!`, question);
+        }
+        
         const mcqData = {
           question: question.question || '',
-          options: question.options || [],
+          options: options,
           explanation: question.explanation || '',
           multipleCorrect: question.multipleCorrect || false,
         }
 
-        return {
+        const formatted = {
           ...baseQuestion,
           type: 'multiple_choice',
           mcqData: mcqData,
           // Also include legacy fields for backward compatibility
-          options: question.options || [],
-          correctAnswer: question.options?.filter((opt: any) => opt.isCorrect).map((opt: any) => opt.id) || []
-        }
+          options: options,
+          correctAnswer: options?.filter((opt: any) => opt.isCorrect).map((opt: any) => opt.id) || []
+        };
+        
+        console.log(`✅ Formatted MCQ question:`, {
+          type: formatted.type,
+          hasOptions: !!formatted.options,
+          optionsCount: formatted.options?.length || 0,
+          hasMcqData: !!formatted.mcqData,
+          mcqDataOptionsCount: formatted.mcqData?.options?.length || 0
+        });
+        
+        return formatted;
       }
 
       // Format Coding questions from CodingQuestionBuilder

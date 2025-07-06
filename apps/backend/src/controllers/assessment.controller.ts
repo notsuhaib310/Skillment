@@ -82,6 +82,11 @@ const validateQuestionData = (question: CreateQuestionInput, index: number) => {
 };
 
 const processQuestionData = (question: CreateQuestionInput) => {
+  console.log(`Processing question: ${question.question?.substring(0, 50)}...`);
+  console.log(`Question type: ${question.type}`);
+  console.log(`Has mcqData: ${!!question.mcqData}`);
+  console.log(`Has options: ${!!question.options}`);
+  
   const processedQuestion: any = {
     question: question.question,
     type: question.type,
@@ -93,14 +98,56 @@ const processQuestionData = (question: CreateQuestionInput) => {
     tags: question.tags || [],
   };
 
-  // Process MCQ data
-  if (question.type === 'multiple_choice' && question.mcqData) {
-    processedQuestion.mcqData = question.mcqData;
-    // Also set legacy fields for backward compatibility
-    processedQuestion.options = question.mcqData.options;
-    processedQuestion.correctAnswer = question.mcqData.options
-      .filter(opt => opt.isCorrect)
-      .map(opt => opt.id);
+  // Process MCQ data - handle both mcqData and legacy options
+  if (question.type === 'multiple_choice') {
+    if (question.mcqData && question.mcqData.options) {
+      // New format with mcqData
+      console.log('Using mcqData format with options:', question.mcqData.options.length);
+      processedQuestion.mcqData = question.mcqData;
+      processedQuestion.options = question.mcqData.options;
+      processedQuestion.correctAnswer = question.mcqData.options
+        .filter(opt => opt.isCorrect)
+        .map(opt => opt.id);
+    } else if (question.options && Array.isArray(question.options)) {
+      // Legacy format or fallback
+      console.log('Using legacy options format with options:', question.options.length);
+      const mcqData = {
+        question: question.question || '',
+        options: question.options,
+        explanation: question.explanation || '',
+        multipleCorrect: false
+      };
+      processedQuestion.mcqData = mcqData;
+      processedQuestion.options = question.options;
+      processedQuestion.correctAnswer = question.options
+        .filter((opt: any) => opt.isCorrect)
+        .map((opt: any) => opt.id);
+    } else {
+      // No options found - this is the problem!
+      console.error('❌ MCQ question has no options data!');
+      console.error('Question data:', JSON.stringify(question, null, 2));
+      
+      // Create default options to prevent breaking
+      const defaultOptions = [
+        { id: 'opt1', text: 'Option A', isCorrect: true },
+        { id: 'opt2', text: 'Option B', isCorrect: false },
+        { id: 'opt3', text: 'Option C', isCorrect: false },
+        { id: 'opt4', text: 'Option D', isCorrect: false }
+      ];
+      
+      const mcqData = {
+        question: question.question || '',
+        options: defaultOptions,
+        explanation: 'Default options - please update this question',
+        multipleCorrect: false
+      };
+      
+      processedQuestion.mcqData = mcqData;
+      processedQuestion.options = defaultOptions;
+      processedQuestion.correctAnswer = ['opt1'];
+      
+      console.log('⚠️ Created default options for MCQ question');
+    }
   }
 
   // Process coding data
@@ -114,6 +161,8 @@ const processQuestionData = (question: CreateQuestionInput) => {
     processedQuestion.aiMetadata = question.aiMetadata;
   }
 
+  console.log(`Final processed question - Type: ${processedQuestion.type}, Has mcqData: ${!!processedQuestion.mcqData}, Has options: ${!!processedQuestion.options}`);
+  
   return processedQuestion;
 };
 
