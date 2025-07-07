@@ -1,7 +1,5 @@
 import { toast } from "sonner"
 
-const OPENAI_API_KEY = process.env.NEXT_PUBLIC_OPENAI_API_KEY
-
 interface MCQQuestion {
   question: string
   options: { text: string; isCorrect: boolean }[]
@@ -29,56 +27,52 @@ interface QuestionGenerationRequest {
   topic: string
   difficulty: "easy" | "medium" | "hard"
   count?: number
-  language?: string // For coding questions
+  language?: string
   additionalRequirements?: string
 }
 
 export class AIQuestionGenerator {
-  private apiKey: string
+  private async callAIEndpoint(prompt: string, systemMessage: string, temperature = 0.7, maxTokens = 2000) {
+    try {
+      const response = await fetch("/api/ai", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          prompt,
+          systemMessage,
+          temperature,
+          maxTokens,
+        }),
+      })
 
-  constructor() {
-    if (!OPENAI_API_KEY) {
-      throw new Error("OpenAI API key not found. Please set NEXT_PUBLIC_OPENAI_API_KEY in your environment variables.")
+      if (!response.ok) {
+        throw new Error(`API error: ${response.status}`)
+      }
+
+      const data = await response.json()
+      
+      if (!data.success) {
+        throw new Error(data.error || "Unknown error occurred")
+      }
+
+      return data.content
+    } catch (error) {
+      console.error("Error calling AI endpoint:", error)
+      throw error
     }
-    this.apiKey = OPENAI_API_KEY
   }
 
   async generateMCQQuestions(request: QuestionGenerationRequest): Promise<MCQQuestion[]> {
     try {
       const prompt = this.buildMCQPrompt(request)
+      const systemMessage = "You are an expert assessment creator. Generate high-quality multiple choice questions with detailed explanations. Always respond with valid JSON format."
       
-      const response = await fetch("https://api.openai.com/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${this.apiKey}`,
-        },
-        body: JSON.stringify({
-          model: "gpt-4o-mini",
-          messages: [
-            {
-              role: "system",
-              content: "You are an expert assessment creator. Generate high-quality multiple choice questions with detailed explanations. Always respond with valid JSON format."
-            },
-            {
-              role: "user",
-              content: prompt
-            }
-          ],
-          temperature: 0.7,
-          max_tokens: 2000,
-        }),
-      })
-
-      if (!response.ok) {
-        throw new Error(`OpenAI API error: ${response.status} ${response.statusText}`)
-      }
-
-      const data = await response.json()
-      const content = data.choices[0]?.message?.content
+      const content = await this.callAIEndpoint(prompt, systemMessage, 0.7, 2000)
 
       if (!content) {
-        throw new Error("No content received from OpenAI")
+        throw new Error("No content received from AI")
       }
 
       // Clean and parse the JSON response
@@ -95,39 +89,12 @@ export class AIQuestionGenerator {
   async generateCodingQuestions(request: QuestionGenerationRequest): Promise<CodingQuestion[]> {
     try {
       const prompt = this.buildCodingPrompt(request)
+      const systemMessage = "You are an expert programming instructor. Generate coding problems with detailed descriptions, starter code, and comprehensive test cases. Always respond with valid JSON format."
       
-      const response = await fetch("https://api.openai.com/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${this.apiKey}`,
-        },
-        body: JSON.stringify({
-          model: "gpt-4o-mini",
-          messages: [
-            {
-              role: "system",
-              content: "You are an expert programming instructor. Generate coding problems with detailed descriptions, starter code, and comprehensive test cases. Always respond with valid JSON format."
-            },
-            {
-              role: "user",
-              content: prompt
-            }
-          ],
-          temperature: 0.7,
-          max_tokens: 3000,
-        }),
-      })
-
-      if (!response.ok) {
-        throw new Error(`OpenAI API error: ${response.status} ${response.statusText}`)
-      }
-
-      const data = await response.json()
-      const content = data.choices[0]?.message?.content
+      const content = await this.callAIEndpoint(prompt, systemMessage, 0.7, 3000)
 
       if (!content) {
-        throw new Error("No content received from OpenAI")
+        throw new Error("No content received from AI")
       }
 
       // Clean and parse the JSON response
@@ -163,38 +130,12 @@ Return as JSON array with this structure:
   }
 ]`
 
-      const response = await fetch("https://api.openai.com/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${this.apiKey}`,
-        },
-        body: JSON.stringify({
-          model: "gpt-4o-mini",
-          messages: [
-            {
-              role: "system",
-              content: "You are an expert at creating comprehensive test cases for coding problems. Always respond with valid JSON format."
-            },
-            {
-              role: "user",
-              content: prompt
-            }
-          ],
-          temperature: 0.5,
-          max_tokens: 1500,
-        }),
-      })
-
-      if (!response.ok) {
-        throw new Error(`OpenAI API error: ${response.status} ${response.statusText}`)
-      }
-
-      const data = await response.json()
-      const content = data.choices[0]?.message?.content
+      const systemMessage = "You are an expert at creating comprehensive test cases for coding problems. Always respond with valid JSON format."
+      
+      const content = await this.callAIEndpoint(prompt, systemMessage, 0.5, 1500)
 
       if (!content) {
-        throw new Error("No content received from OpenAI")
+        throw new Error("No content received from AI")
       }
 
       return JSON.parse(this.cleanJSONResponse(content))
@@ -221,35 +162,10 @@ Return as JSON array with this structure:
           break
       }
 
-      const response = await fetch("https://api.openai.com/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${this.apiKey}`,
-        },
-        body: JSON.stringify({
-          model: "gpt-4o-mini",
-          messages: [
-            {
-              role: "system",
-              content: "You are an expert educator. Provide clear, helpful responses."
-            },
-            {
-              role: "user",
-              content: prompt
-            }
-          ],
-          temperature: 0.6,
-          max_tokens: 800,
-        }),
-      })
-
-      if (!response.ok) {
-        throw new Error(`OpenAI API error: ${response.status} ${response.statusText}`)
-      }
-
-      const data = await response.json()
-      return data.choices[0]?.message?.content || ""
+      const systemMessage = "You are an expert educator. Provide clear, helpful responses."
+      
+      const content = await this.callAIEndpoint(prompt, systemMessage, 0.6, 800)
+      return content || ""
     } catch (error) {
       console.error("Error enhancing question:", error)
       toast.error("Failed to enhance question. Please try again.")
