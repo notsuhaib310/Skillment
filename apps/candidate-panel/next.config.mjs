@@ -10,9 +10,9 @@ const nextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
-  // Webpack configuration for monaco-editor
+  // Webpack configuration for ES module compatibility
   webpack: (config) => {
-    // Ignore monaco-editor build warnings
+    // Fix ES module resolution for monaco-editor and other dependencies
     config.module.rules.push({
       test: /\.m?js$/,
       resolve: {

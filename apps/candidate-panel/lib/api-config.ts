@@ -40,6 +40,9 @@ export function getApiHeaders(token?: string | null): HeadersInit {
 
 /**
  * Helper function to make authenticated API calls
+ * Note: This is a convenience wrapper for future use.
+ * Current components use fetch directly for more control over error handling.
+ * Can be adopted gradually for consistency.
  */
 export async function apiCall<T = any>(
   endpoint: string,
