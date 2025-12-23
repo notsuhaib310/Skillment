@@ -24,6 +24,7 @@ import {
   LogOut
 } from "lucide-react"
 import { motion } from "framer-motion"
+import { API_ENDPOINTS, getApiHeaders } from "@/lib/api-config"
 
 interface CandidateDashboardProps {
   candidateData: any
@@ -57,19 +58,17 @@ export default function CandidateDashboard({ candidateData, onStartAssessment, o
       const candidateId = candidateData.candidateId
       const email = candidateData.email
       
-      let apiUrl = 'http://localhost:5000/api/candidate-assessment/assessments'
+      let apiUrl = API_ENDPOINTS.candidateAssessments
       if (candidateId) {
-        apiUrl += `?candidateId=${encodeURIComponent(candidateId)}`
+        apiUrl = API_ENDPOINTS.assessmentDetails(candidateId)
       } else if (email) {
-        apiUrl += `?email=${encodeURIComponent(email)}`
+        apiUrl = `${API_ENDPOINTS.candidateAssessments}?email=${encodeURIComponent(email)}`
       }
       
       console.log('Fetching assessments from:', apiUrl)
       
       const response = await fetch(apiUrl, {
-        headers: {
-          'Content-Type': 'application/json'
-        }
+        headers: getApiHeaders()
       })
       
       console.log('Assessment API response status:', response.status)
@@ -82,7 +81,22 @@ export default function CandidateDashboard({ candidateData, onStartAssessment, o
       
       const data = await response.json()
       console.log('Fetched assessments:', data)
-      setAssessments(Array.isArray(data) ? data : [])
+      
+      // Handle response format: if using candidateId, returns { candidate, assessment }
+      // if using email, returns array
+      if (Array.isArray(data)) {
+        setAssessments(data)
+      } else if (data && data.assessment) {
+        // Single assessment response from getCandidateAssessment
+        setAssessments([{
+          id: data.candidate.id,
+          candidate: data.candidate,
+          assessment: data.assessment,
+          status: data.candidate.status
+        }])
+      } else {
+        setAssessments([])
+      }
     } catch (err: any) {
       console.error('Error fetching assessments:', err)
       setError(err.message || "Failed to load assessments")

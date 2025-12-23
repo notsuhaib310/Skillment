@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Loader2, Wifi, WifiOff, Shield } from "lucide-react"
 import { motion } from "framer-motion"
+import { API_ENDPOINTS, getApiHeaders } from "@/lib/api-config"
 
 interface CandidateLoginProps {
   onSuccess: (data: any) => void
@@ -66,9 +67,9 @@ export default function CandidateLogin({ onSuccess }: CandidateLoginProps) {
       console.log('Attempting login with:', { candidateId: formData.candidateId, passwordLength: formData.password.length })
       
       // First authenticate the candidate
-      const res = await fetch('http://localhost:5000/api/candidates/login', {
+      const res = await fetch(API_ENDPOINTS.candidateLogin, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: getApiHeaders(),
         body: JSON.stringify({ 
           candidateId: formData.candidateId.trim(), 
           password: formData.password 
@@ -87,10 +88,8 @@ export default function CandidateLogin({ onSuccess }: CandidateLoginProps) {
       }
       
       // Fetch assigned assessment for this candidate using the correct endpoint
-      const assessmentRes = await fetch(`http://localhost:5000/api/candidate-assessment/assessments?candidateId=${encodeURIComponent(formData.candidateId)}`, {
-        headers: {
-          'Content-Type': 'application/json'
-        }
+      const assessmentRes = await fetch(API_ENDPOINTS.assessmentDetails(formData.candidateId), {
+        headers: getApiHeaders()
       })
       
       console.log('Assessment fetch status:', assessmentRes.status)
@@ -102,8 +101,20 @@ export default function CandidateLogin({ onSuccess }: CandidateLoginProps) {
       
       let assigned = []
       try {
-        assigned = await assessmentRes.json()
-      console.log('Assigned assessments:', assigned)
+        const assessmentData = await assessmentRes.json()
+        console.log('Assessment response:', assessmentData)
+        
+        // Handle the response format from getCandidateAssessment
+        // It returns { candidate, assessment } not an array
+        if (assessmentData && assessmentData.assessment) {
+          assigned = [{
+            id: assessmentData.candidate.id,
+            candidate: assessmentData.candidate,
+            assessment: assessmentData.assessment,
+            status: assessmentData.candidate.status
+          }]
+        }
+        console.log('Formatted assigned assessments:', assigned)
       } catch (parseError) {
         console.warn("Failed to parse assessment response:", parseError)
       }
@@ -115,7 +126,8 @@ export default function CandidateLogin({ onSuccess }: CandidateLoginProps) {
           assigned = [{
             id: data.candidate.id,
             candidate: data.candidate,
-            assessment: data.candidate.assessment
+            assessment: data.candidate.assessment,
+            status: data.candidate.status || 'invited'
           }]
         } else {
           throw new Error("No assessments assigned to your account")

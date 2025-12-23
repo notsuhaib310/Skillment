@@ -1,8 +1,5 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  experimental: {
-    appDir: true,
-  },
   images: {
     domains: ['blob.v0.dev'],
     unoptimized: true,
@@ -12,6 +9,17 @@ const nextConfig = {
   },
   typescript: {
     ignoreBuildErrors: true,
+  },
+  // Webpack configuration for ES module compatibility
+  webpack: (config) => {
+    // Fix ES module resolution for monaco-editor and other dependencies
+    config.module.rules.push({
+      test: /\.m?js$/,
+      resolve: {
+        fullySpecified: false,
+      },
+    })
+    return config
   },
   // Security configurations
   async headers() {

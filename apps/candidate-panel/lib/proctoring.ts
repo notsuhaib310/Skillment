@@ -1,15 +1,12 @@
+import { API_ENDPOINTS, getApiHeaders } from './api-config'
+
 export async function sendProctoringEvent(eventType: string, details: any = {}, candidateId?: string) {
   try {
     const authToken = sessionStorage.getItem('authToken')
-    const headers: Record<string, string> = { 'Content-Type': 'application/json' }
     
-    if (authToken) {
-      headers.Authorization = `Bearer ${authToken}`
-    }
-    
-  await fetch('http://localhost:5000/api/proctoring/event', {
+  await fetch(API_ENDPOINTS.proctoringEvent, {
     method: 'POST',
-      headers,
+      headers: getApiHeaders(authToken),
     body: JSON.stringify({
       eventType,
       details,
@@ -26,15 +23,10 @@ export async function sendProctoringEvent(eventType: string, details: any = {}, 
 export async function sendProctoringMedia(mediaType: string, data: any, candidateId?: string) {
   try {
     const authToken = sessionStorage.getItem('authToken')
-    const headers: Record<string, string> = { 'Content-Type': 'application/json' }
     
-    if (authToken) {
-      headers.Authorization = `Bearer ${authToken}`
-    }
-    
-  await fetch('http://localhost:5000/api/proctoring/media', {
+  await fetch(API_ENDPOINTS.proctoringMedia, {
     method: 'POST',
-      headers,
+      headers: getApiHeaders(authToken),
     body: JSON.stringify({
       mediaType,
       data,
