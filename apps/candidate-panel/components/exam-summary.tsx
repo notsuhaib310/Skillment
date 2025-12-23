@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { CheckCircle, XCircle, AlertTriangle, Trophy, Clock, Shield } from "lucide-react"
+import { API_ENDPOINTS, getApiHeaders } from "@/lib/api-config"
 
 interface ExamSummaryProps {
   results: any
@@ -127,12 +128,9 @@ export default function ExamSummary({ results, onComplete }: ExamSummaryProps) {
       console.log('📋 Answers being submitted:', submissionData.answers);
       console.log('🔑 Answer keys:', Object.keys(submissionData.answers || {}));
 
-      const response = await fetch(`http://localhost:5000/api/candidates/submit-assessment`, {
+      const response = await fetch(API_ENDPOINTS.submitAssessment, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
+        headers: getApiHeaders(token),
         body: JSON.stringify(submissionData)
       })
 

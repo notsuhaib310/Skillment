@@ -24,6 +24,7 @@ import {
   LogOut
 } from "lucide-react"
 import { motion } from "framer-motion"
+import { API_ENDPOINTS, getApiHeaders } from "@/lib/api-config"
 
 interface CandidateDashboardProps {
   candidateData: any
@@ -57,19 +58,17 @@ export default function CandidateDashboard({ candidateData, onStartAssessment, o
       const candidateId = candidateData.candidateId
       const email = candidateData.email
       
-      let apiUrl = 'http://localhost:5000/api/candidate-assessment/assessments'
+      let apiUrl = API_ENDPOINTS.candidateAssessments
       if (candidateId) {
-        apiUrl += `?candidateId=${encodeURIComponent(candidateId)}`
+        apiUrl = API_ENDPOINTS.assessmentDetails(candidateId)
       } else if (email) {
-        apiUrl += `?email=${encodeURIComponent(email)}`
+        apiUrl = `${API_ENDPOINTS.candidateAssessments}?email=${encodeURIComponent(email)}`
       }
       
       console.log('Fetching assessments from:', apiUrl)
       
       const response = await fetch(apiUrl, {
-        headers: {
-          'Content-Type': 'application/json'
-        }
+        headers: getApiHeaders()
       })
       
       console.log('Assessment API response status:', response.status)
