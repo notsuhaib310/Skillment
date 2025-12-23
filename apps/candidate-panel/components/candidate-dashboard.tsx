@@ -81,7 +81,22 @@ export default function CandidateDashboard({ candidateData, onStartAssessment, o
       
       const data = await response.json()
       console.log('Fetched assessments:', data)
-      setAssessments(Array.isArray(data) ? data : [])
+      
+      // Handle response format: if using candidateId, returns { candidate, assessment }
+      // if using email, returns array
+      if (Array.isArray(data)) {
+        setAssessments(data)
+      } else if (data && data.assessment) {
+        // Single assessment response from getCandidateAssessment
+        setAssessments([{
+          id: data.candidate.id,
+          candidate: data.candidate,
+          assessment: data.assessment,
+          status: data.candidate.status
+        }])
+      } else {
+        setAssessments([])
+      }
     } catch (err: any) {
       console.error('Error fetching assessments:', err)
       setError(err.message || "Failed to load assessments")

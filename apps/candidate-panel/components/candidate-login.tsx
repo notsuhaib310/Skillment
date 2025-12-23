@@ -101,8 +101,20 @@ export default function CandidateLogin({ onSuccess }: CandidateLoginProps) {
       
       let assigned = []
       try {
-        assigned = await assessmentRes.json()
-      console.log('Assigned assessments:', assigned)
+        const assessmentData = await assessmentRes.json()
+        console.log('Assessment response:', assessmentData)
+        
+        // Handle the response format from getCandidateAssessment
+        // It returns { candidate, assessment } not an array
+        if (assessmentData && assessmentData.assessment) {
+          assigned = [{
+            id: assessmentData.candidate.id,
+            candidate: assessmentData.candidate,
+            assessment: assessmentData.assessment,
+            status: assessmentData.candidate.status
+          }]
+        }
+        console.log('Formatted assigned assessments:', assigned)
       } catch (parseError) {
         console.warn("Failed to parse assessment response:", parseError)
       }
@@ -114,7 +126,8 @@ export default function CandidateLogin({ onSuccess }: CandidateLoginProps) {
           assigned = [{
             id: data.candidate.id,
             candidate: data.candidate,
-            assessment: data.candidate.assessment
+            assessment: data.candidate.assessment,
+            status: data.candidate.status || 'invited'
           }]
         } else {
           throw new Error("No assessments assigned to your account")
